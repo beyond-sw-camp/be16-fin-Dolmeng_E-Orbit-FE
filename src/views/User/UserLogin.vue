@@ -17,12 +17,12 @@
                   <div class="controls-group">
                     <div class="field">
                       <div class="label">이메일</div>
-                      <v-text-field variant="outlined" density="comfortable" hide-details class="text-bg" placeholder="이메일을 입력하세요" />
+                      <v-text-field v-model="email" variant="outlined" density="comfortable" hide-details class="text-bg" placeholder="이메일을 입력하세요" />
                     </div>
 
                     <div class="field">
                       <div class="label">비밀번호</div>
-                      <v-text-field type="password" variant="outlined" density="comfortable" hide-details class="text-bg" placeholder="비밀번호를 입력하세요" />
+                      <v-text-field v-model="password" type="password" variant="outlined" density="comfortable" hide-details class="text-bg" placeholder="비밀번호를 입력하세요" />
                     </div>
 
                     <div class="row-between">
@@ -34,7 +34,7 @@
                     </div>
 
                   <div class="btn-wrap">
-                    <v-btn class="login-btn" height="49" rounded="lg">로그인</v-btn>
+                    <v-btn class="login-btn" height="49" rounded="lg" :loading="isLoading" @click="handleLogin">로그인</v-btn>
                   </div>
 
                   <div class="signup">
@@ -74,8 +74,45 @@
 </template>
 
 <script>
+import axios from 'axios';
 export default {
   name: "UserLogin",
+  data() {
+    return {
+      email: "",
+      password: "",
+      isLoading: false,
+    };
+  },
+  methods: {
+    async handleLogin() {
+      if (!this.email || !this.password) {
+        alert('이메일과 비밀번호를 입력하세요.');
+        return;
+      }
+      try {
+        this.isLoading = true;
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const { data } = await axios.post(`${baseURL}/user-service/user/auth/login`, {
+          email: this.email,
+          password: this.password,
+        }, { headers: { 'Content-Type': 'application/json' }});
+        const accessToken = data?.result?.accessToken;
+        const refreshToken = data?.result?.refreshToken;
+        if (accessToken && refreshToken) {
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('refreshToken', refreshToken);
+          alert('로그인 성공');
+        } else {
+          throw new Error('토큰 없음');
+        }
+      } catch (e) {
+        alert('로그인에 실패했습니다.');
+      } finally {
+        this.isLoading = false;
+      }
+    }
+  }
 };
 </script>
 
