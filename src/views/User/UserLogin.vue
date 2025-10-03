@@ -52,7 +52,7 @@
                   </div>
 
                   <div class="btn-wrap">
-                    <v-btn class="oauth-btn" height="48" rounded="lg" variant="flat">
+                    <v-btn class="oauth-btn" @click="googleLogin" height="48" rounded="lg" variant="flat">
                       <img src="/src/assets/icons/user/login_google.svg" alt="Google" width="20" height="20" />
                       <span>Google</span>
                     </v-btn>
@@ -85,6 +85,11 @@ export default {
       kakaoUrl: "https://kauth.kakao.com/oauth/authorize",
       kakaoClientId: "f04e0b2f9773e2e421e24a448dc478a0",
       kakaoRedirectUrl: "http://localhost:5173/oauth/kakao/redirect",
+      googleUrl: "https://accounts.google.com/o/oauth2/auth",
+      googleClientId:
+        "184039275121-3v895hcqj0imbjne3pfs9ceg6h8gld30.apps.googleusercontent.com",
+      googleRedirectUrl: "http://localhost:5173/oauth/google/redirect",
+      googleScope: "openid email profile",
     };
   },
   methods: {
@@ -117,6 +122,11 @@ export default {
     },
     kakaoLogin() {
       const auth_uri = `${this.kakaoUrl}?client_id=${this.kakaoClientId}&redirect_uri=${this.kakaoRedirectUrl}&response_type=code&remember=${this.remember}`;
+      window.location.href = auth_uri;
+    },
+    googleLogin() {
+      const auth_uri = `${this.googleUrl}?client_id=${this.googleClientId}&redirect_uri=${this.googleRedirectUrl}&response_type=code&scope=${this.googleScope}&remember=${this.remember}`;
+      console.log(auth_uri);
       window.location.href = auth_uri;
     },
   }

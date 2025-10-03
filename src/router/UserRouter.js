@@ -1,3 +1,4 @@
+import GoogleRedirect from "../views/User/GoogleRedirect.vue";
 import KakaoRedirect from "../views/User/KakaoRedirect.vue";
 import UserLogin from "../views/User/UserLogin.vue";
 
@@ -14,5 +15,10 @@ export const userRouter = [
         name: "KakaoRedirect",
         component: KakaoRedirect,
         meta: { hideLayout: true }
+    },
+    {
+        path: "/oauth/google/redirect",
+        name: "GoogleRedirect",
+        component: GoogleRedirect
     },
 ]
