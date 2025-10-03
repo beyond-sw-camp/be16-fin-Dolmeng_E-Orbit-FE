@@ -58,7 +58,7 @@
                     </v-btn>
                   </div>
                   <div class="btn-wrap">
-                    <v-btn class="oauth-btn" height="48" rounded="lg" variant="flat">
+                    <v-btn class="oauth-btn" @click="kakaoLogin" height="48" rounded="lg" variant="flat">
                       <img src="/src/assets/icons/user/login_kakao.svg" alt="Kakao" width="26" height="26" />
                       <span>Kakao</span>
                     </v-btn>
@@ -82,6 +82,9 @@ export default {
       email: "",
       password: "",
       isLoading: false,
+      kakaoUrl: "https://kauth.kakao.com/oauth/authorize",
+      kakaoClientId: "f04e0b2f9773e2e421e24a448dc478a0",
+      kakaoRedirectUrl: "http://localhost:5173/oauth/kakao/redirect",
     };
   },
   methods: {
@@ -111,7 +114,11 @@ export default {
       } finally {
         this.isLoading = false;
       }
-    }
+    },
+    kakaoLogin() {
+      const auth_uri = `${this.kakaoUrl}?client_id=${this.kakaoClientId}&redirect_uri=${this.kakaoRedirectUrl}&response_type=code&remember=${this.remember}`;
+      window.location.href = auth_uri;
+    },
   }
 };
 </script>
