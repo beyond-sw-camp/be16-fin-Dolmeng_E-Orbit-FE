@@ -1,0 +1,109 @@
+<template>
+    <div class="main-fill">
+        <v-container>
+            <v-row justify="center">
+                <v-col cols="12" md="8">
+                    <v-card>
+                        <v-card-title class="text-center text-h5">
+                            채팅
+                        </v-card-title>
+                        <v-card-text>
+                            <div class="chat-box">
+                                <div
+                                    v-for="(msg, index) in messages"
+                                    :key="index"
+                                >
+                                    {{ msg }}
+                                </div>
+                            </div>
+                            <v-text-field
+                                v-model="newMessage"
+                                label="메시지 입력"
+                                @keyup.enter="sendMessage"
+                            />
+                            <v-btn color="primary" block @click="sendMessage">전송</v-btn>
+                        </v-card-text>
+                    </v-card>
+
+                </v-col>
+            </v-row>
+        </v-container>
+    </div>
+</template>
+
+<script>
+import SockJS from 'sockjs-client/dist/sockjs';
+import * as Stomp from 'webstomp-client';
+
+
+    export default {
+        data() {
+            return {
+                messages: [],
+                newMessage: "",
+                stompClient: null,
+            }
+        },
+        created() {
+            this.connectWebsocket();
+        },
+        beforeUnmount() {
+            // this.disconnectWebSocket();
+        },
+        methods: {
+            connectWebsocket() {
+                const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+                const sockJs = new SockJS(`${baseURL}/chat-service/connect`, null, {
+                    transportOptions: {
+                        xhrStream: { withCredentials: false },
+                        xhrPolling: { withCredentials: false },
+                    }
+                });
+                this.stompClient = Stomp.over(sockJs);
+                this.stompClient.connect({headers: {Authorization: `Bearer 1234`}},
+                    () => {
+                        this.stompClient.subscribe(`/topic/1`, (message) => {
+                            this.messages.push(message.body);
+                            this.scrollToBottom();
+                        });
+                    }
+                );
+            },
+            sendMessage() {
+                if(this.newMessage.trim() === "") return;
+                this.stompClient.send(`/publish/1`, this.newMessage);
+                this.newMessage = ""
+            },
+            scrollToBottom() {
+                this.$nextTick(() => {
+                    const chatBox = this.$el.querySelector(".chat-box");
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                });
+            },
+            disconnectWebSocket() {
+                // if(this.ws) {
+                //     this.ws.close();
+                //     console.log("disconnected!!");
+                //     this.ws = null;
+                // }
+            }
+        }
+    }
+</script>
+
+<style>
+.main-fill {
+  position: fixed;
+  top: 64px;
+  left: 240px;
+  right: 0;
+  bottom: 0;
+  background-color: #F5F5F5;
+}
+.chat-box{
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    margin-bottom: 10px;
+}
+</style>
