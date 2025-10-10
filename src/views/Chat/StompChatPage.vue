@@ -75,7 +75,7 @@ import * as Stomp from 'webstomp-client';
                             const parseMessage = JSON.parse(message.body);
                             this.messages.push(parseMessage);
                             this.scrollToBottom();
-                        });
+                        }, { Authorization: `Bearer ${this.accessToken}`});
                     }
                 );
             },
