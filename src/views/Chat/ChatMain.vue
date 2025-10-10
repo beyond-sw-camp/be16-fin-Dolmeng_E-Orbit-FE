@@ -5,7 +5,8 @@
                 <ChatRoomList embedded @select-room="handleSelectRoom" />
             </div>
             <div class="chat-panel">
-                <StompChatPage embedded :room-id="selectedRoomId" />
+                <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" />
+                <div v-else class="empty-state">채팅방을 선택하세요</div>
             </div>
         </div>
     </div>
@@ -53,5 +54,13 @@ export default {
 .chat-panel {
   flex: 1 1 80%;
   overflow: auto;
+}
+.empty-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9E9E9E;
+  font-size: 14px;
 }
 </style>

@@ -35,6 +35,7 @@
 <script>
 import SockJS from 'sockjs-client/dist/sockjs';
 import * as Stomp from 'webstomp-client';
+import axios from 'axios';
 
 
     export default {
@@ -65,6 +66,18 @@ import * as Stomp from 'webstomp-client';
             this.disconnectWebSocket();
         },
         methods: {
+            async loadHistory() {
+                if (!this.roomId) return;
+                const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+                try {
+                    const { data } = await axios.get(`${baseURL}/chat-service/chat/room/${this.roomId}/history`);
+                    const list = data?.result || [];
+                    this.messages = Array.isArray(list) ? list : [];
+                    this.scrollToBottom();
+                } catch (e) {
+                    console.warn('load history failed', e);
+                }
+            },
             connectWebsocket() {
                 if(this.stompClient && this.stompClient.connected) { return; }
                 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -115,7 +128,10 @@ import * as Stomp from 'webstomp-client';
                     // 방이 바뀌면 재연결
                     this.disconnectWebSocket();
                     this.messages = [];
-                    this.$nextTick(() => this.connectWebsocket());
+                    this.$nextTick(async () => {
+                        await this.loadHistory();
+                        this.connectWebsocket();
+                    });
                 }
             }
         }
