@@ -4,8 +4,11 @@
             <v-row justify="center">
                 <v-col cols="12" md="8">
                     <v-card>
-                        <v-card-title class="text-center text-h5">
-                            {{ computedTitle }}
+                        <v-card-title class="text-h5 chat-header">
+                            <v-btn class="back-btn-top" variant="text" size="small" @click="refreshPage" icon>
+                                <v-icon icon="mdi-chevron-left"></v-icon>
+                            </v-btn>
+                            <span class="title-text">{{ computedTitle }}</span>
                         </v-card-title>
                         <v-card-text>
                             <div class="chat-box">
@@ -145,6 +148,9 @@ import axios from 'axios';
                 stompManager.send(`/publish/${this.roomId}`, JSON.stringify(message));
                 this.newMessage = ""
             },
+            refreshPage() {
+                window.location.reload();
+            },
             scrollToBottom() {
                 this.$nextTick(() => {
                     const chatBox = this.$el.querySelector(".chat-box");
@@ -202,7 +208,12 @@ import axios from 'axios';
     border: 1px solid #ddd;
     margin-bottom: 10px;
     padding: 8px 12px;
+    position: relative;
 }
+.back-btn{ position: absolute; top: 4px; left: 4px; min-width: 28px; height: 28px; padding: 0; }
+.chat-header{ display: flex; align-items: center; gap: 8px; }
+.chat-header .title-text{ flex: 1; text-align: left; }
+.back-btn-top{ min-width: 28px; height: 28px; padding: 0; }
 .chat-row{ display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-end; }
 .chat-row.sent{ justify-content: flex-end; }
 .chat-row .avatar{ width: 28px; height: 28px; border-radius: 50%; overflow: hidden; flex: 0 0 28px; }
