@@ -2,10 +2,10 @@
     <div class="main-fill">
         <div class="chat-layout">
             <div class="room-list-panel">
-                <ChatRoomList embedded @select-room="handleSelectRoom" />
+                <ChatRoomList embedded @select-room="handleSelectRoom" :summaries-by-room-id="summariesByRoomId" :selected-room-id="selectedRoomId" />
             </div>
             <div class="chat-panel">
-                <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" />
+                <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" :room-title="selectedRoomTitle" :participant-count="selectedRoomParticipantCount" />
                 <div v-else class="empty-state">채팅방을 선택하세요</div>
             </div>
         </div>
@@ -16,17 +16,63 @@
 <script>
 import ChatRoomList from './ChatRoomList.vue';
 import StompChatPage from './StompChatPage.vue';
+import stompManager from '@/services/stompService.js';
 
 export default {
     components: { ChatRoomList, StompChatPage },
     data() {
         return {
             selectedRoomId: null,
+            selectedRoomTitle: '',
+            selectedRoomParticipantCount: 0,
+            summariesByRoomId: {},
+            summaryUnsub: null,
         };
     },
+    async created() {
+        const email = localStorage.getItem('email');
+        if (email) {
+            const topic = `/topic/summary/${email}`;
+            this.summaryUnsub = await stompManager.subscribe(topic, (summary) => {
+                // summary: { roomId, lastMessage, lastSendTime, lastSenderEmail, unreadCount }
+                if (summary && summary.roomId != null) {
+                    this.summariesByRoomId = {
+                        ...this.summariesByRoomId,
+                        [summary.roomId]: {
+                            ...(this.summariesByRoomId[summary.roomId] || {}),
+                            ...summary,
+                        },
+                    };
+                }
+            });
+        }
+    },
+    beforeRouteLeave(to, from, next) {
+        if (this.summaryUnsub) {
+            try { this.summaryUnsub(); } catch (_) {}
+            this.summaryUnsub = null;
+        }
+        try { stompManager.disconnect(); } catch (_) {}
+        next();
+    },
+    beforeUnmount() {
+        if (this.summaryUnsub) {
+            try { this.summaryUnsub(); } catch (_) {}
+            this.summaryUnsub = null;
+        }
+        try { stompManager.disconnect(); } catch (_) {}
+    },
     methods: {
-        handleSelectRoom(roomId) {
-            this.selectedRoomId = roomId;
+        handleSelectRoom(room) {
+            this.selectedRoomId = room.roomId;
+            this.selectedRoomTitle = room.roomName || '';
+            this.selectedRoomParticipantCount = room.participantCount || 0;
+            // Clear unread badge for the selected room in summary map
+            const prev = this.summariesByRoomId[room.roomId] || {};
+            this.summariesByRoomId = {
+                ...this.summariesByRoomId,
+                [room.roomId]: { ...prev, unreadCount: 0 }
+            };
         }
     }
 };
