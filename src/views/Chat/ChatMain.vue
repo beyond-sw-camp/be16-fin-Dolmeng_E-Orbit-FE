@@ -32,11 +32,14 @@ export default {
         if (email) {
             const topic = `/topic/summary/${email}`;
             this.summaryUnsub = await stompManager.subscribe(topic, (summary) => {
-                // summary: { roomId, lastMessage, lastSenderEmail, unreadCount }
+                // summary: { roomId, lastMessage, lastSendTime, lastSenderEmail, unreadCount }
                 if (summary && summary.roomId != null) {
                     this.summariesByRoomId = {
                         ...this.summariesByRoomId,
-                        [summary.roomId]: summary,
+                        [summary.roomId]: {
+                            ...(this.summariesByRoomId[summary.roomId] || {}),
+                            ...summary,
+                        },
                     };
                 }
             });

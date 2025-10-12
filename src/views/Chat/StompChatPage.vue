@@ -64,6 +64,18 @@ import axios from 'axios';
             this.teardownRoomSubscription();
         },
         methods: {
+            getNowLocalDateTime() {
+                const d = new Date();
+                const pad = (n) => String(n).padStart(2, '0');
+                const year = d.getFullYear();
+                const month = pad(d.getMonth() + 1);
+                const day = pad(d.getDate());
+                const hours = pad(d.getHours());
+                const minutes = pad(d.getMinutes());
+                const seconds = pad(d.getSeconds());
+                const millis = String(d.getMilliseconds()).padStart(3, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${millis}`;
+            },
             async loadHistory() {
                 if (!this.roomId) return;
                 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -85,7 +97,12 @@ import axios from 'axios';
             },
             sendMessage() {
                 if(this.newMessage.trim() === "") return;
-                const message = { senderEmail: this.senderEmail, message: this.newMessage }
+                const message = {
+                    roomId: this.roomId,
+                    senderEmail: this.senderEmail,
+                    message: this.newMessage,
+                    lastSendTime: this.getNowLocalDateTime(),
+                }
                 stompManager.send(`/publish/${this.roomId}`, JSON.stringify(message));
                 this.newMessage = ""
             },
