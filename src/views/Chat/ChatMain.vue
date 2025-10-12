@@ -67,6 +67,12 @@ export default {
             this.selectedRoomId = room.roomId;
             this.selectedRoomTitle = room.roomName || '';
             this.selectedRoomParticipantCount = room.participantCount || 0;
+            // Clear unread badge for the selected room in summary map
+            const prev = this.summariesByRoomId[room.roomId] || {};
+            this.summariesByRoomId = {
+                ...this.summariesByRoomId,
+                [room.roomId]: { ...prev, unreadCount: 0 }
+            };
         }
     }
 };
