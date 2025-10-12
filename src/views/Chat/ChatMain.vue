@@ -2,7 +2,7 @@
     <div class="main-fill">
         <div class="chat-layout">
             <div class="room-list-panel">
-                <ChatRoomList embedded @select-room="handleSelectRoom" :summaries-by-room-id="summariesByRoomId" />
+                <ChatRoomList embedded @select-room="handleSelectRoom" :summaries-by-room-id="summariesByRoomId" :selected-room-id="selectedRoomId" />
             </div>
             <div class="chat-panel">
                 <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" />

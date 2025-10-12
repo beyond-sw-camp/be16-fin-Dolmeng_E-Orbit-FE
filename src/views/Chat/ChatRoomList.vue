@@ -12,26 +12,16 @@
                         </v-card-title>
                         <v-card-text>
                             <v-table>
-                                <thead>
-                                    <tr>
-                                        <th>방번호</th>
-                                        <th>방제목</th>
-                                        <th>마지막메시지</th>
-                                        <th>안읽음</th>
-                                        <th>채팅</th>
-                                    </tr>
-                                </thead>
                                 <tbody>
-                                    <tr v-for="chat in chatRoomList " :key="chat.roomId">
-                                        <td>{{ chat.roomId }}</td>
+                                    <tr
+                                        v-for="chat in chatRoomList "
+                                        :key="chat.roomId"
+                                        @click="selectRoom(chat.roomId)"
+                                        :class="['room-row', { selected: selectedRoomId === chat.roomId }]"
+                                    >
                                         <td>{{ chat.roomName }}</td>
                                         <td>{{ summariesByRoomId[chat.roomId]?.lastMessage || '-' }}</td>
                                         <td>{{ summariesByRoomId[chat.roomId]?.unreadCount || 0 }}</td>
-                                        <td>
-                                            <v-btn color="primary" @click="selectRoom(chat.roomId)">
-                                                선택
-                                            </v-btn>
-                                        </td>
                                     </tr>
                                 </tbody>
                             </v-table>
@@ -67,7 +57,10 @@ import axios from 'axios';
     export default {
         props: {
             embedded: { type: Boolean, default: false },
-            summariesByRoomId: { type: Object, default: () => ({}) }
+            summariesByRoomId: { type: Object, default: () => ({}) },
+            selectedRoomId: { type: [String, Number, null], default: null }
+        },
+        computed: {
         },
         data() {
             return {
@@ -107,5 +100,15 @@ import axios from 'axios';
   right: 0;
   bottom: 0;
   background-color: #F5F5F5;
+}
+.room-row{
+    cursor: pointer;
+}
+.room-row:hover{
+    background: #F0F7FF;
+}
+.room-row.selected{
+    background: #E3F2FD;
+    font-weight: 600;
 }
 </style>
