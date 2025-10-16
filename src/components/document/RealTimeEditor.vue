@@ -13,24 +13,24 @@
         <button @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 2 }) }">H2</button>
         <button @click="editor.chain().focus().setParagraph().run()" :class="{ 'is-active': editor.isActive('paragraph') }">Paragraph</button>
       </div>
-      <div class="editor-container" ref="editorContainerRef">
+    <div class="editor-container" ref="editorContainerRef">
         <editor-content :editor="editor" />
-        <!-- 다른 사용자들의 커서를 렌더링하는 부분 -->
-        <div
-          v-for="cursor in remoteCursors"
-          :key="cursor.senderId"
-          class="remote-cursor"
-          :style="{
-            transform: `translate(${cursor.coords.left}px, ${cursor.coords.top}px)`,
-            backgroundColor: cursor.user.color,
-            height: cursor.height ? `${cursor.height}px` : '1.3em'
-          }"
-        >
-          <div class="cursor-flag" :style="{ backgroundColor: cursor.user.color }">
-            {{ cursor.user.name }}
+    <!-- 다른 사용자들의 커서를 렌더링하는 부분 -->
+    <div
+      v-for="cursor in remoteCursors"
+      :key="cursor.senderId"
+      class="remote-cursor"
+      :style="{
+        transform: `translate(${cursor.coords.left}px, ${cursor.coords.top}px)`,
+        backgroundColor: cursor.user.color,
+        height: cursor.height ? `${cursor.height}px` : '1.3em'
+      }"
+    >
+      <div class="cursor-flag" :style="{ backgroundColor: cursor.user.color }">
+        {{ cursor.user.name }}
           </div>
-        </div>
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -137,7 +137,7 @@ const props = defineProps({
 });
 
 // Emits 정의
-const emit = defineEmits(['document-line-created', 'document-line-updated', 'document-line-deleted']);
+const emit = defineEmits(['document-line-updated', 'document-line-deleted']);
 
 // 반응형 변수 선언
 const editor = ref(null);
@@ -222,10 +222,10 @@ onMounted(() => {
       sendStompMessage({
         destination: '/publish/editor/update',
         body: {
-          type: 'UPDATE',
+          messageType: 'UPDATE',
           documentId: props.documentId,
           senderId: user.name,
-          content: editor.getJSON(),
+          content: editor.getHTML(), // getJSON() 대신 getHTML()을 사용하여 문자열로 통일
         },
       });
 
@@ -245,28 +245,26 @@ onMounted(() => {
       if (unsavedNode) {
         const newId = unsavedNode.attrs.id;
         
-        // 다시 감지되지 않도록 즉시 저장된 것으로 표시
         savedLineIds.value.add(newId);
 
         nextTick(() => {
           const element = document.querySelector(`[data-id="${newId}"]`);
-          console.log(`[prevId Debug] Looking for element with data-id: ${newId}. Found:`, element);
-
           if (element) {
             const prevElement = element.previousElementSibling;
-            console.log('[prevId Debug] Previous sibling element:', prevElement);
-
-            if(prevElement) {
-              console.log('[prevId Debug] Previous sibling data-id:', prevElement.getAttribute('data-id'));
-            }
-
             const prevLineId = prevElement ? prevElement.getAttribute('data-id') : null;
 
-            emit('document-line-created', {
-              lineId: newId,
-              htmlContent: element.outerHTML,
-              prevLineId: prevLineId,
+            sendStompMessage({
+              destination: '/publish/editor/create',
+              body: {
+                messageType: 'CREATE',
+                documentId: props.documentId,
+                senderId: user.name,
+                lineId: newId,
+                prevLineId: prevLineId,
+                content: element.outerHTML,
+              },
             });
+            console.log('새 문서 라인 생성 메시지 전송:', newId);
           }
         });
       }
@@ -281,10 +279,10 @@ onMounted(() => {
       sendStompMessage({
         destination: '/publish/editor/cursor',
         body: {
-          type: 'CURSOR_UPDATE',
+          messageType: 'CURSOR_UPDATE',
           documentId: props.documentId,
           senderId: user.name,
-          content: { pos: editor.state.selection.from, user },
+          content: JSON.stringify({ pos: editor.state.selection.from, user }), // 객체를 문자열로 변환
         },
       });
     },
@@ -317,7 +315,7 @@ onBeforeUnmount(() => {
 const handleIncomingMessage = (message) => {
   if (!editor.value) return;
 
-  if (message.type === 'UPDATE' && message.senderId !== user.name) {
+  if (message.messageType === 'UPDATE' && message.senderId !== user.name) {
     isUpdatingFromRemote.value = true;
     const { from, to } = editor.value.state.selection;
     
@@ -327,15 +325,16 @@ const handleIncomingMessage = (message) => {
       .run();
     
     isUpdatingFromRemote.value = false;
-  } else if (message.type === 'CURSOR_UPDATE' && message.senderId !== user.name) {
-    remoteCursorsMap.value = {
-      ...remoteCursorsMap.value,
-      [message.senderId]: {
-        user: message.content.user,
-        pos: message.content.pos,
-      }
-    };
-  }
+  } else if (message.messageType === 'CURSOR_UPDATE' && message.senderId !== user.name) {
+      const cursorData = JSON.parse(message.content); // 문자열로 받은 커서 데이터를 다시 객체로 변환
+      remoteCursorsMap.value = {
+        ...remoteCursorsMap.value,
+        [message.senderId]: {
+          user: cursorData.user,
+          pos: cursorData.pos,
+        }
+      };
+    }
 };
 
 </script>

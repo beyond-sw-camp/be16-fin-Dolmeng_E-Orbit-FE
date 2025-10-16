@@ -7,7 +7,6 @@
       v-if="isContentLoaded"
       :initialContent="editorInitialContent"
       :documentId="documentId"
-      @document-line-created="handleDocumentLineCreation"
     />
     <div v-else>
       문서 내용을 불러오는 중입니다...
@@ -37,26 +36,6 @@ const fetchDocumentLines = async () => {
   } catch (error) {
     console.error('문서 라인 로딩 실패:', error);
     isContentLoaded.value = true;
-  }
-};
-
-const handleDocumentLineCreation = async (lineData) => {
-  console.log('[Payload Debug] Event data received from RealTimeEditor:', lineData);
-
-  const payload = {
-    documentId: documentId.value,
-    lineId: lineData.lineId,
-    content: lineData.htmlContent,
-    prevLineId: lineData.prevLineId,
-  };
-
-  console.log('[Payload Debug] Payload to be sent to server:', payload);
-
-  try {
-    await axios.post('http://localhost:8080/drive-service/documentLine', payload);
-    console.log('새 문서 라인이 성공적으로 저장되었습니다:', payload.lineId);
-  } catch (error) {
-    console.error('문서 라인 저장 실패:', error);
   }
 };
 
