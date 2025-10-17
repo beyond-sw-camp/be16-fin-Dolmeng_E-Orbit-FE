@@ -1,38 +1,77 @@
 <template>
-  <div class="editor-wrapper">
+  <v-card class="editor-wrapper" elevation="2">
     <!-- 연결 상태 표시 -->
-    <div class="connection-status" :class="connectionStatusClass">
-      <span v-if="connectionStatus === 'connecting'">🔄 서버 연결 중...</span>
-      <span v-else-if="connectionStatus === 'connected'">✅ 실시간 협업 활성화</span>
-      <span v-else-if="connectionStatus === 'offline'">⚠️ 오프라인 모드 (변경사항이 저장되지 않습니다)</span>
-    </div>
-    <div v-if="editor">
-      <div class="toolbar">
-        <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">Bold</button>
-        <button @click="editor.chain().focus().toggleHeading({ level: 1 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 1 }) }">H1</button>
-        <button @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 2 }) }">H2</button>
-        <button @click="editor.chain().focus().setParagraph().run()" :class="{ 'is-active': editor.isActive('paragraph') }">Paragraph</button>
-      </div>
-    <div class="editor-container" ref="editorContainerRef">
-        <editor-content :editor="editor" />
-    <!-- 다른 사용자들의 커서를 렌더링하는 부분 -->
-    <div
-      v-for="cursor in remoteCursors"
-      :key="cursor.senderId"
-      class="remote-cursor"
-      :style="{
-        transform: `translate(${cursor.coords.left}px, ${cursor.coords.top}px)`,
-        backgroundColor: cursor.user.color,
-        height: cursor.height ? `${cursor.height}px` : '1.3em'
-      }"
+    <v-alert
+      :model-value="true"
+      :type="connectionStatusType"
+      :icon="connectionStatusIcon"
+      density="compact"
+      class="ma-2"
+      variant="tonal"
     >
-      <div class="cursor-flag" :style="{ backgroundColor: cursor.user.color }">
-        {{ cursor.user.name }}
+      {{ connectionStatusText }}
+    </v-alert>
+
+    <div v-if="editor">
+      <v-toolbar density="compact" class="editor-toolbar">
+        <v-btn-toggle v-model="toggleBold" variant="outlined" divided>
+          <v-btn @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">
+            <v-icon>mdi-format-bold</v-icon>
+          </v-btn>
+        </v-btn-toggle>
+        
+        <v-divider vertical class="mx-2"></v-divider>
+
+        <v-btn-toggle v-model="toggleHeading" variant="outlined" divided>
+          <v-btn @click="editor.chain().focus().toggleHeading({ level: 1 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 1 }) }">
+            <v-icon>mdi-format-header-1</v-icon>
+          </v-btn>
+          <v-btn @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 2 }) }">
+            <v-icon>mdi-format-header-2</v-icon>
+          </v-btn>
+          <v-btn @click="editor.chain().focus().setParagraph().run()" :class="{ 'is-active': editor.isActive('paragraph') }">
+            <v-icon>mdi-format-paragraph</v-icon>
+          </v-btn>
+        </v-btn-toggle>
+
+        <v-divider vertical class="mx-2"></v-divider>
+
+        <v-btn-toggle v-model="toggleAlign" variant="outlined" divided>
+          <v-btn @click="editor.chain().focus().setTextAlign('left').run()" :class="{ 'is-active': editor.isActive({ textAlign: 'left' }) }">
+            <v-icon>mdi-format-align-left</v-icon>
+          </v-btn>
+          <v-btn @click="editor.chain().focus().setTextAlign('center').run()" :class="{ 'is-active': editor.isActive({ textAlign: 'center' }) }">
+            <v-icon>mdi-format-align-center</v-icon>
+          </v-btn>
+          <v-btn @click="editor.chain().focus().setTextAlign('right').run()" :class="{ 'is-active': editor.isActive({ textAlign: 'right' }) }">
+            <v-icon>mdi-format-align-right</v-icon>
+          </v-btn>
+        </v-btn-toggle>
+
+      </v-toolbar>
+
+      <v-card-text>
+        <div class="editor-container" ref="editorContainerRef">
+          <editor-content :editor="editor" />
+          <!-- 다른 사용자들의 커서를 렌더링하는 부분 -->
+          <div
+            v-for="cursor in remoteCursors"
+            :key="cursor.senderId"
+            class="remote-cursor"
+            :style="{
+              transform: `translate(${cursor.coords.left}px, ${cursor.coords.top}px)`,
+              backgroundColor: cursor.user.color,
+              height: cursor.height ? `${cursor.height}px` : '1.3em'
+            }"
+          >
+            <div class="cursor-flag" :style="{ backgroundColor: cursor.user.color }">
+              {{ cursor.user.name }}
+            </div>
           </div>
-      </div>
+        </div>
+      </v-card-text>
     </div>
-    </div>
-  </div>
+  </v-card>
 </template>
 
 <script setup>
@@ -41,6 +80,7 @@ import { Editor, EditorContent } from '@tiptap/vue-3';
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
 import { connectStomp, sendStompMessage, disconnectStomp } from '../../services/editorStompService';
 
 function randomUUID() {
@@ -148,10 +188,54 @@ const remoteCursorsMap = ref({}); // 다른 사용자 커서 정보 객체
 const lastCursorUpdate = ref(0); // 커서 업데이트 throttle용
 const previousNodesById = ref(new Map()); // "이전 상태"를 저장
 
+const toggleBold = ref(null);
+const toggleHeading = ref(null);
+const toggleAlign = ref(null);
+
+
 const user = {
   name: 'User ' + Math.floor(Math.random() * 100),
   color: '#' + Math.floor(Math.random()*16777215).toString(16),
 };
+
+const connectionStatusType = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connecting':
+      return 'info';
+    case 'connected':
+      return 'success';
+    case 'offline':
+      return 'error';
+    default:
+      return 'info';
+  }
+});
+
+const connectionStatusIcon = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connecting':
+      return 'mdi-lan-pending';
+    case 'connected':
+      return 'mdi-lan-connect';
+    case 'offline':
+      return 'mdi-lan-disconnect';
+    default:
+      return 'mdi-help-circle';
+  }
+});
+
+const connectionStatusText = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connecting':
+      return '🔄 서버 연결 중...';
+    case 'connected':
+      return '✅ 실시간 협업 활성화';
+    case 'offline':
+      return '⚠️ 오프라인 모드 (변경사항이 저장되지 않습니다)';
+    default:
+      return '알 수 없는 상태';
+  }
+});
 
 const connectionStatusClass = computed(() => ({
   'status-connecting': connectionStatus.value === 'connecting',
@@ -206,6 +290,10 @@ onMounted(() => {
     extensions: [
       StarterKit,
       UniqueIdExtension,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        defaultAlignment: 'left',
+      }),
     ],
     content: props.initialContent || '<p></p>', // 초기 콘텐츠가 비어있을 경우를 대비
     onCreate: ({ editor }) => {
@@ -235,7 +323,7 @@ onMounted(() => {
       // 2. "수정"된 라인 찾아 UPDATE 메시지 전송
       for (const [id, nodeJSON] of previousNodesById.value.entries()) {
         const currentNode = currentNodesById.get(id);
-        if (currentNode && JSON.stringify(currentNode.content) !== JSON.stringify(nodeJSON.content)) {
+        if (currentNode && JSON.stringify(currentNode) !== JSON.stringify(nodeJSON)) {
           nextTick(() => {
             const element = document.querySelector(`[data-id="${id}"]`);
             if (element) {
@@ -494,49 +582,31 @@ const handleIncomingMessage = (message) => {
 
 <style>
 .editor-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.connection-status {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  font-size: 0.9em;
-  font-weight: 500;
-  text-align: center;
-  transition: all 0.3s ease;
+.editor-toolbar {
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.status-connecting {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
-
-.status-connected {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-offline {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+.v-btn.is-active {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .editor-container {
   position: relative; /* 원격 커서 위치의 기준점 */
+  min-height: 400px;
+  padding: 1rem;
 }
 
-.toolbar button.is-active {
-  font-weight: bold;
-  background-color: #eee;
-}
 .ProseMirror {
-  border: 1px solid #ccc;
-  padding: 10px;
+  outline: none;
+  height: 100%;
+}
+
+.ProseMirror-focused {
+  outline: none;
 }
 
 /* 원격 커서 스타일 */
@@ -546,19 +616,21 @@ const handleIncomingMessage = (message) => {
   width: 2px;
   z-index: 10;
   transform-origin: top left;
+  transition: transform 0.1s linear;
 }
 
 .cursor-flag {
   position: absolute;
-  top: -1.5em;
-  left: 2px;
+  top: -1.6em;
+  left: -2px;
   color: white;
-  font-size: 0.75em;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 3px;
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
   white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  line-height: 1.2;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  line-height: 1.3;
+  transition: background-color 0.3s ease;
 }
 </style>
