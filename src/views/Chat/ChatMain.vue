@@ -11,15 +11,24 @@
         </div>
     </div>
     
+    <!-- 우하단 챗봇 버튼 및 오버레이 -->
+    <v-btn class="chatbot-fab" icon @click="isChatBotOpen = true">
+        <v-icon>mdi-robot-outline</v-icon>
+    </v-btn>
+    <v-overlay :model-value="isChatBotOpen" scrim="rgba(0,0,0,0.25)" @click:outside="isChatBotOpen = false" class="align-end justify-end" persistent>
+        <ChatBotPage />
+    </v-overlay>
+
 </template>
 
 <script>
 import ChatRoomList from './ChatRoomList.vue';
 import StompChatPage from './StompChatPage.vue';
 import stompManager from '@/services/stompService.js';
+import ChatBotPage from '../ChatBot/ChatBotPage.vue';
 
 export default {
-    components: { ChatRoomList, StompChatPage },
+    components: { ChatRoomList, StompChatPage, ChatBotPage },
     data() {
         return {
             selectedRoomId: null,
@@ -30,6 +39,7 @@ export default {
             summaryTopic: null,
             _offClose: null,
             _reconnectTimerSummary: null,
+            isChatBotOpen: false,
         };
     },
     async created() {
@@ -148,5 +158,12 @@ export default {
   justify-content: center;
   color: #9E9E9E;
   font-size: 14px;
+}
+.chatbot-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: #FFE364;
+  color: #2A2828;
 }
 </style>
