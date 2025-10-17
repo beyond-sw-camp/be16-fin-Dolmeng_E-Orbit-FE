@@ -20,17 +20,17 @@
                                         :class="['room-row', { selected: selectedRoomId === chat.roomId }]"
                                     >
                                         <td class="col-avatar">
-                                            <div v-if="Array.isArray(chat.userProfileImageUrlList) && chat.userProfileImageUrlList.length" class="avatar-stack">
+                                            <div v-if="Array.isArray(chat.userProfileImageUrlList) && visibleAvatars(chat.userProfileImageUrlList, chat.participantCount).length" class="avatar-stack">
                                                 <div
-                                                    v-for="(url, idx) in visibleAvatars(chat.userProfileImageUrlList)"
+                                                    v-for="(url, idx) in visibleAvatars(chat.userProfileImageUrlList, chat.participantCount)"
                                                     :key="idx"
                                                     class="avatar-item"
                                                     :style="{ zIndex: 10 - idx }"
                                                 >
-                                                    <img :src="url" alt="user" @error="onAvatarError($event)" />
+                                                    <img :src="url || userDefault" alt="user" @error="onAvatarError($event)" />
                                                 </div>
-                                                <div v-if="chat.userProfileImageUrlList.length > 3" class="avatar-item more" :style="{ zIndex: 6 }">
-                                                    +{{ chat.userProfileImageUrlList.length - 3 }}
+                                                <div v-if="Number(chat.participantCount) > 4" class="avatar-item more" :style="{ zIndex: 6 }">
+                                                    +{{ Number(chat.participantCount) - 4 }}
                                                 </div>
                                             </div>
                                             <img v-else :src="userDefault" alt="user" class="avatar-img" />
@@ -123,9 +123,14 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
             selectRoom(room) {
                 this.$emit('select-room', room);
             },
-            visibleAvatars(list) {
-                if (!Array.isArray(list)) return [];
-                return list.slice(0, 3);
+            visibleAvatars(list, participantCount) {
+                const filtered = Array.isArray(list) ? list.filter((u) => !!u) : [];
+                const count = Math.max(0, Math.min(4, Number(participantCount) || filtered.length));
+                const out = [];
+                for (let i = 0; i < count; i++) {
+                    out.push(filtered[i] || null);
+                }
+                return out;
             },
             onAvatarError(e) {
                 e.target.src = this.userDefault;
@@ -164,7 +169,7 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
             },
             async loadChatRooms() {
                 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-                const response = await axios.get(`${baseURL}/chat-service/chat/room/list/1`);
+                const response = await axios.get(`${baseURL}/chat-service/chat/room/list/ws_1`);
                 this.chatRoomList = response.data.result;
             }
         }
@@ -199,6 +204,7 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
 .avatar-stack .avatar-item:nth-child(1){ left: 0; }
 .avatar-stack .avatar-item:nth-child(2){ left: 16px; }
 .avatar-stack .avatar-item:nth-child(3){ left: 32px; }
+.avatar-stack .avatar-item:nth-child(4){ left: 48px; }
 .avatar-stack .avatar-item img{ width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-stack .avatar-item.more{ background: #ECEFF1; color: #546E7A; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
 .col-main{ width: 100%; display: flex; flex-direction: column; row-gap: 4px; overflow: hidden; }
