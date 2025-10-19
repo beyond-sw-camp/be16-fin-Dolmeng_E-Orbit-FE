@@ -3,12 +3,14 @@ import { homeRouter } from "./HomeRouter";
 import { mainRouter } from './MainRouter';
 import { userRouter } from './UserRouter';
 import { chatRouter } from './ChatRouter';
+import { workspaceRouter } from './WorkspaceRouter';
 
 const routes = [
     ...homeRouter,
     ...mainRouter,
     ...userRouter,
     ...chatRouter,
+    ...workspaceRouter,
 ];
 
 const router = createRouter({
