@@ -14,8 +14,8 @@
     
     <!-- 네비게이션 메뉴 -->
     <div class="nav-section">
-      <!-- 홈 (활성 상태) -->
-      <div class="nav-item active">
+      <!-- 홈 -->
+      <div class="nav-item" :class="{ active: currentRoute === '/' }" @click="navigateToHome">
         <img src="@/assets/icons/sidebar/home.svg" alt="홈" class="nav-icon" />
         <div class="nav-text">홈</div>
       </div>
@@ -44,6 +44,12 @@
         <div class="nav-text">프로젝트</div>
         <div class="dropdown-arrow">▼</div>
       </div>
+      
+      <!-- 관리자 페이지 -->
+      <div class="nav-item admin-nav-item" :class="{ active: currentRoute === '/admin' }" @click="navigateToAdmin">
+        <img src="@/assets/icons/sidebar/admin.svg" alt="관리자 페이지" class="nav-icon" />
+        <div class="nav-text">관리자 페이지</div>
+      </div>
     </div>
     
     <!-- 스토리지 사용량 -->
@@ -67,6 +73,19 @@
 <script>
 export default {
   name: "SideBarComponent",
+  computed: {
+    currentRoute() {
+      return this.$route.path;
+    }
+  },
+  methods: {
+    navigateToHome() {
+      this.$router.push('/');
+    },
+    navigateToAdmin() {
+      this.$router.push('/admin');
+    }
+  }
 };
 </script>
 
@@ -312,5 +331,15 @@ export default {
   font-size: 10px;
   line-height: 12px;
   color: #CCCCCC;
+}
+
+/* 관리자 페이지 메뉴 */
+.admin-nav-item {
+  /* 일반 nav-item과 동일한 스타일 사용 */
+}
+
+.admin-nav-item.active {
+  background: #554C2E;
+  border-radius: 8px;
 }
 </style>
