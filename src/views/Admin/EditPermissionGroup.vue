@@ -1,5 +1,5 @@
 <template>
-  <div class="create-permission-page">
+  <div class="edit-permission-page">
     <!-- 헤더 -->
     <div class="page-header">
       <div class="header-content">
@@ -18,8 +18,8 @@
       <div class="content-container">
         <!-- 제목 섹션 -->
         <div class="title-section">
-          <h1 class="main-title">권한 그룹</h1>
-          <p class="sub-title">커스터마이징한 권한 그룹을 생성하세요</p>
+          <h1 class="main-title">권한 수정</h1>
+          <p class="sub-title">커스터마이징한 권한그룹을 수정하세요.</p>
         </div>
 
         <!-- 권한명 입력 -->
@@ -28,7 +28,7 @@
             <input 
               type="text" 
               v-model="permissionName"
-              placeholder="권한명을 입력해주세요"
+              placeholder="수정할 권한명을 입력해주세요"
               class="permission-input"
             />
           </div>
@@ -69,7 +69,7 @@
         <!-- 버튼 섹션 -->
         <div class="button-section">
           <button class="cancel-btn" @click="goBack">취소</button>
-          <button class="create-btn" @click="createPermissionGroup">권한 생성</button>
+          <button class="edit-btn" @click="updatePermissionGroup">권한 수정</button>
         </div>
       </div>
     </div>
@@ -81,10 +81,12 @@ import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
 
 export default {
-  name: "CreatePermissionGroup",
+  name: "EditPermissionGroup",
   data() {
     return {
       permissionName: '',
+      originalGroupName: '',
+      groupId: null,
       permissions: [
         {
           id: 'invite_user',
@@ -135,6 +137,13 @@ export default {
     const workspaceStore = useWorkspaceStore();
     return { workspaceStore };
   },
+  async mounted() {
+    // URL에서 그룹 ID 가져오기
+    this.groupId = this.$route.params.groupId;
+    if (this.groupId) {
+      await this.loadPermissionGroup();
+    }
+  },
   methods: {
     goBack() {
       this.$router.go(-1);
@@ -144,7 +153,51 @@ export default {
       console.log(`권한 ${permissionId} ${enabled ? '활성화' : '비활성화'}`);
     },
     
-    async createPermissionGroup() {
+    async loadPermissionGroup() {
+      try {
+        const token = localStorage.getItem('token');
+        const userId = localStorage.getItem('userId') || 'user123';
+        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || 'ws_1';
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/access/${this.groupId}`,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          const groupData = response.data.result;
+          
+          // 기본 그룹 수정 방지
+          if (groupData.accessGroupName === '일반 유저 그룹' || groupData.accessGroupName === '관리자 그룹') {
+            alert('기본 권한 그룹은 수정할 수 없습니다.');
+            this.goBack();
+            return;
+          }
+          
+          this.permissionName = groupData.accessGroupName;
+          this.originalGroupName = groupData.accessGroupName;
+          
+          // 권한 설정 로드 - 백엔드에서 개별 필드로 반환
+          this.permissions[0].enabled = groupData.inviteUser || false; // invite_user
+          this.permissions[1].enabled = groupData.projectCreate || false; // project_create
+          this.permissions[2].enabled = groupData.stoneCreate || false; // stone_create
+          this.permissions[3].enabled = groupData.userGroupCreate || false; // user_group_create
+          this.permissions[4].enabled = groupData.projectFileView || false; // project_file_view
+          this.permissions[5].enabled = groupData.stoneFileView || false; // stone_file_view
+          this.permissions[6].enabled = groupData.workspaceFileView || false; // workspace_file_view
+        }
+      } catch (error) {
+        console.error('권한 그룹 로드 실패:', error);
+        alert('권한 그룹 정보를 불러오는데 실패했습니다.');
+      }
+    },
+    
+    async updatePermissionGroup() {
       if (!this.permissionName.trim()) {
         alert('권한명을 입력해주세요.');
         return;
@@ -169,14 +222,15 @@ export default {
         
         const requestData = {
           workspaceId: workspaceId,
-          accessGroupName: this.permissionName,
+          accessGroupName: this.originalGroupName, // 기존 권한 그룹 이름
+          newAccessGroupName: this.permissionName, // 새로운 권한 그룹 이름
           accessList: accessList
         };
 
         console.log('요청 데이터:', requestData);
 
-        const response = await axios.post(
-          'http://localhost:8080/workspace-service/access/custom',
+        const response = await axios.patch(
+          `http://localhost:8080/workspace-service/access`,
           requestData,
           {
             headers: {
@@ -187,16 +241,16 @@ export default {
           }
         );
 
-        if (response.data.statusCode === 201) {
-          alert('권한 그룹이 성공적으로 생성되었습니다.');
+        if (response.data.statusCode === 200) {
+          alert('권한 그룹이 성공적으로 수정되었습니다.');
           this.goBack();
         }
       } catch (error) {
-        console.error('권한 그룹 생성 실패:', error);
+        console.error('권한 그룹 수정 실패:', error);
         if (error.response && error.response.data) {
-          alert(`권한 그룹 생성에 실패했습니다: ${error.response.data.statusMessage || '알 수 없는 오류'}`);
+          alert(`권한 그룹 수정에 실패했습니다: ${error.response.data.statusMessage || '알 수 없는 오류'}`);
         } else {
-          alert('권한 그룹 생성에 실패했습니다. 다시 시도해주세요.');
+          alert('권한 그룹 수정에 실패했습니다. 다시 시도해주세요.');
         }
       }
     }
@@ -205,7 +259,7 @@ export default {
 </script>
 
 <style scoped>
-.create-permission-page {
+.edit-permission-page {
   position: fixed;
   top: 83px;
   left: 280px;
@@ -279,6 +333,7 @@ export default {
 
 .title-section {
   margin-bottom: 40px;
+  text-align: left;
 }
 
 .main-title {
@@ -288,6 +343,7 @@ export default {
   line-height: 33px;
   color: #1C0F0F;
   margin: 0 0 15px 0;
+  text-align: left;
 }
 
 .sub-title {
@@ -297,6 +353,7 @@ export default {
   line-height: 19px;
   color: #666666;
   margin: 0;
+  text-align: left;
 }
 
 .input-section {
@@ -448,14 +505,6 @@ input:checked + .toggle-slider:before {
   transform: translateX(20px);
 }
 
-.permission-description {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 17px;
-  color: #666666;
-}
-
 .button-section {
   display: flex;
   justify-content: flex-end;
@@ -483,7 +532,7 @@ input:checked + .toggle-slider:before {
   background: #E9E9E9;
 }
 
-.create-btn {
+.edit-btn {
   width: 120px;
   height: 45px;
   background: #FFE364;
@@ -498,20 +547,20 @@ input:checked + .toggle-slider:before {
   transition: all 0.2s ease;
 }
 
-.create-btn:hover {
+.edit-btn:hover {
   background: #FFDD44;
   transform: translateY(-1px);
 }
 
 @media (max-width: 1200px) {
-  .create-permission-page {
+  .edit-permission-page {
     left: 240px;
     width: calc(100vw - 240px);
   }
 }
 
 @media (max-width: 768px) {
-  .create-permission-page {
+  .edit-permission-page {
     left: 0;
     top: 83px;
     width: 100vw;
@@ -532,7 +581,7 @@ input:checked + .toggle-slider:before {
   }
   
   .cancel-btn,
-  .create-btn {
+  .edit-btn {
     width: 100%;
   }
 }

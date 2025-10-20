@@ -143,30 +143,7 @@
 
       <!-- 회원 관리 -->
       <div v-if="activeTab === 'member'" class="tab-content">
-        <div class="content-header">
-          <h1 class="main-title">회원 관리</h1>
-          <p class="sub-title">회원 정보를 관리합니다</p>
-        </div>
-        
-        <div class="admin-cards">
-          <div class="admin-card">
-            <h3>신규 가입자</h3>
-            <p>이번 주: 25명</p>
-            <p>이번 달: 120명</p>
-          </div>
-          
-          <div class="admin-card">
-            <h3>탈퇴 회원</h3>
-            <p>이번 주: 3명</p>
-            <p>이번 달: 15명</p>
-          </div>
-          
-          <div class="admin-card">
-            <h3>활성 회원</h3>
-            <p>일일 활성: 856명</p>
-            <p>주간 활성: 1,200명</p>
-          </div>
-        </div>
+        <MemberManagement />
       </div>
 
       <!-- 워크스페이스 관리 -->
@@ -203,9 +180,13 @@
 <script>
 import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
+import MemberManagement from './MemberManagement.vue';
 
 export default {
   name: "AdminDashboard",
+  components: {
+    MemberManagement
+  },
   data() {
     return {
       activeTab: 'permission',
@@ -335,8 +316,8 @@ export default {
     },
     
     editGroup(group) {
-      // 권한 그룹 수정 로직
-      console.log('권한 그룹 수정:', group);
+      // 권한 그룹 수정 페이지로 이동
+      this.$router.push(`/admin/edit-permission-group/${group.accessGroupId}`);
       this.activeActionMenu = null;
     },
     
