@@ -2,6 +2,7 @@ import AdminDashboard from '@/views/Admin/AdminDashboard.vue';
 import CreatePermissionGroup from '@/views/Admin/CreatePermissionGroup.vue';
 import EditPermissionGroup from '@/views/Admin/EditPermissionGroup.vue';
 import MemberManagement from '@/views/Admin/MemberManagement.vue';
+import InviteMember from '@/views/Admin/InviteMember.vue';
 
 export const adminRouter = [
     {
@@ -35,6 +36,15 @@ export const adminRouter = [
         path: '/admin/member-management',
         name: 'MemberManagement',
         component: MemberManagement,
+        meta: {
+            requiresAuth: true,
+            isAdmin: true
+        }
+    },
+    {
+        path: '/admin/invite-member',
+        name: 'InviteMember',
+        component: InviteMember,
         meta: {
             requiresAuth: true,
             isAdmin: true

@@ -253,8 +253,7 @@ export default {
       return roleMap[role.toLowerCase()] || role.toUpperCase();
     },
     inviteMember() {
-      // TODO: 회원 초대 모달 또는 페이지 구현
-      console.log('Invite member');
+      this.$router.push('/admin/invite-member');
     },
     exportMembers() {
       // 회원 목록을 CSV 형태로 내보내기
