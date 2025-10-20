@@ -55,6 +55,13 @@
           class="editor-container" 
           ref="editorContainerRef"
         >
+          <div
+            v-for="highlight in remoteSelectionHighlights"
+            :key="highlight.key"
+            :style="highlight.style"
+            class="remote-selection-highlight"
+          ></div>
+
           <editor-content :editor="editor" />
           
           <div
@@ -62,7 +69,8 @@
             :key="cursor.senderId"
             class="remote-cursor"
             :style="{
-              transform: `translate(${cursor.coords.left}px, ${cursor.coords.top}px)`,
+              top: `${cursor.coords.top}px`,
+              left: `${cursor.coords.left}px`,
               backgroundColor: cursor.user.color,
               height: cursor.height ? `${cursor.height}px` : '1.3em'
             }"
@@ -291,11 +299,31 @@ const remoteCursors = computed(() => {
   const cursors = [];
 
   for (const senderId in remoteCursorsMap.value) {
-    const cursor = remoteCursorsMap.value[senderId];
+    const remoteUser = remoteCursorsMap.value[senderId];
+    if (!remoteUser.selections || remoteUser.selections.length === 0) continue;
+
+    // Use the start of the first selection for the cursor position
+    const firstSelection = remoteUser.selections[0];
+
     try {
+      let nodePos = -1;
+      editor.value.state.doc.descendants((node, pos) => {
+        if (nodePos !== -1) return false;
+        if (node.isBlock && node.attrs.id === firstSelection.lineId) {
+          nodePos = pos;
+        }
+      });
+      if (nodePos === -1) continue;
+
+      const node = editor.value.state.doc.nodeAt(nodePos);
+      if (!node) continue;
+
+      const safeOffset = Math.min(firstSelection.startOffset, node.content.size);
+      const absolutePos = nodePos + 1 + safeOffset;
+
       const maxPos = editor.value.state.doc.content.size;
       const safePos = maxPos > 1
-        ? Math.min(Math.max(cursor.pos, 1), maxPos - 1)
+        ? Math.min(Math.max(absolutePos, 1), maxPos - 1)
         : 0;
 
       const coords = editor.value.view.coordsAtPos(safePos, -1);
@@ -305,7 +333,7 @@ const remoteCursors = computed(() => {
 
       cursors.push({
         senderId,
-        user: cursor.user,
+        user: remoteUser.user,
         coords: {
           left: relativeLeft,
           top: relativeTop,
@@ -313,11 +341,70 @@ const remoteCursors = computed(() => {
         height: cursorHeight,
       });
     } catch (error) {
-      console.warn('Invalid cursor position:', cursor.pos, error);
+      console.warn('Error calculating remote cursor position:', error);
     }
   }
 
   return cursors;
+});
+
+const remoteSelectionHighlights = computed(() => {
+  if (!editor.value || !editor.value.view || !editorContainerRef.value) {
+    return [];
+  }
+  const containerRect = editorContainerRef.value.getBoundingClientRect();
+  const highlights = [];
+
+  for (const senderId in remoteCursorsMap.value) {
+    const remoteUser = remoteCursorsMap.value[senderId];
+    if (!remoteUser.selections) continue;
+
+    const userColor = remoteUser.user.color;
+
+    remoteUser.selections.forEach((selection, index) => {
+      let nodePos = -1;
+      editor.value.state.doc.descendants((node, pos) => {
+        if (nodePos !== -1) return false;
+        if (node.isBlock && node.attrs.id === selection.lineId) {
+          nodePos = pos;
+        }
+      });
+
+      if (nodePos === -1) return;
+
+      const from = nodePos + selection.startOffset;
+      const to = nodePos + selection.endOffset;
+
+      if (from === to) return;
+
+      try {
+        const fromDom = editor.value.view.domAtPos(from);
+        const toDom = editor.value.view.domAtPos(to);
+        const range = document.createRange();
+        range.setStart(fromDom.node, fromDom.offset);
+        range.setEnd(toDom.node, toDom.offset);
+
+        const rects = range.getClientRects();
+        for (let i = 0; i < rects.length; i++) {
+          const rect = rects[i];
+          highlights.push({
+            key: `${senderId}-${selection.lineId}-${index}-${i}`,
+            style: {
+              position: 'absolute',
+              left: `${rect.left - containerRect.left}px`,
+              top: `${rect.top - containerRect.top}px`,
+              width: `${rect.width}px`,
+              height: `${rect.height}px`,
+              backgroundColor: userColor,
+            }
+          });
+        }
+      } catch (error) {
+        console.warn('Could not calculate selection highlight rects', error);
+      }
+    });
+  }
+  return highlights;
 });
 
 const sendBatchChanges = () => {
@@ -497,31 +584,54 @@ onMounted(() => {
       if (now - lastCursorUpdate.value < 100) return; // 100ms throttle
       lastCursorUpdate.value = now;
 
-      // 1. 현재 커서 위치의 lineId와 offset 계산
-      const { from } = editor.state.selection;
-      const resolvedPos = editor.state.doc.resolve(from);
-      let cursorLineId = null;
-      let cursorOffset = 0;
+      // 1. 현재 커서 및 선택 영역 정보 계산
+      const { from, to } = editor.state.selection;
+      const selections = [];
 
-      for (let i = resolvedPos.depth; i > 0; i--) {
-        const node = resolvedPos.node(i);
-        if (node.isBlock && node.attrs.id) {
-          cursorLineId = node.attrs.id;
-          const nodePos = resolvedPos.start(i);
-          cursorOffset = from - nodePos;
-          break;
+      // 사용자가 텍스트를 드래그하여 선택한 경우 (from과 to가 다름)
+      if (from !== to) {
+        editor.state.doc.nodesBetween(from, to, (node, pos) => {
+          if (node.isBlock && node.attrs.id) {
+            const nodeStart = pos;
+            const nodeEnd = pos + node.nodeSize;
+
+            // 선택 영역이 현재 노드와 겹치는 부분 계산
+            const selectionStartInNode = Math.max(from, nodeStart);
+            const selectionEndInNode = Math.min(to, nodeEnd);
+
+            selections.push({
+              lineId: node.attrs.id,
+              startOffset: selectionStartInNode - nodeStart,
+              endOffset: selectionEndInNode - nodeStart,
+            });
+          }
+        });
+      } else { // 단순 커서인 경우 (from과 to가 같음)
+        const resolvedPos = editor.state.doc.resolve(from);
+        for (let i = resolvedPos.depth; i > 0; i--) {
+          const node = resolvedPos.node(i);
+          if (node.isBlock && node.attrs.id) {
+            const nodePos = resolvedPos.start(i);
+            const offset = from - (nodePos + 1);
+            selections.push({
+              lineId: node.attrs.id,
+              startOffset: offset + 1,
+              endOffset: offset + 1,
+            });
+            break;
+          }
         }
       }
 
       // 2. 계산된 정보로 메시지 전송
-      if (cursorLineId) {
+      if (selections.length > 0) {
         sendStompMessage({
           destination: '/publish/editor/cursor',
           body: {
             messageType: 'CURSOR_UPDATE',
             documentId: props.documentId,
             senderId: user.name,
-            content: JSON.stringify({ lineId: cursorLineId, offset: cursorOffset, user }),
+            content: JSON.stringify({ selections, user }),
           },
         });
       }
@@ -629,7 +739,7 @@ const handleIncomingMessage = (message) => {
     if (node.isBlock && node.attrs.id) {
       anchorNodeId = node.attrs.id;
       const nodePos = resolvedPos.start(i);
-      startOffset = selection.from - nodePos;
+      startOffset = selection.from - (nodePos + 1);
       break;
     }
   }
@@ -653,12 +763,23 @@ const handleIncomingMessage = (message) => {
     applyDelete(message);
   } else if (message.messageType === 'CURSOR_UPDATE') {
     const cursorData = JSON.parse(message.content);
+    console.log('Received cursor update:', { message, cursorData });
     
-    // 1. lineId를 기반으로 절대 위치(pos) 계산
+    if (!cursorData.selections || cursorData.selections.length === 0) {
+      return;
+    }
+
+    // 1. 수신된 선택 정보(selections)의 첫 번째 항목을 사용하여 커서 위치를 계산합니다.
+    // 현재는 선택 영역의 시작점에 커서를 표시합니다.
+    const firstSelection = cursorData.selections[0];
     let absolutePos = -1;
+
     editor.value.state.doc.descendants((node, pos) => {
-      if (absolutePos === -1 && node.isBlock && node.attrs.id === cursorData.lineId) {
-        absolutePos = pos + cursorData.offset;
+      if (absolutePos === -1 && node.isBlock && node.attrs.id === firstSelection.lineId) {
+        // 원격 커서의 offset이 현재 라인의 콘텐츠 길이를 넘지 않도록 보정합니다.
+        // 이렇게 하면 다른 사용자가 라인을 수정했을 때 커서가 잘못된 위치에 표시되는 것을 방지합니다.
+        const safeOffset = Math.min(firstSelection.startOffset, node.content.size);
+        absolutePos = pos + 1 + safeOffset;
       }
     });
 
@@ -668,7 +789,7 @@ const handleIncomingMessage = (message) => {
         ...remoteCursorsMap.value,
         [message.senderId]: {
           user: cursorData.user,
-          pos: absolutePos,
+          selections: cursorData.selections,
         }
       };
     }
@@ -732,8 +853,7 @@ const handleIncomingMessage = (message) => {
   pointer-events: none;
   width: 2px;
   z-index: 10;
-  transform-origin: top left;
-  transition: transform 0.1s linear;
+  transition: top 0.1s linear, left 0.1s linear;
 }
 
 .cursor-flag {
@@ -749,5 +869,11 @@ const handleIncomingMessage = (message) => {
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   line-height: 1.3;
   transition: background-color 0.3s ease;
+}
+
+.remote-selection-highlight {
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 5;
 }
 </style>
