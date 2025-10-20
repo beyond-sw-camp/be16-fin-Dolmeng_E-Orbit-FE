@@ -3,7 +3,9 @@
     <!-- 로고 섹션 -->
     <div class="logo-section" @click="toggleWorkspaceDropdown">
       <div class="logo-icon"></div>
-      <div class="logo-text">{{ selectedWorkspace?.workspaceName || '워크스페이스 선택' }}</div>
+      <div class="logo-text-container">
+        <div class="logo-text">{{ selectedWorkspace?.workspaceName || '워크스페이스 선택' }}</div>
+      </div>
       <div class="dropdown-arrow" :class="{ 'rotated': showWorkspaceDropdown }">▼</div>
     </div>
     
@@ -199,6 +201,14 @@ export default {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.logo-section:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .logo-icon {
@@ -212,45 +222,64 @@ export default {
   border-radius: 4px;
 }
 
-.logo-text {
+.logo-text-container {
   position: absolute;
   left: 32px;
+  right: 32px;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.logo-text {
   font-family: 'Pretendard', sans-serif;
   font-weight: 800;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 20px;
   color: #FDF5EB;
+  word-wrap: break-word;
+  white-space: normal;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
-  .logo-text {
+  .logo-text-container {
     left: 28px;
-    font-size: 18px;
-    line-height: 22px;
+    right: 28px;
+  }
+  
+  .logo-text {
+    font-size: 14px;
+    line-height: 18px;
   }
 }
 
 @media (max-width: 480px) {
-  .logo-text {
+  .logo-text-container {
     left: 25px;
-    font-size: 16px;
-    line-height: 20px;
+    right: 25px;
+  }
+  
+  .logo-text {
+    font-size: 12px;
+    line-height: 16px;
   }
 }
 
 .dropdown-arrow {
   position: absolute;
-  right: 0;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   font-family: 'Pretendard', sans-serif;
   font-weight: 400;
-  font-size: 16px;
-  line-height: 19px;
+  font-size: 14px;
+  line-height: 17px;
   color: #FDF5EB;
   transition: transform 0.3s ease;
+  flex-shrink: 0;
 }
 
 .dropdown-arrow.rotated {
