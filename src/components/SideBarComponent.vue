@@ -1,10 +1,23 @@
 <template>
   <v-navigation-drawer class="app-sidebar" permanent>
     <!-- 로고 섹션 -->
-    <div class="logo-section">
+    <div class="logo-section" @click="toggleWorkspaceDropdown">
       <div class="logo-icon"></div>
-      <div class="logo-text">Orbit 워크스페이스</div>
-      <div class="dropdown-arrow">▼</div>
+      <div class="logo-text">{{ selectedWorkspace?.workspaceName || '워크스페이스 선택' }}</div>
+      <div class="dropdown-arrow" :class="{ 'rotated': showWorkspaceDropdown }">▼</div>
+    </div>
+    
+    <!-- 워크스페이스 드롭다운 -->
+    <div v-if="showWorkspaceDropdown" class="workspace-dropdown">
+      <div 
+        v-for="workspace in workspaces" 
+        :key="workspace.workspaceId"
+        class="workspace-item"
+        :class="{ 'selected': selectedWorkspace?.workspaceId === workspace.workspaceId }"
+        @click="selectWorkspace(workspace)"
+      >
+        <div class="workspace-name">{{ workspace.workspaceName }}</div>
+      </div>
     </div>
     
     <!-- 저작권 -->
@@ -71,14 +84,76 @@
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
   name: "SideBarComponent",
+  data() {
+    return {
+      workspaces: [],
+      selectedWorkspace: null,
+      showWorkspaceDropdown: false
+    };
+  },
   computed: {
     currentRoute() {
       return this.$route.path;
     }
   },
+  async mounted() {
+    await this.loadWorkspaces();
+    this.loadSelectedWorkspace();
+  },
   methods: {
+    async loadWorkspaces() {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get('http://localhost:8080/workspace-service/workspace', {
+          headers: {
+            'X-User-Id': 'user123', // 실제 사용자 ID로 교체 필요
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.data.statusCode === 200) {
+          this.workspaces = response.data.result;
+          // 첫 번째 워크스페이스를 기본 선택으로 설정
+          if (this.workspaces.length > 0 && !this.selectedWorkspace) {
+            this.selectWorkspace(this.workspaces[0]);
+          }
+        }
+      } catch (error) {
+        console.error('워크스페이스 목록 로드 실패:', error);
+      }
+    },
+    
+    selectWorkspace(workspace) {
+      this.selectedWorkspace = workspace;
+      this.showWorkspaceDropdown = false;
+      // 선택된 워크스페이스 정보를 localStorage에 저장
+      localStorage.setItem('selectedWorkspaceId', workspace.workspaceId);
+      localStorage.setItem('selectedWorkspaceName', workspace.workspaceName);
+      localStorage.setItem('selectedWorkspaceRole', workspace.role);
+    },
+    
+    loadSelectedWorkspace() {
+      const workspaceId = localStorage.getItem('selectedWorkspaceId');
+      const workspaceName = localStorage.getItem('selectedWorkspaceName');
+      const workspaceRole = localStorage.getItem('selectedWorkspaceRole');
+      
+      if (workspaceId && workspaceName) {
+        this.selectedWorkspace = {
+          workspaceId,
+          workspaceName,
+          role: workspaceRole
+        };
+      }
+    },
+    
+    toggleWorkspaceDropdown() {
+      this.showWorkspaceDropdown = !this.showWorkspaceDropdown;
+    },
+    
     navigateToHome() {
       this.$router.push('/');
     },
@@ -174,6 +249,51 @@ export default {
   font-weight: 400;
   font-size: 16px;
   line-height: 19px;
+  color: #FDF5EB;
+  transition: transform 0.3s ease;
+}
+
+.dropdown-arrow.rotated {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.workspace-dropdown {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  background: #1A1A1A;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.workspace-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s;
+}
+
+.workspace-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.workspace-item.selected {
+  background: rgba(255, 221, 68, 0.2);
+}
+
+.workspace-item:last-child {
+  border-bottom: none;
+}
+
+.workspace-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
   color: #FDF5EB;
 }
 

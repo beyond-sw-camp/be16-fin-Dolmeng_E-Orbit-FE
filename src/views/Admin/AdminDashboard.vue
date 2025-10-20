@@ -210,23 +210,25 @@ export default {
 
 .admin-nav-tabs {
   display: flex;
-  gap: 20px;
+  gap: 0;
   flex-wrap: nowrap;
-  min-width: max-content;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .nav-tab {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 24px;
-  line-height: 28px;
+  font-size: 20px;
+  line-height: 24px;
   color: #1C0F0F;
   cursor: pointer;
-  padding: 10px 15px;
+  padding: 10px 8px;
   border-bottom: 4px solid transparent;
   transition: all 0.2s;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 1;
+  text-align: center;
 }
 
 .nav-tab:hover {
@@ -322,14 +324,10 @@ export default {
     width: calc(100vw - 240px);
   }
   
-  .admin-nav-tabs {
-    gap: 15px;
-  }
-  
   .nav-tab {
-    font-size: 20px;
-    line-height: 24px;
-    padding: 8px 12px;
+    font-size: 18px;
+    line-height: 22px;
+    padding: 8px 6px;
   }
   
   .admin-cards {
@@ -347,15 +345,16 @@ export default {
   }
   
   .admin-nav-tabs {
-    gap: 10px;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 5px;
   }
   
   .nav-tab {
     font-size: 16px;
     line-height: 20px;
     padding: 8px 12px;
+    flex: none;
+    text-align: left;
   }
   
   .admin-content {
