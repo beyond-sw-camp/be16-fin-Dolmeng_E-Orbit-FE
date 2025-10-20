@@ -42,3 +42,15 @@ export default {
 .with-offset { padding-top: 64px; padding-left: 240px; }
 .no-offset { padding: 0; }
 </style>
+
+<style>
+/* 관리자 페이지일 때 전체 배경을 회색으로 설정 */
+body {
+  background: #F5F5F5;
+}
+
+/* 관리자 페이지 라우트일 때 */
+.v-main {
+  background: #F5F5F5;
+}
+</style>
