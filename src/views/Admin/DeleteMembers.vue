@@ -141,7 +141,9 @@ export default {
       }
     },
     reloadPage() {
-      this.$router.push('/');
+      // 회원삭제 페이지에서는 워크스페이스 변경 시 홈으로 이동하지 않음
+      // 현재 페이지를 유지하면서 데이터만 새로고침
+      this.searchByEmail();
     },
     goBack() {
       this.$router.back();
@@ -240,19 +242,26 @@ export default {
           const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
           const requesterId = localStorage.getItem('id') || 'user123';
           const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
+          
+          console.log('삭제 API 호출 - 워크스페이스 ID:', workspaceId);
+          console.log('삭제할 사용자 ID 목록:', userIdList);
+          console.log('현재 워크스페이스 스토어:', this.workspaceStore.getCurrentWorkspace);
 
-          const response = await axios.delete(
-            `http://localhost:8080/workspace-service/workspace/${workspaceId}/participants`,
-            {
-              headers: {
-                'X-User-Id': requesterId,
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              data: {
-                userIdList: userIdList
-              }
-            }
-          );
+          const deleteUrl = `http://localhost:8080/workspace-service/workspace/${workspaceId}/participants`;
+          console.log('삭제 API URL:', deleteUrl);
+          
+          const requestData = {
+            userIdList: userIdList
+          };
+          console.log('삭제 요청 데이터:', requestData);
+          
+          const response = await axios.delete(deleteUrl, {
+            headers: {
+              'X-User-Id': requesterId,
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            data: requestData
+          });
 
           if (response?.data?.statusCode === 200) {
             alert('선택한 회원들이 성공적으로 삭제되었습니다.');

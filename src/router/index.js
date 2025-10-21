@@ -34,6 +34,7 @@ router.beforeEach((to, from, next) => {
     }
   }
   
+  // 모든 라우트 허용
   next();
 });
 
