@@ -1,5 +1,5 @@
 <template>
-  <div class="invite-member-page">
+  <div class="delete-members-page">
     <!-- 헤더 -->
     <div class="page-header">
       <div class="header-content">
@@ -8,7 +8,7 @@
             <path d="M19.5 8L12 15.5L19.5 23" stroke="#2A2828" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <div class="header-title">회원 초대</div>
+        <div class="header-title">회원 삭제</div>
         <div class="header-spacer"></div>
       </div>
     </div>
@@ -18,8 +18,8 @@
       <div class="content-container">
         <!-- 제목 섹션 -->
         <div class="title-section">
-          <h1 class="main-title">회원초대</h1>
-          <p class="sub-title">워크스페이스에 회원을 초대해보세요</p>
+          <h1 class="main-title">회원삭제</h1>
+          <p class="sub-title">워크스페이스의 회원을 삭제해주세요</p>
         </div>
 
         <!-- 이메일로 사용자 검색 -->
@@ -86,7 +86,7 @@
         <!-- 버튼 섹션 -->
         <div class="button-section">
           <button class="ghost-btn" @click="goBack">취소</button>
-          <button class="primary-accent-btn" @click="invite" :disabled="inviting">초대하기</button>
+          <button class="danger-accent-btn" @click="deleteMembers" :disabled="deleting">삭제하기</button>
         </div>
       </div>
     </div>
@@ -98,7 +98,7 @@ import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
 
 export default {
-  name: 'InviteMember',
+  name: 'DeleteMembers',
   setup() {
     const workspaceStore = useWorkspaceStore();
     return { workspaceStore };
@@ -109,7 +109,7 @@ export default {
       results: [],
       selectedUsers: [],
       loading: false,
-      inviting: false,
+      deleting: false,
     };
   },
   mounted() {
@@ -134,7 +134,7 @@ export default {
         const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
         
         const response = await axios.post(
-          'http://localhost:8080/workspace-service/workspace/participants/search-outside',
+          'http://localhost:8080/workspace-service/workspace/participants/search',
           { 
             workspaceId: workspaceId,
             searchKeyword: keyword 
@@ -153,24 +153,21 @@ export default {
         if (response?.data?.statusCode === 200) {
           const list = response.data.result?.userInfoList || [];
           const requesterId = normalizeUuid(lsUserIdRaw);
-          const requesterEmail = normalizeEmail(lsUserEmailRaw);
 
           // 디버깅: 실제 비교값 확인 (필요 시 주석 해제)
-          // console.log('requesterId/email:', requesterId, requesterEmail);
+          // console.log('requesterId:', requesterId);
 
           const filtered = list.filter(u => {
             const uid = normalizeUuid(u.userId);
-            const uemail = normalizeEmail(u.userEmail);
             const notSelfById = requesterId ? uid !== requesterId : true;
-            const notSelfByEmail = requesterEmail ? uemail !== requesterEmail : true;
-            return notSelfById && notSelfByEmail;
+            return notSelfById;
           });
 
           this.results = filtered.map(u => ({
             userId: u.userId,
             name: u.userName,
-            email: u.userEmail,
-            profileImageUrl: u.profileImageUrl,
+            email: u.userEmail || '', // 워크스페이스 내 참여자 검색에서는 이메일이 없을 수 있음
+            profileImageUrl: u.profileImageUrl || '',
           }));
         } else {
           this.results = [];
@@ -197,9 +194,9 @@ export default {
         this.results = [removed, ...this.results];
       }
     },
-    async invite() {
+    async deleteMembers() {
       if (this.selectedUsers.length === 0) {
-        alert('초대할 사용자를 선택하세요.');
+        alert('삭제할 사용자를 선택하세요.');
         return;
       }
 
@@ -212,34 +209,34 @@ export default {
         return;
       }
 
-      try {
-        this.inviting = true;
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-        const requesterId = localStorage.getItem('id') || 'user123';
-        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
+      if (confirm(`선택한 ${this.selectedUsers.length}명의 회원을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+        try {
+          this.deleting = true;
+          const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+          const requesterId = localStorage.getItem('id') || 'user123';
+          const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
 
-        const response = await axios.post(
-          `http://localhost:8080/workspace-service/workspace/${workspaceId}/participants`,
-          { userIdList },
-          {
-            headers: {
-              'X-User-Id': requesterId,
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            }
+          // 선택된 회원들을 순차적으로 삭제
+          for (const userId of userIdList) {
+            await axios.delete(
+              `http://localhost:8080/workspace-service/workspace/${workspaceId}/participants/${userId}`,
+              {
+                headers: {
+                  'X-User-Id': requesterId,
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                }
+              }
+            );
           }
-        );
 
-        if (response?.data?.statusCode === 200) {
-          alert('워크스페이스 사용자 추가 완료');
+          alert('선택한 회원들이 성공적으로 삭제되었습니다.');
           this.goBack();
-        } else {
-          alert(response?.data?.statusMessage || '초대에 실패했습니다.');
+        } catch (e) {
+          console.error('회원 삭제 실패:', e);
+          alert(e?.response?.data?.statusMessage || '회원 삭제 중 오류가 발생했습니다.');
+        } finally {
+          this.deleting = false;
         }
-      } catch (e) {
-        console.error('워크스페이스 초대 실패:', e);
-        alert(e?.response?.data?.statusMessage || '워크스페이스 초대 중 오류가 발생했습니다.');
-      } finally {
-        this.inviting = false;
       }
     }
   }
@@ -248,7 +245,7 @@ export default {
 
 <style scoped>
 /* 페이지 컨테이너 */
-.invite-member-page {
+.delete-members-page {
   position: fixed;
   top: 83px;
   left: 280px;
@@ -314,5 +311,6 @@ export default {
 /* 버튼 섹션 */
 .button-section { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 24px; }
 .ghost-btn { height: 36px; padding: 0 16px; background: #E0E0E0; border: none; border-radius: 8px; font-weight: 700; color: #666666; cursor: pointer; }
-.primary-accent-btn { height: 36px; padding: 0 16px; background: #FFDD44; border: none; border-radius: 8px; font-weight: 700; color: #1C0F0F; cursor: pointer; }
+.danger-accent-btn { height: 36px; padding: 0 16px; background: #FF6B6B; border: none; border-radius: 8px; font-weight: 700; color: #FFFFFF; cursor: pointer; }
+.danger-accent-btn:hover { background: #FF5252; }
 </style>

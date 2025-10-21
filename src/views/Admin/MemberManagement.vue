@@ -36,9 +36,9 @@
         <div v-else>
           <div v-for="member in members" :key="member.id" class="member-row">
             <div class="member-name">{{ member.name }}</div>
-          <div class="role">
-            <span class="role-badge" :class="member.role.toLowerCase()">{{ getRoleDisplayName(member.role) }}</span>
-          </div>
+            <div class="role">
+              <span class="role-badge" :class="member.role.toLowerCase()">{{ getRoleDisplayName(member.role) }}</span>
+            </div>
             <div class="join-date">{{ member.joinDate }}</div>
             <div class="user-group">{{ member.userGroup || '사용자 그룹이 존재하지 않습니다.' }}</div>
           </div>
@@ -54,8 +54,11 @@
           <button class="action-btn invite-btn" @click="inviteMember">
             회원 초대
           </button>
+          <button class="action-btn delete-btn" @click="deleteMembers">
+            회원 삭제
+          </button>
           <button class="action-btn export-btn" @click="exportMembers">
-            내보내기
+            파일로 내보내기
           </button>
         </div>
       </div>
@@ -280,6 +283,11 @@ export default {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    },
+    
+    deleteMembers() {
+      // 회원 삭제 페이지로 이동
+      this.$router.push('/admin/delete-members');
     }
   },
   mounted() {
@@ -481,6 +489,15 @@ export default {
 
 .export-btn:hover {
   background: #FFDD44;
+}
+
+.delete-btn {
+  background: #FF6B6B;
+  color: #FFFFFF;
+}
+
+.delete-btn:hover {
+  background: #FF5252;
 }
 
 .pagination {

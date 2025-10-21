@@ -3,6 +3,7 @@ import CreatePermissionGroup from '@/views/Admin/CreatePermissionGroup.vue';
 import EditPermissionGroup from '@/views/Admin/EditPermissionGroup.vue';
 import MemberManagement from '@/views/Admin/MemberManagement.vue';
 import InviteMember from '@/views/Admin/InviteMember.vue';
+import DeleteMembers from '@/views/Admin/DeleteMembers.vue';
 
 export const adminRouter = [
     {
@@ -45,6 +46,15 @@ export const adminRouter = [
         path: '/admin/invite-member',
         name: 'InviteMember',
         component: InviteMember,
+        meta: {
+            requiresAuth: true,
+            isAdmin: true
+        }
+    },
+    {
+        path: '/admin/delete-members',
+        name: 'DeleteMembers',
+        component: DeleteMembers,
         meta: {
             requiresAuth: true,
             isAdmin: true
