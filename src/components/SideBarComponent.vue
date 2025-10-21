@@ -24,7 +24,14 @@
         <div class="empty-message">워크스페이스가 없습니다</div>
         <div class="empty-submessage">새 워크스페이스를 생성하거나 초대를 받아보세요</div>
       </div>
+      <!-- 워크스페이스 생성 버튼 -->
+      <div class="workspace-create-item" @click="createWorkspace">
+        <div class="workspace-create-icon">[+]</div>
+        <div class="workspace-create-text">워크스페이스 생성</div>
+      </div>
     </div>
+    
+    
     
     <!-- 저작권 -->
     <div class="copyright">
@@ -210,6 +217,11 @@ export default {
     },
     navigateToAdmin() {
       this.$router.push('/admin');
+    },
+    
+    createWorkspace() {
+      // 전역 이벤트 발생 (Vue 3 방식)
+      window.dispatchEvent(new CustomEvent('openCreateWorkspaceModal'));
     }
   }
 };
@@ -222,7 +234,7 @@ export default {
   left: 0;
   bottom: 0;
   width: 280px;
-  z-index: 900;
+  z-index: 100;
   background: #2A2828;
   color: #FDF5EB;
   padding: 20px;
@@ -340,7 +352,8 @@ export default {
   top: 60px;
   left: 0;
   right: 0;
-  background: #1A1A1A;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 1000;
@@ -395,6 +408,39 @@ export default {
   font-size: 12px;
   line-height: 14px;
   color: #CCCCCC;
+}
+
+.workspace-create-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-top: 1px solid #333;
+  transition: background-color 0.2s;
+  background: rgba(255, 221, 68, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.workspace-create-item:hover {
+  background: rgba(255, 221, 68, 0.2);
+}
+
+.workspace-create-icon {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 17px;
+  color: #FFDD44;
+  flex-shrink: 0;
+}
+
+.workspace-create-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FFDD44;
 }
 
 .copyright {

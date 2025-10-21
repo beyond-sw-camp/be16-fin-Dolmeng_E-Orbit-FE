@@ -5,23 +5,47 @@
     <v-main :class="hideLayout ? 'no-offset' : 'with-offset'">
       <router-view />
     </v-main>
+    
+    <!-- 워크스페이스 생성 모달 (전체 화면에서 렌더링) -->
+    <CreateWorkspaceModal 
+      :show="showCreateModal" 
+      @close="closeCreateModal"
+    />
   </v-app>
 </template>
 
 <script>
 import HeaderComponent from './components/HeaderComponent.vue';
 import SideBarComponent from './components/SideBarComponent.vue';
+import CreateWorkspaceModal from './views/Workspace/CreateWorkspaceModal.vue';
 
 export default {
   name: "App",
   components: {
     SideBarComponent,
     HeaderComponent,
+    CreateWorkspaceModal,
+  },
+  data() {
+    return {
+      showCreateModal: false
+    };
   },
   computed: {
     hideLayout() {
       return this.$route.meta?.hideLayout === true;
     }
+  },
+  methods: {
+    closeCreateModal() {
+      this.showCreateModal = false;
+    }
+  },
+  mounted() {
+    // 전역 이벤트 리스너 등록 (Vue 3 방식)
+    window.addEventListener('openCreateWorkspaceModal', () => {
+      this.showCreateModal = true;
+    });
   }
 }
 </script>

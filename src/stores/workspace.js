@@ -48,6 +48,32 @@ export const useWorkspaceStore = defineStore('workspace', {
     // 초기화 시 localStorage에서 데이터 로드
     initialize() {
       this.loadFromLocalStorage();
+    },
+    
+    // 워크스페이스 목록 새로고침
+    async loadWorkspaces() {
+      try {
+        const userId = localStorage.getItem('id') || 'user123';
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+        const response = await fetch('http://localhost:8080/workspace-service/workspace', {
+          headers: {
+            'X-User-Id': userId,
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.statusCode === 200) {
+            this.setWorkspaces(data.result);
+            return data.result;
+          }
+        }
+        return [];
+      } catch (error) {
+        console.error('워크스페이스 목록 로드 실패:', error);
+        return [];
+      }
     }
   }
 })
