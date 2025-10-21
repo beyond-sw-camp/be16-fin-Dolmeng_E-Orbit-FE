@@ -38,6 +38,24 @@
       </div>
     </div>
   </div>
+
+  <!-- 캘린더 응답 상세 오버레이 (위젯 내부 전용) -->
+  <div v-if="isCalendarDialogOpen" class="calendar-overlay">
+    <div class="calendar-card">
+      <div class="calendar-title">캘린더 일정 확인</div>
+      <div v-if="calendarDetails" class="calendar-detail">
+        <div class="detail-row"><span class="label">캘린더</span><span class="value">{{ calendarDetails.calendarName }}</span></div>
+        <div class="detail-row"><span class="label">시작</span><span class="value">{{ calendarDetails.startedAt }}</span></div>
+        <div class="detail-row"><span class="label">종료</span><span class="value">{{ calendarDetails.endedAt }}</span></div>
+        <div class="detail-row" v-if="calendarDetails.calendarType !== undefined"><span class="label">유형</span><span class="value">{{ calendarDetails.calendarType ?? '-' }}</span></div>
+        <div class="detail-row" v-if="calendarDetails.bookmark !== undefined"><span class="label">북마크</span><span class="value">{{ calendarDetails.bookmark ?? '-' }}</span></div>
+        <div class="detail-row" v-if="calendarDetails.isShared !== undefined"><span class="label">공유</span><span class="value">{{ calendarDetails.isShared ?? '-' }}</span></div>
+      </div>
+      <div class="calendar-actions">
+        <button class="btn" @click="isCalendarDialogOpen = false">닫기</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -48,6 +66,8 @@ const WELCOME = '안녕하세요! ORBIT의 귀염둥이 챗봇 오르빙입니�
 const messages = ref([]);
 const inputText = ref('');
 const isLoading = ref(false);
+const isCalendarDialogOpen = ref(false);
+const calendarDetails = ref(null);
 
 function formatTime(date) {
   if (!date) return '';
@@ -81,10 +101,15 @@ async function handleSend() {
       headers: { 'Content-Type': 'application/json' }
     });
     messages.value = messages.value.filter(m => m.type !== 'typing');
-    const resultText = (data && data.result && typeof data.result === 'object')
-      ? (data.result.text ?? '')
-      : (typeof data?.result === 'string' ? data.result : '');
+    const resultObj = (data && typeof data.result === 'object') ? data.result : null;
+    if (resultObj) console.log('[chatbot] result keys =', Object.keys(resultObj), resultObj);
+    const resultText = resultObj ? (resultObj.text ?? '') : (typeof data?.result === 'string' ? data.result : '');
     messages.value.push({ role: 'assistant', text: resultText, time: new Date() });
+    if (resultObj && resultObj.calendarName != null && String(resultObj.calendarName).trim() !== '') {
+      calendarDetails.value = resultObj;
+      // 답장을 먼저 보여주고 1초 뒤 상세 모달을 띄움
+      setTimeout(() => { isCalendarDialogOpen.value = true; }, 1000);
+    }
   } catch (e) {
     messages.value = messages.value.filter(m => m.type !== 'typing');
     messages.value.push({ role: 'assistant', text: '잠시 후 다시 시도해 주세요.', time: new Date() });
@@ -176,6 +201,30 @@ function normalizeContent(content) {
 .footer-actions { display: flex; align-items: center; }
 .send-btn { height: 36px; padding: 0 12px; border-radius: 10px; border: 0; background: #FFE364; color: #2A2828; font-weight: 700; cursor: pointer; }
 .send-btn:hover { filter: brightness(0.98); }
+
+.calendar-detail { display: grid; grid-template-columns: 80px 1fr; row-gap: 8px; column-gap: 12px; font-size: 14px; }
+.detail-row { display: contents; }
+.detail-row .label { color: #757575; }
+.detail-row .value { color: #2A2828; }
+
+/* 내부 오버레이 */
+.calendar-overlay{
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: grid;
+  place-items: center;
+}
+.calendar-card{
+  width: 420px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  padding: 16px;
+}
+.calendar-title{ font-weight: 700; font-size: 16px; margin-bottom: 12px; }
+.calendar-actions{ display: flex; justify-content: flex-end; margin-top: 12px; }
+.calendar-actions .btn{ background: #FFE364; color: #2A2828; border: 0; border-radius: 10px; padding: 6px 12px; cursor: pointer; }
 </style>
 
 
