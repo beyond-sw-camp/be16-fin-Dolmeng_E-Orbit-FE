@@ -83,28 +83,10 @@
           </div>
         </div>
 
-        <!-- 하단 역할/버튼 바 -->
-        <div class="footer-bar">
-          <div class="footer-left">
-            <div class="role-col">
-              <div class="label">사용자 그룹</div>
-              <select v-model="selectedUserGroup" class="select-input">
-                <option disabled value="">{{ loadingGroups ? '사용자 그룹을 불러오는 중...' : (userGroups.length ? '사용자 그룹을 선택하세요' : '사용자 그룹이 없습니다') }}</option>
-                <option v-for="g in userGroups" :key="g.groupId" :value="g.groupId">{{ g.groupName }}</option>
-              </select>
-            </div>
-            <div class="role-col">
-              <div class="label">권한 그룹</div>
-              <select v-model="selectedPermissionGroup" class="select-input">
-                <option disabled value="">{{ loadingPermissionGroups ? '권한 그룹을 불러오는 중...' : (permissionGroups.length ? '권한 그룹을 선택하세요' : '권한 그룹이 없습니다') }}</option>
-                <option v-for="g in permissionGroups" :key="g.accessGroupId" :value="g.accessGroupId">{{ g.accessGroupName }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="footer-right">
-            <button class="ghost-btn" @click="goBack">취소</button>
-            <button class="primary-accent-btn" @click="invite" :disabled="inviting">초대하기</button>
-          </div>
+        <!-- 버튼 섹션 -->
+        <div class="button-section">
+          <button class="ghost-btn" @click="goBack">취소</button>
+          <button class="primary-accent-btn" @click="invite" :disabled="inviting">초대하기</button>
         </div>
       </div>
     </div>
@@ -126,97 +108,16 @@ export default {
       emailQuery: '',
       results: [],
       selectedUsers: [],
-      selectedUserGroup: '',
-      selectedPermissionGroup: '',
       loading: false,
       inviting: false,
-      userGroups: [],
-      loadingGroups: false,
-      permissionGroups: [],
-      loadingPermissionGroups: false,
     };
   },
   mounted() {
-    this.loadUserGroups();
-    this.loadPermissionGroups();
+    // 컴포넌트 마운트 시 필요한 초기화 작업
   },
   methods: {
     goBack() {
       this.$router.back();
-    },
-    async loadUserGroups() {
-      try {
-        this.loadingGroups = true;
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-        const userId = localStorage.getItem('id') || 'user123';
-        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
-
-        const response = await axios.get(
-          'http://localhost:8080/workspace-service/groups',
-          {
-            headers: {
-              'X-User-Id': userId,
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            params: { workspaceId }
-          }
-        );
-
-        if (response?.data?.statusCode === 200) {
-          const content = response.data.result?.content || [];
-          this.userGroups = content.map(g => ({
-            groupId: g.groupId,
-            groupName: g.groupName
-          }));
-        } else {
-          this.userGroups = [];
-        }
-      } catch (e) {
-        console.error('사용자 그룹 목록 조회 실패:', e);
-        this.userGroups = [];
-      } finally {
-        this.loadingGroups = false;
-      }
-    },
-    async loadPermissionGroups() {
-      try {
-        this.loadingPermissionGroups = true;
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-        const userId = localStorage.getItem('id') || 'user123';
-        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
-
-        const response = await axios.get(
-          `http://localhost:8080/workspace-service/access/group-list/${workspaceId}`,
-          {
-            headers: {
-              'X-User-Id': userId,
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            }
-          }
-        );
-
-        if (response?.data?.statusCode === 200) {
-          const content = response.data.result?.content || [];
-          const mapped = content.map(g => ({
-            accessGroupId: g.accessGroupId,
-            accessGroupName: g.accessGroupName
-          }));
-          // 관리자 그룹 제외
-          const filtered = mapped.filter(g => g.accessGroupName !== '관리자 그룹');
-          this.permissionGroups = filtered;
-          // 선택 값이 관리자 그룹이었으면 초기화
-          if (this.selectedPermissionGroup && !filtered.some(g => g.accessGroupId === this.selectedPermissionGroup)) {
-            this.selectedPermissionGroup = '';
-          }
-        } else {
-          this.permissionGroups = [];
-        }
-      } catch (e) {
-        console.error('권한 그룹 목록 조회 실패:', e);
-        this.permissionGroups = [];
-      } finally {
-        this.loadingPermissionGroups = false;
-      }
     },
     async searchByEmail() {
       const keyword = (this.emailQuery || '').trim();
@@ -230,9 +131,14 @@ export default {
         const lsUserIdRaw = localStorage.getItem('id') || '';
         const lsUserEmailRaw = localStorage.getItem('email') || localStorage.getItem('userEmail') || '';
 
+        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
+        
         const response = await axios.post(
-          'http://localhost:8080/user-service/user/search',
-          { searchKeyword: keyword },
+          'http://localhost:8080/workspace-service/workspace/participants/search',
+          { 
+            workspaceId: workspaceId,
+            searchKeyword: keyword 
+          },
           {
             headers: {
               'X-User-Id': lsUserIdRaw || 'user123',
@@ -405,13 +311,8 @@ export default {
 /* 빈 상태 */
 .empty-tip { color: #666666; font-size: 14px; text-align: left; padding: 4px 2px; }
 
-/* 하단 바 */
-.footer-bar { position: sticky; bottom: 0; left: 0; right: 0; background: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 16px; }
-.footer-left { display: flex; align-items: flex-end; gap: 24px; }
-.role-col { display: flex; flex-direction: column; gap: 8px; }
-.label { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 14px; color: #1C0F0F; text-align: left; }
-.select-input { width: 220px; height: 36px; background: #FFFFFF; border: 1px solid #DDDDDD; border-radius: 8px; padding: 0 12px; }
-.footer-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+/* 버튼 섹션 */
+.button-section { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 24px; }
 .ghost-btn { height: 36px; padding: 0 16px; background: #E0E0E0; border: none; border-radius: 8px; font-weight: 700; color: #666666; cursor: pointer; }
 .primary-accent-btn { height: 36px; padding: 0 16px; background: #FFDD44; border: none; border-radius: 8px; font-weight: 700; color: #1C0F0F; cursor: pointer; }
 </style>
