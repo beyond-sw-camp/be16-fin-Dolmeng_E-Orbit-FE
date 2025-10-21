@@ -220,10 +220,12 @@
 <script>
 import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { workspaceWatcher } from '@/mixins/workspaceWatcher';
 import MemberManagement from './MemberManagement.vue';
 
 export default {
   name: "AdminDashboard",
+  mixins: [workspaceWatcher],
   components: {
     MemberManagement
   },
@@ -281,6 +283,9 @@ export default {
           if (this.activeTab === 'permission') {
             this.currentPage = 0;
             this.loadPermissionGroups();
+          }
+          if (this.activeTab === 'workspace') {
+            this.loadWorkspaceDetail();
           }
         }
       },
@@ -508,6 +513,22 @@ export default {
     getStoragePercentage() {
       if (!this.workspaceDetail.maxStorage || this.workspaceDetail.maxStorage === 0) return 0;
       return Math.round((this.workspaceDetail.currentStorage / this.workspaceDetail.maxStorage) * 100);
+    },
+    
+    // 워크스페이스 변경 감지 메서드 오버라이드
+    onWorkspaceChanged(workspaceData) {
+      console.log('AdminDashboard: 워크스페이스 변경됨', workspaceData);
+      
+      // 권한 그룹 탭이 활성화되어 있으면 권한 그룹 새로고침
+      if (this.activeTab === 'permission') {
+        this.currentPage = 0;
+        this.loadPermissionGroups();
+      }
+      
+      // 워크스페이스 관리 탭이 활성화되어 있으면 워크스페이스 상세 정보 새로고침
+      if (this.activeTab === 'workspace') {
+        this.loadWorkspaceDetail();
+      }
     }
   }
 };

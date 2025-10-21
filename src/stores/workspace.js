@@ -14,7 +14,9 @@ export const useWorkspaceStore = defineStore('workspace', {
   
   actions: {
     setCurrentWorkspace(workspace) {
+      const previousWorkspace = this.currentWorkspace;
       this.currentWorkspace = workspace;
+      
       // localStorage에도 저장
       if (workspace) {
         localStorage.setItem('selectedWorkspaceId', workspace.workspaceId);
@@ -25,6 +27,32 @@ export const useWorkspaceStore = defineStore('workspace', {
         localStorage.removeItem('selectedWorkspaceName');
         localStorage.removeItem('selectedWorkspaceRole');
       }
+      
+      // 워크스페이스가 실제로 변경된 경우에만 이벤트 발생
+      if (previousWorkspace?.workspaceId !== workspace?.workspaceId) {
+        this.emitWorkspaceChange(workspace, previousWorkspace);
+      }
+    },
+    
+    // 워크스페이스 변경 이벤트 발생
+    emitWorkspaceChange(newWorkspace, oldWorkspace) {
+      // 커스텀 이벤트 발생
+      const event = new CustomEvent('workspaceChanged', {
+        detail: {
+          newWorkspace,
+          oldWorkspace,
+          workspaceId: newWorkspace?.workspaceId,
+          workspaceName: newWorkspace?.workspaceName,
+          role: newWorkspace?.role
+        }
+      });
+      window.dispatchEvent(event);
+      
+      // Vue 3의 전역 이벤트 버스 대신 window 이벤트 사용
+      console.log('워크스페이스 변경됨:', {
+        from: oldWorkspace?.workspaceName || '없음',
+        to: newWorkspace?.workspaceName || '없음'
+      });
     },
     
     setWorkspaces(workspaces) {

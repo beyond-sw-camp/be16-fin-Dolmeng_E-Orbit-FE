@@ -87,11 +87,11 @@
       
       <div class="storage-progress">
         <div class="storage-bar">
-          <div class="storage-fill"></div>
+          <div class="storage-fill" :style="{ width: getStoragePercentage() + '%' }"></div>
         </div>
       </div>
       
-      <div class="storage-info">4.8GB/10GB</div>
+      <div class="storage-info">{{ formatStorage(currentStorage) }}/{{ formatStorage(maxStorage) }}</div>
     </div>
   </v-navigation-drawer>
 </template>
@@ -99,12 +99,16 @@
 <script>
 import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { workspaceWatcher } from '@/mixins/workspaceWatcher';
 
 export default {
   name: "SideBarComponent",
+  mixins: [workspaceWatcher],
   data() {
     return {
-      showWorkspaceDropdown: false
+      showWorkspaceDropdown: false,
+      currentStorage: 0,
+      maxStorage: 0
     };
   },
   setup() {
@@ -131,6 +135,21 @@ export default {
     // 스토어 초기화 (localStorage에서 데이터 로드)
     this.workspaceStore.initialize();
     await this.loadWorkspaces();
+    
+    // 현재 워크스페이스의 스토리지 정보 로드
+    await this.loadWorkspaceStorage();
+  },
+  
+  watch: {
+    // 워크스페이스 변경 감지
+    'workspaceStore.currentWorkspace': {
+      handler(newWorkspace, oldWorkspace) {
+        if (newWorkspace && newWorkspace.workspaceId !== oldWorkspace?.workspaceId) {
+          this.loadWorkspaceStorage();
+        }
+      },
+      deep: true
+    }
   },
   methods: {
     async loadWorkspaces() {
@@ -222,6 +241,55 @@ export default {
     createWorkspace() {
       // 전역 이벤트 발생 (Vue 3 방식)
       window.dispatchEvent(new CustomEvent('openCreateWorkspaceModal'));
+    },
+    
+    async loadWorkspaceStorage() {
+      try {
+        const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+        if (!currentWorkspace || !currentWorkspace.workspaceId) return;
+        
+        const userId = localStorage.getItem('id') || 'user123';
+        const token = localStorage.getItem('token');
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/workspace/${currentWorkspace.workspaceId}`,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          this.currentStorage = response.data.result.currentStorage || 0;
+          this.maxStorage = response.data.result.maxStorage || 0;
+        }
+      } catch (error) {
+        console.error('워크스페이스 스토리지 정보 로드 실패:', error);
+        // 에러 발생 시 기본값 사용
+        this.currentStorage = 0;
+        this.maxStorage = 0;
+      }
+    },
+    
+    formatStorage(bytes) {
+      if (!bytes) return '0GB';
+      const gb = bytes / (1024 * 1024 * 1024);
+      return gb.toFixed(1) + 'GB';
+    },
+    
+    getStoragePercentage() {
+      if (!this.maxStorage || this.maxStorage === 0) return 0;
+      return Math.round((this.currentStorage / this.maxStorage) * 100);
+    },
+    
+    // 워크스페이스 변경 감지 메서드 오버라이드
+    onWorkspaceChanged(workspaceData) {
+      console.log('SideBarComponent: 워크스페이스 변경됨', workspaceData);
+      
+      // 워크스페이스 변경 시 스토리지 정보 새로고침
+      this.loadWorkspaceStorage();
     }
   }
 };
