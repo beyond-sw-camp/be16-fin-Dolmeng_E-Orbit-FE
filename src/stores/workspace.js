@@ -20,6 +20,10 @@ export const useWorkspaceStore = defineStore('workspace', {
         localStorage.setItem('selectedWorkspaceId', workspace.workspaceId);
         localStorage.setItem('selectedWorkspaceName', workspace.workspaceName);
         localStorage.setItem('selectedWorkspaceRole', workspace.role);
+      } else {
+        localStorage.removeItem('selectedWorkspaceId');
+        localStorage.removeItem('selectedWorkspaceName');
+        localStorage.removeItem('selectedWorkspaceRole');
       }
     },
     
@@ -39,6 +43,11 @@ export const useWorkspaceStore = defineStore('workspace', {
           role: workspaceRole
         };
       }
+    },
+    
+    // 초기화 시 localStorage에서 데이터 로드
+    initialize() {
+      this.loadFromLocalStorage();
     }
   }
 })

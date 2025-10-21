@@ -219,7 +219,6 @@ export default {
     'workspaceStore.currentWorkspace': {
       handler(newWorkspace, oldWorkspace) {
         if (newWorkspace && newWorkspace.workspaceId !== oldWorkspace?.workspaceId) {
-          console.log('워크스페이스 변경 감지:', newWorkspace.workspaceId);
           if (this.activeTab === 'permission') {
             this.currentPage = 0;
             this.loadPermissionGroups();

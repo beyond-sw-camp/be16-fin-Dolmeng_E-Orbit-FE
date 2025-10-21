@@ -47,11 +47,11 @@
                 <div class="empty-tip">검색 결과가 없습니다.</div>
               </div>
               <div v-else>
-                <div class="card" v-for="user in results" :key="user.email">
+                <div class="card" v-for="user in results" :key="user.userId">
                   <div class="dot"></div>
                   <div class="user-col">
                     <div class="user-name">{{ user.name }}</div>
-                    <div class="user-email">{{ user.email }}</div>
+                    <div class="user-email">{{ user.email || '이메일 없음' }}</div>
                   </div>
                   <button class="accent-btn" @click="addSelected(user)">추가</button>
                 </div>
@@ -70,13 +70,13 @@
                 <div class="empty-tip">선택된 사용자가 없습니다.</div>
               </div>
               <div v-else>
-                <div class="card" v-for="user in selectedUsers" :key="user.email">
+                <div class="card" v-for="user in selectedUsers" :key="user.userId">
                   <div class="dot"></div>
                   <div class="user-col">
                     <div class="user-name">{{ user.name }}</div>
-                    <div class="user-email">{{ user.email }}</div>
+                    <div class="user-email">{{ user.email || '이메일 없음' }}</div>
                   </div>
-                  <button class="danger-btn" @click="removeSelected(user.email)">제거</button>
+                  <button class="danger-btn" @click="removeSelected(user.userId)">제거</button>
                 </div>
               </div>
             </div>
@@ -113,9 +113,36 @@ export default {
     };
   },
   mounted() {
-    // 컴포넌트 마운트 시 필요한 초기화 작업
+    // 워크스페이스 스토어 초기화
+    this.workspaceStore.initialize();
+    // localStorage 변경 감지
+    window.addEventListener('storage', this.handleStorageChange);
+  },
+  beforeUnmount() {
+    // 이벤트 리스너 정리
+    window.removeEventListener('storage', this.handleStorageChange);
+  },
+  watch: {
+    'workspaceStore.currentWorkspace': {
+      handler(newWorkspace, oldWorkspace) {
+        if (newWorkspace && newWorkspace.workspaceId !== oldWorkspace?.workspaceId) {
+          this.reloadPage();
+        }
+      },
+      deep: true,
+      immediate: true
+    }
   },
   methods: {
+    handleStorageChange(event) {
+      // localStorage의 selectedWorkspaceId 변경 감지
+      if (event.key === 'selectedWorkspaceId' && event.newValue !== event.oldValue) {
+        this.reloadPage();
+      }
+    },
+    reloadPage() {
+      this.$router.push('/');
+    },
     goBack() {
       this.$router.back();
     },
@@ -132,6 +159,7 @@ export default {
         const lsUserEmailRaw = localStorage.getItem('email') || localStorage.getItem('userEmail') || '';
 
         const workspaceId = this.workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_1';
+        
         
         const response = await axios.post(
           'http://localhost:8080/workspace-service/workspace/participants/search',
@@ -154,9 +182,6 @@ export default {
           const list = response.data.result?.userInfoList || [];
           const requesterId = normalizeUuid(lsUserIdRaw);
 
-          // 디버깅: 실제 비교값 확인 (필요 시 주석 해제)
-          // console.log('requesterId:', requesterId);
-
           const filtered = list.filter(u => {
             const uid = normalizeUuid(u.userId);
             const notSelfById = requesterId ? uid !== requesterId : true;
@@ -166,7 +191,7 @@ export default {
           this.results = filtered.map(u => ({
             userId: u.userId,
             name: u.userName,
-            email: u.userEmail || '', // 워크스페이스 내 참여자 검색에서는 이메일이 없을 수 있음
+            email: u.userEmail || u.email || '', // 이메일 필드 확인
             profileImageUrl: u.profileImageUrl || '',
           }));
         } else {
@@ -181,16 +206,16 @@ export default {
       }
     },
     addSelected(user) {
-      if (!this.selectedUsers.some(u => u.email === user.email)) {
+      if (!this.selectedUsers.some(u => u.userId === user.userId)) {
         this.selectedUsers.push(user);
       }
       // 검색 결과에서 제거하여 중복 추가를 방지하고 UI에서 사라지게 함
-      this.results = this.results.filter(u => u.email !== user.email);
+      this.results = this.results.filter(u => u.userId !== user.userId);
     },
-    removeSelected(email) {
-      const removed = this.selectedUsers.find(u => u.email === email);
-      this.selectedUsers = this.selectedUsers.filter(u => u.email !== email);
-      if (removed && !this.results.some(u => u.email === removed.email)) {
+    removeSelected(userId) {
+      const removed = this.selectedUsers.find(u => u.userId === userId);
+      this.selectedUsers = this.selectedUsers.filter(u => u.userId !== userId);
+      if (removed && !this.results.some(u => u.userId === removed.userId)) {
         this.results = [removed, ...this.results];
       }
     },

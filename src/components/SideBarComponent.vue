@@ -20,6 +20,10 @@
       >
         <div class="workspace-name">{{ workspace.workspaceName }}</div>
       </div>
+      <div v-if="workspaces.length === 0" class="workspace-empty">
+        <div class="empty-message">워크스페이스가 없습니다</div>
+        <div class="empty-submessage">새 워크스페이스를 생성하거나 초대를 받아보세요</div>
+      </div>
     </div>
     
     <!-- 저작권 -->
@@ -112,42 +116,78 @@ export default {
     }
   },
   async mounted() {
+    // 스토어 초기화 (localStorage에서 데이터 로드)
+    this.workspaceStore.initialize();
     await this.loadWorkspaces();
   },
   methods: {
     async loadWorkspaces() {
       try {
-        const token = localStorage.getItem('token');
+        // localStorage에서 사용자 ID 가져오기 (id 키 사용)
+        const userId = localStorage.getItem('id') || 'user123';
+        console.log('현재 사용자 ID:', userId);
+        
         const response = await axios.get('http://localhost:8080/workspace-service/workspace', {
           headers: {
-            'X-User-Id': 'user123', // 실제 사용자 ID로 교체 필요
-            'Authorization': `Bearer ${token}`
+            'X-User-Id': userId
           }
         });
         
+        
         if (response.data.statusCode === 200) {
           this.workspaceStore.setWorkspaces(response.data.result);
-          // localStorage에 저장된 워크스페이스가 있으면 그것을 사용, 없으면 첫 번째 워크스페이스 선택
-          const savedWorkspaceId = localStorage.getItem('selectedWorkspaceId');
-          if (savedWorkspaceId) {
-            const savedWorkspace = response.data.result.find(w => w.workspaceId === savedWorkspaceId);
-            if (savedWorkspace) {
-              this.workspaceStore.setCurrentWorkspace(savedWorkspace);
-            } else if (response.data.result.length > 0) {
+          
+          // API에서 워크스페이스가 있으면 사용, 없으면 기본 워크스페이스 사용
+          if (response.data.result.length > 0) {
+            // localStorage에 저장된 워크스페이스가 있으면 그것을 사용, 없으면 첫 번째 워크스페이스 선택
+            const savedWorkspaceId = localStorage.getItem('selectedWorkspaceId');
+            if (savedWorkspaceId) {
+              const savedWorkspace = response.data.result.find(w => w.workspaceId === savedWorkspaceId);
+              if (savedWorkspace) {
+                this.workspaceStore.setCurrentWorkspace(savedWorkspace);
+              } else {
+                this.selectWorkspace(response.data.result[0]);
+              }
+            } else {
               this.selectWorkspace(response.data.result[0]);
             }
-          } else if (response.data.result.length > 0) {
-            this.selectWorkspace(response.data.result[0]);
+          } else {
+            // API에서 워크스페이스가 없으면 기본 워크스페이스 사용
+            this.setDefaultWorkspace();
           }
+        } else {
+          this.setDefaultWorkspace();
         }
       } catch (error) {
         console.error('워크스페이스 목록 로드 실패:', error);
+        console.error('에러 상세:', error.response?.data || error.message);
+        this.setDefaultWorkspace();
       }
     },
     
+    setDefaultWorkspace() {
+      // API 실패 시 기본 워크스페이스 설정
+      const defaultWorkspace = {
+        workspaceId: 'default',
+        workspaceName: '기본 워크스페이스',
+        role: 'MEMBER'
+      };
+      this.workspaceStore.setWorkspaces([defaultWorkspace]);
+      this.workspaceStore.setCurrentWorkspace(defaultWorkspace);
+    },
+    
     selectWorkspace(workspace) {
+      // 현재 선택된 워크스페이스와 다른 워크스페이스인지 확인
+      const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+      const isDifferentWorkspace = !currentWorkspace || currentWorkspace.workspaceId !== workspace.workspaceId;
+      
       this.workspaceStore.setCurrentWorkspace(workspace);
       this.showWorkspaceDropdown = false;
+      
+      // 다른 워크스페이스로 변경될 때만 홈으로 라우팅
+      if (isDifferentWorkspace) {
+        this.$router.push('/');
+      }
     },
     
     
@@ -323,6 +363,28 @@ export default {
   font-size: 14px;
   line-height: 17px;
   color: #FDF5EB;
+}
+
+.workspace-empty {
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.empty-message {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FDF5EB;
+  margin-bottom: 8px;
+}
+
+.empty-submessage {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 14px;
+  color: #CCCCCC;
 }
 
 .copyright {
