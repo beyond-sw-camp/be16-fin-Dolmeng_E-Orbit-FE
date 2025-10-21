@@ -237,17 +237,15 @@
                   워크스페이스 삭제
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <v-form @submit.prevent="deleteWorkspace">
-                    <v-text-field
-                      v-model="deleteWorkspaceId"
-                      label="워크스페이스 ID"
-                      required
-                      class="mb-3"
-                    ></v-text-field>
-                    <v-btn type="submit" :loading="loading.delete" color="error">
-                      워크스페이스 삭제
-                    </v-btn>
-                  </v-form>
+                  <v-text-field
+                    v-model="deleteWorkspaceId"
+                    label="워크스페이스 ID"
+                    required
+                    class="mb-3"
+                  ></v-text-field>
+                  <v-btn @click="openDeleteModal" color="error">
+                    워크스페이스 삭제
+                  </v-btn>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -263,13 +261,25 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <!-- 워크스페이스 삭제 모달 -->
+    <DeleteWorkspaceModal
+      v-model="showDeleteModal"
+      :workspace-name="selectedWorkspaceForDelete?.workspaceName || ''"
+      :workspace-id="selectedWorkspaceForDelete?.workspaceId || deleteWorkspaceId"
+      @confirm-delete="confirmDeleteWorkspace"
+    />
   </v-container>
 </template>
 
 <script>
 import axios from 'axios';
+import DeleteWorkspaceModal from './DeleteWorkspaceModal.vue';
 
 export default {
+  components: {
+    DeleteWorkspaceModal
+  },
   name: 'WorkspaceTest',
   data() {
     return {
@@ -352,6 +362,8 @@ export default {
       
       // 워크스페이스 삭제
       deleteWorkspaceId: '',
+      showDeleteModal: false,
+      selectedWorkspaceForDelete: null,
       
       // API 응답
       apiResponse: null
@@ -582,29 +594,83 @@ export default {
       }, 'invite');
     },
     
-    // 워크스페이스 삭제
-    async deleteWorkspace() {
+    // 삭제 모달 열기
+    openDeleteModal() {
       if (!this.deleteWorkspaceId) {
         alert('워크스페이스 ID를 입력해주세요.');
         return;
       }
       
-      if (!confirm('정말로 이 워크스페이스를 삭제하시겠습니까?')) {
-        return;
+      // 입력된 ID로 워크스페이스 정보 찾기
+      const workspace = this.workspaceList.find(w => w.workspaceId === this.deleteWorkspaceId);
+      if (workspace) {
+        this.selectedWorkspaceForDelete = workspace;
+      } else {
+        // 목록에 없는 경우 입력된 ID로 임시 객체 생성
+        this.selectedWorkspaceForDelete = {
+          workspaceId: this.deleteWorkspaceId,
+          workspaceName: '알 수 없는 워크스페이스'
+        };
       }
       
-      await this.apiCall(async () => {
-        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-        const userId = localStorage.getItem('id');
-        
-        const response = await axios.delete(`${baseURL}/workspace-service/workspace/${this.deleteWorkspaceId}`, {
-          headers: {
-            'X-User-Id': userId
+      this.showDeleteModal = true;
+    },
+    
+    // 워크스페이스 삭제 확인
+    async confirmDeleteWorkspace(workspaceData) {
+      try {
+        await this.apiCall(async () => {
+          const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+          const userId = localStorage.getItem('id');
+          
+          const response = await axios.delete(`${baseURL}/workspace-service/workspace/${workspaceData.workspaceId}`, {
+            headers: {
+              'X-User-Id': userId
+            }
+          });
+          
+          // 삭제된 워크스페이스를 현재 워크스페이스에서 제거
+          if (this.currentWorkspace && this.currentWorkspace.workspaceId === workspaceData.workspaceId) {
+            await this.switchToAnotherWorkspace();
           }
-        });
+          
+          // 삭제 후 목록 새로고침
+          await this.getWorkspaceList();
+          this.deleteWorkspaceId = '';
+          
+          return response.data;
+        }, 'delete');
         
-        return response.data;
-      }, 'delete');
+        this.showDeleteModal = false;
+      } catch (error) {
+        console.error('워크스페이스 삭제 실패:', error);
+        this.showDeleteModal = false;
+      }
+    },
+    
+    // 다른 워크스페이스로 자동 이동
+    async switchToAnotherWorkspace() {
+      try {
+        // 워크스페이스 목록 새로고침
+        await this.getWorkspaceList();
+        
+        if (this.workspaceList.length > 0) {
+          // 첫 번째 워크스페이스로 이동
+          const newWorkspace = this.workspaceList[0];
+          this.selectWorkspace(newWorkspace);
+          
+          console.log(`삭제된 워크스페이스에서 "${newWorkspace.workspaceName}"으로 자동 이동`);
+        } else {
+          // 워크스페이스가 없는 경우
+          this.currentWorkspace = null;
+          localStorage.removeItem('currentWorkspace');
+          console.log('사용 가능한 워크스페이스가 없습니다.');
+        }
+      } catch (error) {
+        console.error('워크스페이스 전환 실패:', error);
+        this.currentWorkspace = null;
+        localStorage.removeItem('currentWorkspace');
+      }
     }
   }
 };

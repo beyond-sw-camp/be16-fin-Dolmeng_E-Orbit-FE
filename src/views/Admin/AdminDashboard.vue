@@ -213,7 +213,7 @@
         
         <!-- 삭제 버튼 -->
         <div class="workspace-actions">
-          <button class="action-btn delete-btn">삭제</button>
+          <button class="action-btn delete-btn" @click="openDeleteWorkspaceModal">삭제</button>
         </div>
       </div>
     </div>
@@ -251,6 +251,14 @@
         </div>
       </div>
     </div>
+    
+    <!-- 워크스페이스 삭제 모달 -->
+    <DeleteWorkspaceModal
+      v-model="showDeleteWorkspaceModal"
+      :workspace-name="workspaceDetail.workspaceName"
+      :workspace-id="workspaceDetail.workspaceId"
+      @confirm-delete="confirmDeleteWorkspace"
+    />
   </div>
 </template>
 
@@ -259,12 +267,14 @@ import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { workspaceWatcher } from '@/mixins/workspaceWatcher';
 import MemberManagement from './MemberManagement.vue';
+import DeleteWorkspaceModal from '../Workspace/DeleteWorkspaceModal.vue';
 
 export default {
   name: "AdminDashboard",
   mixins: [workspaceWatcher],
   components: {
-    MemberManagement
+    MemberManagement,
+    DeleteWorkspaceModal
   },
   data() {
     return {
@@ -294,7 +304,8 @@ export default {
       },
       loading: false,
       showWorkspaceNameModal: false,
-      newWorkspaceName: ''
+      newWorkspaceName: '',
+      showDeleteWorkspaceModal: false
     };
   },
   setup() {
@@ -636,6 +647,76 @@ export default {
       } catch (error) {
         console.error('워크스페이스명 변경 실패:', error);
         alert('워크스페이스명 변경 중 오류가 발생했습니다.');
+      }
+    },
+    
+    // 삭제 모달 열기
+    openDeleteWorkspaceModal() {
+      if (!this.workspaceDetail.workspaceId) {
+        alert('워크스페이스 정보를 불러올 수 없습니다.');
+        return;
+      }
+      this.showDeleteWorkspaceModal = true;
+    },
+    
+    // 워크스페이스 삭제 확인
+    async confirmDeleteWorkspace(workspaceData) {
+      try {
+        const token = localStorage.getItem('token');
+        const userId = localStorage.getItem('userId') || localStorage.getItem('id');
+        
+        const response = await axios.delete(
+          `http://localhost:8080/workspace-service/workspace/${workspaceData.workspaceId}`,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          // 삭제된 워크스페이스를 현재 워크스페이스에서 제거
+          if (this.workspaceStore.getCurrentWorkspaceId === workspaceData.workspaceId) {
+            // 다른 워크스페이스로 자동 이동
+            await this.switchToAnotherWorkspace();
+          }
+          
+          alert('워크스페이스가 성공적으로 삭제되었습니다.');
+        }
+      } catch (error) {
+        console.error('워크스페이스 삭제 실패:', error);
+        alert('워크스페이스 삭제 중 오류가 발생했습니다.');
+      } finally {
+        this.showDeleteWorkspaceModal = false;
+      }
+    },
+    
+    // 다른 워크스페이스로 자동 이동
+    async switchToAnotherWorkspace() {
+      try {
+        // 워크스페이스 목록 새로고침
+        const workspaces = await this.workspaceStore.loadWorkspaces();
+        
+        if (workspaces && workspaces.length > 0) {
+          // 첫 번째 워크스페이스로 이동
+          const newWorkspace = workspaces[0];
+          this.workspaceStore.setCurrentWorkspace(newWorkspace);
+          
+          // 워크스페이스 상세 정보도 새로고침
+          await this.loadWorkspaceDetail();
+          
+          console.log(`삭제된 워크스페이스에서 "${newWorkspace.workspaceName}"으로 자동 이동`);
+        } else {
+          // 워크스페이스가 없는 경우 메인 페이지로 이동
+          this.workspaceStore.setCurrentWorkspace(null);
+          this.$router.push('/');
+        }
+      } catch (error) {
+        console.error('워크스페이스 전환 실패:', error);
+        // 에러 발생 시 메인 페이지로 이동
+        this.workspaceStore.setCurrentWorkspace(null);
+        this.$router.push('/');
       }
     }
   }
