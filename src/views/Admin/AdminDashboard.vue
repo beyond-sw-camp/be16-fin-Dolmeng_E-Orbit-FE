@@ -150,27 +150,67 @@
       <div v-if="activeTab === 'workspace'" class="tab-content">
         <div class="content-header">
           <h1 class="main-title">워크스페이스 관리</h1>
-          <p class="sub-title">워크스페이스를 관리합니다</p>
+          <p class="sub-title">워크스페이스와 관련된 사항을 확인하세요</p>
         </div>
         
-        <div class="admin-cards">
-          <div class="admin-card">
-            <h3>전체 워크스페이스</h3>
-            <p>총 워크스페이스: 45개</p>
-            <p>활성 워크스페이스: 38개</p>
+        <!-- 워크스페이스 정보 카드 -->
+        <div class="workspace-info-card">
+          <div v-if="loading" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>워크스페이스 정보를 불러오는 중...</p>
           </div>
-          
-          <div class="admin-card">
-            <h3>새로운 워크스페이스</h3>
-            <p>이번 주: 3개</p>
-            <p>이번 달: 12개</p>
+          <div v-else class="workspace-details">
+            <div class="detail-row">
+              <div class="detail-item">
+                <label>템플릿 종류</label>
+                <div class="detail-value">{{ workspaceDetail.workspaceTemplates || 'Enterprise' }}</div>
+              </div>
+              <div class="detail-item">
+                <label>워크스페이스명</label>
+                <div class="detail-value">{{ workspaceDetail.workspaceName || 'Orbit' }}</div>
+              </div>
+              <div class="detail-item">
+                <label>생성시간</label>
+                <div class="detail-value">{{ formatDate(workspaceDetail.createdAt) || '2024년 1월 15일' }}</div>
+              </div>
+            </div>
+            
+            <div class="detail-row">
+              <div class="detail-item">
+                <label>프로젝트</label>
+                <div class="detail-value">{{ workspaceStats.projects || 0 }}개</div>
+              </div>
+              <div class="detail-item">
+                <label>스톤</label>
+                <div class="detail-value">{{ workspaceStats.stones || 0 }}개</div>
+              </div>
+              <div class="detail-item">
+                <label>task</label>
+                <div class="detail-value">{{ workspaceStats.tasks || 0 }}개</div>
+              </div>
+              <div class="detail-item">
+                <label>구성원 수</label>
+                <div class="detail-value">{{ workspaceDetail.memberCount || 0 }}명</div>
+              </div>
+            </div>
+            
+            <!-- 사용량 통계 -->
+            <div class="usage-stats">
+              <h4 class="stats-title">사용량 통계</h4>
+              
+              <div class="storage-info">
+                <div class="storage-label">스토리지: {{ formatStorage(workspaceDetail.currentStorage) }} / {{ formatStorage(workspaceDetail.maxStorage) }}</div>
+                <div class="storage-bar">
+                  <div class="storage-progress" :style="{ width: getStoragePercentage() + '%' }"></div>
+                </div>
+              </div>
+            </div>
           </div>
-          
-          <div class="admin-card">
-            <h3>스토리지 사용량</h3>
-            <p>전체 사용량: 4.8GB</p>
-            <p>사용 가능: 5.2GB</p>
-          </div>
+        </div>
+        
+        <!-- 삭제 버튼 -->
+        <div class="workspace-actions">
+          <button class="action-btn delete-btn">삭제</button>
         </div>
       </div>
     </div>
@@ -194,7 +234,26 @@ export default {
       activeActionMenu: null,
       loading: false,
       currentPage: 0,
-      totalPages: 1
+      totalPages: 1,
+      workspaceStats: {
+        projects: null,
+        stones: null,
+        tasks: null
+      },
+      workspaceDetail: {
+        workspaceId: '',
+        workspaceName: '',
+        workspaceTemplates: '',
+        createdAt: '',
+        subscribe: null,
+        memberCount: 0,
+        currentStorage: 0,
+        maxStorage: 0,
+        projectCount: null,
+        storageCount: null,
+        taskCount: null
+      },
+      loading: false
     };
   },
   setup() {
@@ -241,6 +300,11 @@ export default {
       // 권한 그룹 탭이 활성화되면 데이터 로드
       if (tab === 'permission') {
         this.loadPermissionGroups();
+      }
+      
+      // 워크스페이스 관리 탭이 활성화되면 워크스페이스 상세 정보 로드
+      if (tab === 'workspace') {
+        this.loadWorkspaceDetail();
       }
     },
     
@@ -295,6 +359,54 @@ export default {
       if (this.currentPage < this.totalPages - 1) {
         this.currentPage++;
         await this.loadPermissionGroups();
+      }
+    },
+    
+    async loadWorkspaceDetail() {
+      try {
+        this.loading = true;
+        const token = localStorage.getItem('token');
+        const userId = localStorage.getItem('userId') || 'user123';
+        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || 'ws_2';
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/workspace/${workspaceId}`,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          this.workspaceDetail = response.data.result;
+          
+          // workspaceStats 업데이트
+          this.workspaceStats = {
+            projects: response.data.result.projectCount,
+            stones: response.data.result.storageCount,
+            tasks: response.data.result.taskCount
+          };
+        }
+      } catch (error) {
+        console.error('워크스페이스 상세 조회 실패:', error);
+        // 에러 발생 시 기본값 사용
+        this.workspaceDetail = {
+          workspaceId: 'ws_2',
+          workspaceName: '두번째 워크스페이스',
+          workspaceTemplates: 'PRO',
+          createdAt: '2025-10-21T15:54:09.763586',
+          subscribe: null,
+          memberCount: 1,
+          currentStorage: 0,
+          maxStorage: 53687091200,
+          projectCount: null,
+          storageCount: null,
+          taskCount: null
+        };
+      } finally {
+        this.loading = false;
       }
     },
     
@@ -375,6 +487,27 @@ export default {
           this.activeActionMenu = null;
         }
       }
+    },
+    
+    formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    },
+    
+    formatStorage(bytes) {
+      if (!bytes) return '0GB';
+      const gb = bytes / (1024 * 1024 * 1024);
+      return gb.toFixed(1) + 'GB';
+    },
+    
+    getStoragePercentage() {
+      if (!this.workspaceDetail.maxStorage || this.workspaceDetail.maxStorage === 0) return 0;
+      return Math.round((this.workspaceDetail.currentStorage / this.workspaceDetail.maxStorage) * 100);
     }
   }
 };
@@ -809,6 +942,176 @@ export default {
   font-weight: bold;
 }
 
+/* 워크스페이스 관리 관련 스타일 */
+.workspace-info-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+
+.workspace-details {
+  margin-bottom: 25px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.detail-item {
+  flex: 1;
+  min-width: 150px;
+}
+
+.detail-item label {
+  display: block;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 21px;
+  color: #666666;
+  margin-bottom: 8px;
+}
+
+.detail-value {
+  background: #F8F9FA;
+  border: 1px solid #E9ECEF;
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 19px;
+  color: #1C0F0F;
+  min-height: 19px;
+}
+
+
+.workspace-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  margin-left: auto;
+  width: fit-content;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.change-btn {
+  background: #FFE364;
+  color: #1C0F0F;
+}
+
+.change-btn:hover {
+  background: #FFDD44;
+}
+
+.delete-btn {
+  background: #FFE364;
+  color: #1C0F0F;
+  font-size: 16px;
+  line-height: 19px;
+  padding: 12px 20px;
+}
+
+.delete-btn:hover {
+  background: #FFDD44;
+}
+
+
+.usage-stats {
+  margin-top: 20px;
+  padding: 15px;
+}
+
+.stats-title {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 19px;
+  color: #1C0F0F;
+  margin: 0 0 15px 0;
+}
+
+.storage-info {
+  margin-bottom: 20px;
+}
+
+.storage-label {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #666666;
+  margin-bottom: 8px;
+}
+
+.storage-bar {
+  width: 100%;
+  height: 6px;
+  background: #E9ECEF;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.storage-progress {
+  height: 100%;
+  background: #FFDD44;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+
+@media (max-width: 768px) {
+  .detail-row {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .detail-item {
+    min-width: auto;
+  }
+  
+  /* 4개 항목이 한 줄에 들어가는 경우를 위한 조정 */
+  .detail-row:last-child {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  
+  .workspace-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .action-btn {
+    text-align: center;
+  }
+  
+  @media (max-width: 600px) {
+    .detail-row:last-child {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
 @media (max-width: 480px) {
   .permission-group-card {
     margin-bottom: 6px;
@@ -827,5 +1130,43 @@ export default {
     font-size: 12px;
     line-height: 15px;
   }
+  
+  .workspace-info-card {
+    padding: 20px;
+  }
+}
+
+/* 로딩 스타일 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #FFDD44;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #666666;
+  margin: 0;
 }
 </style>
