@@ -1019,6 +1019,30 @@ const handleIncomingMessage = (message) => {
         editor.value.view.dispatch(editor.value.state.tr);
       }
     }
+  } else if (message.messageType === 'LEAVE') {
+    const leavingUserId = message.senderId;
+    let changed = false;
+
+    // 떠난 사용자가 잠근 라인을 모두 해제합니다.
+    for (const [lineId, userId] of lockedLines.value.entries()) {
+      if (userId === leavingUserId) {
+        lockedLines.value.delete(lineId);
+        changed = true;
+      }
+    }
+    if (changed) {
+      lockedLines.value = new Map(lockedLines.value);
+      if (editor.value) {
+        editor.value.view.dispatch(editor.value.state.tr);
+      }
+    }
+
+    // 떠난 사용자의 커서 정보를 삭제합니다.
+    if (remoteCursorsMap.value[leavingUserId]) {
+      delete remoteCursorsMap.value[leavingUserId];
+      // Vue의 반응성을 위해 새로운 객체로 할당
+      remoteCursorsMap.value = { ...remoteCursorsMap.value };
+    }
   } else if (message.messageType === 'LOCK_DENIED') {
       // (Optional) Handle lock denial, e.g., show a temporary visual cue
       // For now, we do nothing, the line simply won't appear locked for the user.

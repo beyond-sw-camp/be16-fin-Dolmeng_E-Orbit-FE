@@ -143,6 +143,7 @@ export const disconnectStomp = (documentId, userId) => {
       client.publish({
         destination: '/publish/editor/leave',
         body: JSON.stringify({
+          messageType: 'LEAVE',
           documentId: documentId,
           senderId: userId,
         }),
