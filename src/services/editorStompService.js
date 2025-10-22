@@ -70,6 +70,7 @@ export const connectStomp = (documentId, userId, onMessageCallback, onConnectCal
     sendStompMessage({
       destination: '/publish/editor/join',
       body: {
+        messageType: 'JOIN',
         documentId: documentId,
         senderId: userId,
       }

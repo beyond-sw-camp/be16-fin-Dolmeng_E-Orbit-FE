@@ -48,6 +48,28 @@
           </v-btn>
         </v-btn-toggle>
 
+        <v-spacer></v-spacer>
+
+        <div class="online-users-container">
+          <v-tooltip
+            v-for="onlineUser in onlineUsers"
+            :key="onlineUser.userId"
+            location="bottom"
+          >
+            <template v-slot:activator="{ props }">
+              <v-avatar
+                v-bind="props"
+                :color="onlineUser.color"
+                size="32"
+                class="user-avatar"
+              >
+                <span class="white--text text-h6">{{ onlineUser.userId.charAt(0).toUpperCase() }}</span>
+              </v-avatar>
+            </template>
+            <span>{{ onlineUser.userId }}</span>
+          </v-tooltip>
+        </div>
+
       </v-toolbar>
 
       <v-card-text>
@@ -94,6 +116,7 @@ import { DOMSerializer } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
+import axios from 'axios';
 import { connectStomp, sendStompMessage, disconnectStomp } from '../../services/editorStompService';
 
 function generateUniqueId(userId) {
@@ -311,6 +334,7 @@ const changesQueue = ref([]);
 const typingTimer = ref(null); // 타이핑 감지 타이머
 const currentSelectionIds = ref(new Set()); // 현재 내가 선택한 라인 ID 목록
 const lockedLines = ref(new Map()); // 잠긴 라인 목록 {lineId: userId}
+const onlineUsers = ref([]); // 온라인 사용자 목록
 
 const toggleBold = ref(null);
 const toggleHeading = ref(null);
@@ -320,6 +344,17 @@ const toggleAlign = ref(null);
 const user = {
   name: props.userId,
   color: '#' + Math.floor(Math.random() * 16777215).toString(16),
+};
+
+// --- 유틸리티 함수 ---
+const userColors = {};
+const availableColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#F7D842', '#8A63D2', '#F29E4C'];
+
+const getUserColor = (userId) => {
+  if (!userColors[userId]) {
+    userColors[userId] = availableColors[Object.keys(userColors).length % availableColors.length];
+  }
+  return userColors[userId];
 };
 
 const connectionStatusType = computed(() => {
@@ -492,6 +527,22 @@ const remoteSelectionHighlights = computed(() => {
   return highlights;
 });
 
+// 온라인 사용자 목록 가져오기
+const fetchOnlineUsers = async () => {
+  try {
+    const response = await axios.get(`http://localhost:8080/drive-service/documentLine/document/${props.documentId}/online-users`);
+    if (response.data && response.data.result) {
+      onlineUsers.value = response.data.result.map(user => ({
+        userId: user.userId,
+        color: getUserColor(user.userId)
+      }));
+    }
+  } catch (error) {
+    console.error('온라인 사용자 목록을 가져오는 데 실패했습니다:', error);
+  }
+};
+
+
 const sendBatchChanges = () => {
   if (changesQueue.value.length === 0) {
     return;
@@ -514,7 +565,18 @@ const sendBatchChanges = () => {
 };
 
 // 라이프사이클 훅
-onMounted(() => {
+onMounted(async () => {
+  // 온라인 사용자 목록을 먼저 가져옵니다.
+  await fetchOnlineUsers();
+
+  // 자기 자신을 온라인 사용자 목록에 추가합니다.
+  if (!onlineUsers.value.some(u => u.userId === user.name)) {
+    onlineUsers.value.unshift({
+      userId: user.name,
+      color: getUserColor(user.name)
+    });
+  }
+
   // 전달받은 prop으로 초기 잠금 상태를 설정합니다.
   if (props.initialLockedLines) {
     lockedLines.value = new Map(props.initialLockedLines);
@@ -1019,8 +1081,21 @@ const handleIncomingMessage = (message) => {
         editor.value.view.dispatch(editor.value.state.tr);
       }
     }
+  } else if (message.messageType === 'JOIN') {
+    const joiningUser = {
+      userId: message.senderId,
+      color: getUserColor(message.senderId),
+    };
+    // 중복 추가 방지
+    if (!onlineUsers.value.some(u => u.userId === joiningUser.userId)) {
+      onlineUsers.value.push(joiningUser);
+    }
   } else if (message.messageType === 'LEAVE') {
     const leavingUserId = message.senderId;
+    
+    // 온라인 사용자 목록에서 제거
+    onlineUsers.value = onlineUsers.value.filter(u => u.userId !== leavingUserId);
+
     let changed = false;
 
     // 떠난 사용자가 잠근 라인을 모두 해제합니다.
@@ -1081,6 +1156,25 @@ const handleIncomingMessage = (message) => {
 
 .editor-toolbar {
   border-bottom: 1px solid #e0e0e0;
+  padding: 0 8px;
+}
+
+.online-users-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+}
+
+.user-avatar {
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+}
+
+.user-avatar:hover {
+  transform: scale(1.1);
 }
 
 .v-btn.is-active {
