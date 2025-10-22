@@ -87,12 +87,6 @@ export default {
       permissionName: '',
       permissions: [
         {
-          id: 'invite_user',
-          title: '유저 초대',
-          description: '새로운 멤버를 워크스페이스에 초대할 수 있는 권한을 허용합니다.',
-          enabled: false
-        },
-        {
           id: 'project_create',
           title: '프로젝트 생성',
           description: '새로운 프로젝트를 생성할 수 있는 권한을 허용합니다.',
@@ -102,12 +96,6 @@ export default {
           id: 'stone_create',
           title: '스톤 생성',
           description: '새로운 스톤을 생성할 수 있는 권한을 허용합니다.',
-          enabled: false
-        },
-        {
-          id: 'user_group_create',
-          title: '사용자 그룹 생성',
-          description: '새로운 사용자 그룹을 생성할 수 있는 권한을 허용합니다.',
           enabled: false
         },
         {
@@ -155,13 +143,11 @@ export default {
         const userId = localStorage.getItem('userId') || 'user123';
         const workspaceId = this.workspaceStore.getCurrentWorkspaceId || 'ws_1';
         
-        // AccessType 순서에 맞춰 권한 배열 생성
-        // AccessType.values() 순서: INVITE_USER, PROJECT_CREATE, STONE_CREATE, USER_GROUP_CREATE, PROJECT_FILE_VIEW, STONE_FILE_VIEW, WORKSPACE_FILE_VIEW
+        // 5개 권한으로 변경된 순서에 맞춰 권한 배열 생성
+        // 순서: PROJECT_CREATE, STONE_CREATE, PROJECT_FILE_VIEW, STONE_FILE_VIEW, WORKSPACE_FILE_VIEW
         const accessList = [
-          this.permissions.find(p => p.id === 'invite_user')?.enabled || false,
           this.permissions.find(p => p.id === 'project_create')?.enabled || false,
           this.permissions.find(p => p.id === 'stone_create')?.enabled || false,
-          this.permissions.find(p => p.id === 'user_group_create')?.enabled || false,
           this.permissions.find(p => p.id === 'project_file_view')?.enabled || false,
           this.permissions.find(p => p.id === 'stone_file_view')?.enabled || false,
           this.permissions.find(p => p.id === 'workspace_file_view')?.enabled || false
