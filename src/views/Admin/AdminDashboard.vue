@@ -88,20 +88,27 @@
       <!-- 사용자 그룹 -->
       <div v-if="activeTab === 'user'" class="tab-content">
         <div class="content-header">
-          <h1 class="main-title">사용자 그룹</h1>
-          <p class="sub-title">사용자 그룹을 관리하고 멤버를 조회할 수 있습니다.</p>
+          <div class="header-left">
+            <h1 class="main-title">사용자 그룹</h1>
+            <p class="sub-title">사용자 그룹을 관리하고 멤버를 조회할 수 있습니다.</p>
+          </div>
         </div>
         
         <!-- 검색 바 -->
         <div class="search-bar">
-          <input 
-            type="text" 
-            placeholder="그룹명으로 검색" 
-            class="group-search-input"
-            v-model="groupSearchQuery"
-            @input="filterUserGroups"
-          />
-          <span class="search-icon">🔍</span>
+          <div class="search-group">
+            <input 
+              type="text" 
+              placeholder="그룹명으로 검색" 
+              class="group-search-input"
+              v-model="groupSearchQuery"
+              @keyup.enter="filterUserGroups"
+            />
+            <button class="search-btn" @click="filterUserGroups">검색</button>
+          </div>
+          <button class="create-group-btn" @click="createUserGroup">
+            그룹 생성
+          </button>
         </div>
 
         <!-- 사용자 그룹 목록 -->
@@ -288,6 +295,7 @@
       :workspace-id="workspaceDetail.workspaceId"
       @confirm-delete="confirmDeleteWorkspace"
     />
+    
   </div>
 </template>
 
@@ -339,7 +347,8 @@ export default {
       // 사용자 그룹 관련 데이터
       groupSearchQuery: '',
       userGroups: [],
-      filteredUserGroups: []
+      filteredUserGroups: [],
+      
     };
   },
   setup() {
@@ -847,12 +856,53 @@ export default {
       }
     },
     
-    // 사용자 그룹 필터링
-    filterUserGroups() {
-      const query = this.groupSearchQuery.toLowerCase();
-      this.filteredUserGroups = this.userGroups.filter(group => 
-        group.name.toLowerCase().includes(query)
-      );
+    // 사용자 그룹 검색 (API 호출)
+    async filterUserGroups() {
+      if (!this.groupSearchQuery.trim()) {
+        // 검색어가 비어있으면 전체 목록 로드
+        await this.loadUserGroups();
+        return;
+      }
+
+      try {
+        this.loading = true;
+        const token = localStorage.getItem('token');
+        const userId = localStorage.getItem('userId') || localStorage.getItem('id');
+        const workspaceId = this.workspaceStore.getCurrentWorkspaceId || 'ws_1';
+        
+        const response = await axios.post(
+          'http://localhost:8080/workspace-service/groups/search',
+          {
+            workspaceId: workspaceId,
+            groupName: this.groupSearchQuery.trim()
+          },
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          // API 응답 데이터를 컴포넌트 형식으로 변환
+          this.userGroups = response.data.result.content.map(group => ({
+            id: group.userGroupName, // 임시로 userGroupName을 id로 사용
+            name: group.userGroupName,
+            createdAt: group.createdAt.split('T')[0], // 날짜만 추출
+            memberCount: group.userGroupParticipantsCount
+          }));
+          
+          this.filteredUserGroups = [...this.userGroups];
+        }
+      } catch (error) {
+        console.error('사용자 그룹 검색 실패:', error);
+        // 검색 실패 시 전체 목록으로 폴백
+        await this.loadUserGroups();
+      } finally {
+        this.loading = false;
+      }
     },
     
     // 사용자 그룹 수정
@@ -957,6 +1007,11 @@ export default {
         console.error('사용자 그룹 상세 조회 실패:', error);
         alert('그룹 상세 정보를 불러올 수 없습니다.');
       }
+    },
+    
+    // 사용자 그룹 생성
+    createUserGroup() {
+      this.$router.push('/admin/create-group');
     }
   }
 };
@@ -1695,6 +1750,7 @@ export default {
   z-index: 1000;
 }
 
+
 .modal-content {
   background: #FFFFFF;
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -1838,13 +1894,45 @@ export default {
 }
 
 /* 사용자 그룹 관련 스타일 */
+.content-header {
+  margin-bottom: 20px;
+}
+
 .search-bar {
-  position: relative;
+  display: flex;
+  gap: 10px;
   margin-bottom: 30px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.search-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.create-group-btn {
+  height: 42px;
+  padding: 0 20px;
+  background: #FFE364;
+  border: none;
+  border-radius: 4px;
+  color: #1C0F0F;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Pretendard', sans-serif;
+}
+
+.create-group-btn:hover {
+  background: #FFDD44;
+  transform: translateY(-1px);
 }
 
 .group-search-input {
-  width: 100%;
+  width: 300px;
   height: 42px;
   padding: 0 17px;
   border: 1px solid #DDDDDD;
@@ -1860,13 +1948,22 @@ export default {
   color: #757575;
 }
 
-.search-icon {
-  position: absolute;
-  right: 17px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #888888;
-  font-size: 16px;
+.search-btn {
+  height: 42px;
+  padding: 0 20px;
+  background: #FFE364;
+  border: none;
+  border-radius: 4px;
+  color: #1C0F0F;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Pretendard', sans-serif;
+}
+
+.search-btn:hover {
+  background: #FFDD44;
 }
 
 .user-groups-list {
@@ -1943,7 +2040,7 @@ export default {
 }
 
 .action-btn {
-  padding: 6px 12px;
+  padding: 6px 8px;
   border: 1px solid #DDDDDD;
   border-radius: 4px;
   background: #F5F5F5;
@@ -1952,6 +2049,13 @@ export default {
   cursor: pointer;
   transition: all 0.2s;
   font-family: 'Pretendard', sans-serif;
+  width: 50px;
+  height: 28px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .action-btn:hover {
