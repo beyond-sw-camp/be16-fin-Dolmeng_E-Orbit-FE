@@ -9,7 +9,9 @@ export const useWorkspaceStore = defineStore('workspace', {
   getters: {
     getCurrentWorkspace: (state) => state.currentWorkspace,
     getWorkspaces: (state) => state.workspaces,
-    getCurrentWorkspaceId: (state) => state.currentWorkspace?.workspaceId || null
+    getCurrentWorkspaceId: (state) => state.currentWorkspace?.workspaceId || null,
+    getCurrentWorkspaceType: (state) => state.currentWorkspace?.workspaceTemplates || 'PERSONAL',
+    isPersonalWorkspace: (state) => (state.currentWorkspace?.workspaceTemplates || 'PERSONAL') === 'PERSONAL'
   },
   
   actions: {
@@ -22,10 +24,12 @@ export const useWorkspaceStore = defineStore('workspace', {
         localStorage.setItem('selectedWorkspaceId', workspace.workspaceId);
         localStorage.setItem('selectedWorkspaceName', workspace.workspaceName);
         localStorage.setItem('selectedWorkspaceRole', workspace.role);
+        localStorage.setItem('selectedWorkspaceType', workspace.workspaceTemplates || 'PERSONAL');
       } else {
         localStorage.removeItem('selectedWorkspaceId');
         localStorage.removeItem('selectedWorkspaceName');
         localStorage.removeItem('selectedWorkspaceRole');
+        localStorage.removeItem('selectedWorkspaceType');
       }
       
       // 워크스페이스가 실제로 변경된 경우에만 이벤트 발생
@@ -69,12 +73,14 @@ export const useWorkspaceStore = defineStore('workspace', {
       const workspaceId = localStorage.getItem('selectedWorkspaceId');
       const workspaceName = localStorage.getItem('selectedWorkspaceName');
       const workspaceRole = localStorage.getItem('selectedWorkspaceRole');
+      const workspaceType = localStorage.getItem('selectedWorkspaceType');
       
       if (workspaceId && workspaceName) {
         this.currentWorkspace = {
           workspaceId,
           workspaceName,
-          role: workspaceRole
+          role: workspaceRole,
+          workspaceTemplates: workspaceType || 'PERSONAL'
         };
       }
     },

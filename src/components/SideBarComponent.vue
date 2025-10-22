@@ -71,8 +71,8 @@
         <div class="dropdown-arrow">▼</div>
       </div>
       
-      <!-- 관리자 페이지 (관리자 권한이 있을 때만 표시) -->
-      <div v-if="isAdmin" class="nav-item admin-nav-item" :class="{ active: currentRoute === '/admin' }" @click="navigateToAdmin">
+      <!-- 관리자 페이지 (관리자 권한이 있고 PERSONAL 워크스페이스가 아닐 때만 표시) -->
+      <div v-if="isAdmin && !isPersonalWorkspace" class="nav-item admin-nav-item" :class="{ active: currentRoute === '/admin' }" @click="navigateToAdmin">
         <img src="@/assets/icons/sidebar/admin.svg" alt="관리자 페이지" class="nav-icon" />
         <div class="nav-text">관리자 페이지</div>
       </div>
@@ -129,6 +129,16 @@ export default {
       // 스토어의 현재 워크스페이스에서 role 확인 (반응형)
       const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
       return currentWorkspace && currentWorkspace.role === 'ADMIN';
+    },
+    isPersonalWorkspace() {
+      const isPersonal = this.workspaceStore.isPersonalWorkspace;
+      const workspaceType = this.workspaceStore.getCurrentWorkspaceType;
+      console.log('워크스페이스 타입 체크:', { 
+        workspaceType, 
+        isPersonal, 
+        currentWorkspace: this.workspaceStore.getCurrentWorkspace 
+      });
+      return isPersonal;
     }
   },
   async mounted() {
@@ -166,6 +176,7 @@ export default {
         
         
         if (response.data.statusCode === 200) {
+          console.log('워크스페이스 목록 로드:', response.data.result);
           this.workspaceStore.setWorkspaces(response.data.result);
           
           // API에서 워크스페이스가 있으면 사용, 없으면 기본 워크스페이스 사용
@@ -217,12 +228,8 @@ export default {
       
       // 다른 워크스페이스로 변경될 때만 라우팅
       if (isDifferentWorkspace) {
-        // 관리자 권한이 있으면 관리자 페이지로, 없으면 홈으로
-        if (workspace.role === 'ADMIN') {
-          this.$router.push('/admin');
-        } else {
-          this.$router.push('/');
-        }
+        // 워크스페이스 변경 시 항상 홈으로 라우팅
+        this.$router.push('/');
       }
     },
     

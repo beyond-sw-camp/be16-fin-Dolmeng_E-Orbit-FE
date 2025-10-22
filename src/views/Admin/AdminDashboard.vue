@@ -347,6 +347,13 @@ export default {
     return { workspaceStore };
   },
   async mounted() {
+    // PERSONAL 워크스페이스인 경우 접근 차단
+    if (this.workspaceStore.isPersonalWorkspace) {
+      alert('개인 워크스페이스에서는 관리자 페이지에 접근할 수 없습니다.');
+      this.$router.push('/');
+      return;
+    }
+    
     if (this.activeTab === 'permission') {
       await this.loadPermissionGroups();
     }
