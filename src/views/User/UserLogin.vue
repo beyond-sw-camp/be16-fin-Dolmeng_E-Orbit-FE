@@ -27,7 +27,7 @@
 
                     <div class="row-between">
                       <label class="keep-login-label">
-                        <input type="checkbox" class="keep-login-checkbox" />
+                        <input type="checkbox" class="keep-login-checkbox" v-model="rememberMe" />
                         <span>로그인 상태 유지</span>
                       </label>
                       <router-link to="/forgot-password" class="text-link">비밀번호 찾기</router-link>
@@ -84,6 +84,7 @@ export default {
     return {
       email: "",
       password: "",
+      rememberMe: false,
       isLoading: false,
       kakaoUrl: "https://kauth.kakao.com/oauth/authorize",
       kakaoClientId: "f04e0b2f9773e2e421e24a448dc478a0",
@@ -107,6 +108,7 @@ export default {
         const { data } = await axios.post(`${baseURL}/user-service/user/auth/login`, {
           email: this.email,
           password: this.password,
+          rememberMe: this.rememberMe,
         }, { headers: { 'Content-Type': 'application/json' }});
         const accessToken = data?.result?.accessToken;
         const refreshToken = data?.result?.refreshToken;
