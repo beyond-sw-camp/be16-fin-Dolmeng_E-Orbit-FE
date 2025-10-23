@@ -76,6 +76,7 @@
 <script>
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import { showSnackbar } from '../../services/snackbar.js';
 
 export default {
   name: "UserCreate_InputEmail",
@@ -98,11 +99,11 @@ export default {
   methods: {
     async handleLogin() {
       if (!this.email) {
-        alert('이메일을 입력하세요.');
+        showSnackbar('이메일을 입력하세요.', { color: 'error' });
         return;
       }
       if (!this.agreeTerms || !this.agreePrivacy) {
-        alert('이용약관과 개인정보 보호 정책에 모두 동의해 주세요.');
+        showSnackbar('이용약관과 개인정보 보호 정책에 모두 동의해 주세요.', { color: 'error' });
         return;
       }
       try {
@@ -115,7 +116,7 @@ export default {
         const data = error?.response?.data;
         const message = data?.statusMessage || data?.message || error?.message || '요청 처리 중 오류가 발생했습니다.';
         console.error('회원가입 이메일 전송 실패:', error);
-        alert(message);
+        showSnackbar(message, { color: 'error' });
       } finally {
         this.isLoading = false;
       }

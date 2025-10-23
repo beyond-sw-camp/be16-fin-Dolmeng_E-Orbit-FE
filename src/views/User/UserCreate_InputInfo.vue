@@ -95,6 +95,7 @@
 
 <script>
 import axios from 'axios';
+import { showSnackbar } from '../../services/snackbar.js';
 
 export default {
   name: "UserCreate_InputInfo",
@@ -116,6 +117,9 @@ export default {
     if (qEmail) this.email = qEmail;
   },
   computed: {
+    userInfoReady() {
+      return (this.name || '').trim().length > 0 && (this.phone || '').trim().length > 0;
+    },
     ruleResults() {
       const pw = this.password || "";
       const notEmpty = pw.length > 0;
@@ -126,6 +130,7 @@ export default {
       return { notEmpty, hasDigit, longEnough, hasSpecial, noSpaces };
     },
     satisfiedCount() {
+      if (!this.userInfoReady) return 0;
       return Object.values(this.ruleResults).filter(Boolean).length;
     },
     unmetMessages() {
@@ -138,6 +143,7 @@ export default {
       return messages;
     },
     nextUnmetMessage() {
+      if (!this.userInfoReady) return '이름과 전화번호를 입력해 주세요';
       return this.unmetMessages[0] || '';
     },
   },
@@ -168,11 +174,11 @@ export default {
     },
     async handleSubmit() {
       if (!this.name || !this.phone || !this.password) {
-        alert('이름, 전화번호, 비밀번호를 입력하세요.');
+        showSnackbar('이름, 전화번호, 비밀번호를 입력하세요.', { color: 'error' });
         return;
       }
       if (this.satisfiedCount < 5) {
-        alert('비밀번호 조건을 모두 충족해 주세요.');
+        showSnackbar('비밀번호 조건을 모두 충족해 주세요.', { color: 'error' });
         return;
       }
       try {
@@ -188,12 +194,12 @@ export default {
         }
         const { data } = await axios.post(`${baseURL}/user-service/user/new-user`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
         console.log('회원가입 완료 결과:', data);
-        alert('가입이 완료되었습니다.');
+        showSnackbar('가입이 완료되었습니다.', { color: 'success' });
         this.$router.push('/login');
       } catch (error) {
         const resp = error?.response?.data;
         const message = resp?.statusMessage || resp?.message || error?.message || '요청 처리 중 오류가 발생했습니다.';
-        alert(message);
+        showSnackbar(message, { color: 'error' });
       } finally {
         this.isLoading = false;
       }

@@ -64,6 +64,7 @@
 
 <script>
 import axios from 'axios';
+import { showSnackbar } from '../../services/snackbar.js';
 
 export default {
   name: "UserCreate_ValidateEmail",
@@ -158,12 +159,12 @@ export default {
     },
     async handleLogin() {
       if (!this.email) {
-        alert('이메일을 확인하세요.');
+        showSnackbar('이메일을 확인하세요.', { color: 'error' });
         return;
       }
       const code = (this.codeDigits || []).join('');
       if (!code || code.length !== 6 || /\D/.test(code)) {
-        alert('6자리 인증 코드를 정확히 입력하세요.');
+        showSnackbar('6자리 인증 코드를 정확히 입력하세요.', { color: 'error' });
         return;
       }
       try {
@@ -172,19 +173,20 @@ export default {
         const payload = { email: this.email, authCode: code };
         const response = await axios.post(`${baseURL}/user-service/user/authcode`, payload, { headers: { 'Content-Type': 'application/json' } });
         console.log('인증 코드 검증 결과:', response.data);
+        showSnackbar('인증 코드가 확인되었습니다.', { color: 'success' });
         this.$router.push({ path: '/new-user/input-info', query: { email: this.email } });
       } catch (error) {
         const data = error?.response?.data;
         const message = data?.statusMessage || data?.message || error?.message || '요청 처리 중 오류가 발생했습니다.';
         console.error('인증 코드 검증 실패:', error);
-        alert(message);
+        showSnackbar(message, { color: 'error' });
       } finally {
         this.isLoading = false;
       }
     },
     async resendEmail() {
       if (!this.email) {
-        alert('이메일을 확인하세요.');
+        showSnackbar('이메일을 확인하세요.', { color: 'error' });
         return;
       }
       try {
@@ -193,13 +195,13 @@ export default {
         const payload = { email: this.email };
         const response = await axios.post(`${baseURL}/user-service/user/email`, payload, { headers: { 'Content-Type': 'application/json' } });
         console.log('이메일 재전송 결과:', response.data);
-        alert('이메일을 다시 보냈습니다.');
+        showSnackbar('이메일을 다시 보냈습니다.', { color: 'success' });
         this.startTimer();
       } catch (error) {
         const data = error?.response?.data;
         const message = data?.statusMessage || data?.message || error?.message || '요청 처리 중 오류가 발생했습니다.';
         console.error('이메일 재전송 실패:', error);
-        alert(message);
+        showSnackbar(message, { color: 'error' });
       } finally {
         this.isLoading = false;
       }
