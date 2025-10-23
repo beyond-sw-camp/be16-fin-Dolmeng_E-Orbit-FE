@@ -98,6 +98,57 @@
           </v-menu>
         </v-btn-toggle>
 
+        <v-divider vertical class="mx-2"></v-divider>
+
+        <!-- 폰트 사이즈 선택 -->
+        <v-menu>
+          <template v-slot:activator="{ props }">
+            <v-btn v-bind="props" variant="outlined">
+              <v-icon>mdi-format-size</v-icon>
+              <span class="ml-1">{{ getCurrentFontSize() }}</span>
+            </v-btn>
+          </template>
+          <v-card>
+            <v-card-text>
+              <div class="font-size-picker">
+                <h4>폰트 사이즈</h4>
+                <div class="font-size-options">
+                  <v-btn
+                    v-for="size in fontSizes"
+                    :key="size"
+                    :variant="editor.getAttributes('textStyle').fontSize === size ? 'flat' : 'outlined'"
+                    size="small"
+                    @click="setFontSize(size)"
+                    class="font-size-btn"
+                  >
+                    {{ size }}
+                  </v-btn>
+                </div>
+                <v-btn 
+                  variant="outlined" 
+                  size="small" 
+                  @click="clearFontSize"
+                  class="mt-2"
+                >
+                  기본 크기
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-menu>
+
+        <v-divider vertical class="mx-2"></v-divider>
+
+        <!-- 기타 스타일 버튼들 -->
+        <v-btn-toggle v-model="toggleStyles" variant="outlined" divided>
+          <v-btn @click="editor.chain().focus().toggleUnderline().run()" :class="{ 'is-active': editor.isActive('underline') }">
+            <v-icon>mdi-format-underline</v-icon>
+          </v-btn>
+          <v-btn @click="editor.chain().focus().toggleStrike().run()" :class="{ 'is-active': editor.isActive('strike') }">
+            <v-icon>mdi-format-strikethrough</v-icon>
+          </v-btn>
+        </v-btn-toggle>
+
         <v-spacer></v-spacer>
 
         <div class="online-users-container">
@@ -169,6 +220,8 @@ import TextAlign from '@tiptap/extension-text-align';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
+import Underline from '@tiptap/extension-underline';
+import FontFamily from '@tiptap/extension-font-family';
 import axios from 'axios';
 import { connectStomp, sendStompMessage, disconnectStomp } from '../../services/editorStompService';
 
@@ -178,6 +231,33 @@ function generateUniqueId(userId) {
   // 사용자 ID, 타임스탬프, 랜덤 문자열을 조합하여 고유성을 크게 높임
   return `line-${userId}-${timestamp}-${randomPart}`;
 }
+
+// 폰트 사이즈 확장
+const FontSizeExtension = Extension.create({
+  name: 'fontSize',
+  
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['textStyle'],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => element.style.fontSize?.replace('px', ''),
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}px`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+});
 
 const UniqueIdExtension = Extension.create({
   name: 'uniqueId',
@@ -399,6 +479,7 @@ const toggleBold = ref(null);
 const toggleHeading = ref(null);
 const toggleAlign = ref(null);
 const toggleColor = ref(null);
+const toggleStyles = ref(null);
 
 // 색상 옵션들
 const textColors = [
@@ -410,6 +491,9 @@ const backgroundColors = [
   '#FFFFFF', '#FFFF00', '#FFA500', '#FF0000', '#00FF00', '#0000FF', '#800080',
   '#FFC0CB', '#A52A2A', '#808080', '#000000', '#F0F0F0', '#E6E6FA', '#FFE4E1'
 ];
+
+// 폰트 사이즈 옵션들
+const fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
 
 
 const user = {
@@ -654,6 +738,25 @@ const clearColors = () => {
   }
 };
 
+// 폰트 사이즈 관련 함수들
+const getCurrentFontSize = () => {
+  if (!editor.value) return '16';
+  const fontSize = editor.value.getAttributes('textStyle').fontSize;
+  return fontSize || '16';
+};
+
+const setFontSize = (size) => {
+  if (editor.value) {
+    editor.value.chain().focus().setMark('textStyle', { fontSize: size }).run();
+  }
+};
+
+const clearFontSize = () => {
+  if (editor.value) {
+    editor.value.chain().focus().unsetMark('textStyle').run();
+  }
+};
+
 // 라이프사이클 훅
 onMounted(async () => {
   // 온라인 사용자 목록을 먼저 가져옵니다.
@@ -687,6 +790,9 @@ onMounted(async () => {
       Highlight.configure({
         multicolor: true,
       }),
+      Underline,
+      FontFamily,
+      FontSizeExtension,
       LineLockingExtension,
     ],
     content: props.initialContent || '<p></p>', // 초기 콘텐츠가 비어있을 경우를 대비
@@ -1369,5 +1475,27 @@ const handleIncomingMessage = (message) => {
 
 .ProseMirror .locked-line {
   pointer-events: none;
+}
+
+/* 폰트 사이즈 선택기 스타일 */
+.font-size-picker {
+  min-width: 200px;
+}
+
+.font-size-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.font-size-btn {
+  min-width: 40px;
+  height: 32px;
+}
+
+/* 인라인 스타일 버튼들 */
+.v-btn.is-active {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 </style>
