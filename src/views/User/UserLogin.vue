@@ -39,7 +39,7 @@
 
                   <div class="signup">
                     <span class="text">계정이 없으신가요?</span>
-                    <router-link to="/signup" class="text-link">회원가입</router-link>
+                    <router-link to="/new-user/input-email" class="text-link">회원가입</router-link>
                   </div>
                   </div>
                 </div>
