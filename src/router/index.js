@@ -4,6 +4,7 @@ import { mainRouter } from './MainRouter';
 import { userRouter } from './UserRouter';
 import { chatRouter } from './ChatRouter';
 import { documentRouter } from './DocumentRouter';
+import { chatBotRouter } from './ChatBotRouter';
 
 const routes = [
     ...homeRouter,
@@ -11,6 +12,7 @@ const routes = [
     ...userRouter,
     ...chatRouter,
     ...documentRouter,
+    ...chatBotRouter,
 ];
 
 const router = createRouter({
