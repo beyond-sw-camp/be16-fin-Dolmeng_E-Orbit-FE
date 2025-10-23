@@ -165,7 +165,11 @@ export default {
 .helper { color: #DEDEDE; font-weight: 700; font-size: 16px; text-align: center; margin-bottom: 16px; }
 .field { margin-bottom: 8px; }
 .label { color: #979797; font-weight: 500; font-size: 14px; margin-bottom: 6px; }
-.text-bg :deep(.v-field) { background: #FFFFFF; border-radius: 15px; }
+.text-bg :deep(.v-field) { background: #FFFFFF; border-radius: 15px; overflow: hidden; }
+.text-bg :deep(.v-field--variant-outlined) { --v-field-border-radius: 15px; }
+.text-bg :deep(.v-field--variant-outlined .v-field__outline) { border-radius: 15px; }
+.text-bg :deep(.v-field--variant-outlined .v-field__outline__start),
+.text-bg :deep(.v-field--variant-outlined .v-field__outline__end) { border-radius: 15px; }
 .controls-group { margin-top: 40px; }
 .label { text-align: left; }
 .text-bg :deep(input) { color: #2A2828; text-align: left; }
