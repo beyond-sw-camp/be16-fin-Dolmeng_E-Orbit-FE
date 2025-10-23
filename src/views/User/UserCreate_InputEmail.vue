@@ -107,10 +107,10 @@ export default {
       }
       try {
         this.isLoading = true;
-        const url = 'http://localhost:8080/user-service/user/email';
-        const response = await axios.post(url, { email: this.email }, { headers: { 'Content-Type': 'application/json' } });
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const response = await axios.post(`${baseURL}/user-service/user/email`, { email: this.email }, { headers: { 'Content-Type': 'application/json' } });
         console.log('회원가입 이메일 전송 결과:', response.data);
-        this.$router.push('/new-user/validate-email');
+        this.$router.push({ path: '/new-user/validate-email', query: { email: this.email } });
       } catch (error) {
         const data = error?.response?.data;
         const message = data?.statusMessage || data?.message || error?.message || '요청 처리 중 오류가 발생했습니다.';
