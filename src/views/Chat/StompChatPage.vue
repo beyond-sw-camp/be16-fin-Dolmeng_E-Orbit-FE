@@ -52,6 +52,15 @@
                                     </div>
                                 </div>
                             </div>
+                            <div v-if="selectedFiles && selectedFiles.length" class="attach-preview">
+                                <div v-for="(file, i) in selectedFiles" :key="i" class="preview-item">
+                                    <div class="thumb-wrap">
+                                        <img v-if="isImage(file?.name || file?.type) && selectedPreviewUrls[i]" :src="selectedPreviewUrls[i]" alt="preview" class="thumb" />
+                                        <div v-else class="file-chip">{{ file?.name || '파일' }}</div>
+                                        <button class="remove-btn" @click="removeSelectedFile(i)" aria-label="첨부 삭제">×</button>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="chat-footer">
                                 <div class="composer">
                                     <input ref="fileInput" type="file" multiple @change="onFilesSelected" style="display:none" />
@@ -131,6 +140,7 @@ import axios from 'axios';
                 senderId: null,
                 userDefault,
                 selectedFiles: [],
+                selectedPreviewUrls: [],
                 uploading: false,
                 reconnecting: false,
                 _reconnectTimer: null,
@@ -332,7 +342,30 @@ import axios from 'axios';
             },
             onFilesSelected(event) {
                 const files = Array.from(event.target.files || []);
+                if (!files.length) return;
+                const nextFiles = (this.selectedFiles || []).concat(files);
+                // 미리보기 URL 생성 (신규만)
+                const newUrls = files.map(f => {
+                    try { return URL.createObjectURL(f); } catch(_) { return null; }
+                });
+                const nextUrls = (this.selectedPreviewUrls || []).concat(newUrls);
+                this.selectedFiles = nextFiles;
+                this.selectedPreviewUrls = nextUrls;
+                // 같은 파일 인풋으로 재선택 가능하도록 리셋
+                try { if (this.$refs.fileInput) this.$refs.fileInput.value = ''; } catch(_) {}
+            },
+            removeSelectedFile(index) {
+                if (!Array.isArray(this.selectedFiles)) return;
+                const files = [...this.selectedFiles];
+                const urls = [...this.selectedPreviewUrls];
+                const removedUrl = urls[index];
+                files.splice(index, 1);
+                urls.splice(index, 1);
                 this.selectedFiles = files;
+                this.selectedPreviewUrls = urls;
+                try { if (removedUrl) URL.revokeObjectURL(removedUrl); } catch(_) {}
+                // 파일 인풋 초기화
+                try { if (this.$refs.fileInput) this.$refs.fileInput.value = ''; } catch(_) {}
             },
             async uploadSelectedFiles() {
                 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -474,5 +507,11 @@ import axios from 'axios';
 .files-received{ justify-content: flex-start; }
 
 .reconnect-banner{ background: rgba(255,255,255,0.95); color: #2A2828; padding: 12px 16px; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+.attach-preview{ display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #eee; background: #FAFAFA; }
+.preview-item{ position: relative; }
+.thumb-wrap{ position: relative; width: 80px; height: 80px; border-radius: 8px; overflow: hidden; background: #F1F3F4; display: flex; align-items: center; justify-content: center; }
+.thumb{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.remove-btn{ position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; aspect-ratio: 1 / 1; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; line-height: 24px; padding: 0; }
 
 </style>
