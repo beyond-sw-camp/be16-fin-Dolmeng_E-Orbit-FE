@@ -20,11 +20,14 @@
                                         :class="['room-row', { selected: selectedRoomId === chat.roomId }]"
                                     >
                                         <td class="col-avatar">
-                                            <div v-if="Array.isArray(chat.userProfileImageUrlList) && visibleAvatars(chat.userProfileImageUrlList, chat.participantCount).length" class="avatar-stack">
+                                            <div
+                                                v-if="Array.isArray(chat.userProfileImageUrlList) && visibleAvatars(chat.userProfileImageUrlList, chat.participantCount).length"
+                                                :class="['avatar-stack', avatarStackClass(chat)]"
+                                            >
                                                 <div
                                                     v-for="(url, idx) in visibleAvatars(chat.userProfileImageUrlList, chat.participantCount)"
                                                     :key="idx"
-                                                    class="avatar-item"
+                                                    :class="['avatar-item', 'av-' + (idx + 1)]"
                                                     :style="{ zIndex: 10 - idx }"
                                                 >
                                                     <img :src="url || userDefault" alt="user" @error="onAvatarError($event)" />
@@ -147,6 +150,10 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
                 const slots = Math.max(0, Math.min(4, othersMax));
                 return Math.max(0, othersMax - slots); // 슬롯을 초과한 나머지를 +N으로 표시
             },
+            avatarStackClass(chat){
+                const count = this.visibleAvatars(chat?.userProfileImageUrlList || [], chat?.participantCount).length;
+                return `count-${count}`;
+            },
             onAvatarError(e) {
                 e.target.src = this.userDefault;
             },
@@ -210,6 +217,7 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
 .chatlist-body .v-table .v-table__wrapper{ max-height: none; }
 .room-row{
     cursor: pointer;
+    height: 68px;
 }
 .room-row:hover{
     background: #F0F7FF;
@@ -219,38 +227,58 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
     font-weight: 600;
 }
 .v-table .v-table__wrapper table{ table-layout: fixed; width: 100%; }
+.v-table tbody tr.room-row{ display: table-row !important; }
 .v-table tbody tr:not(:last-child) td{ border-bottom: 1px solid #E5E5E5; }
-.room-row > td{ vertical-align: top; }
-.col-avatar{ width: 56px; }
-.avatar-img{ width: 28px; height: 28px; display: block; border-radius: 50%; object-fit: cover; }
+.room-row > td{ vertical-align: middle; padding: 8px 12px; }
+.col-avatar{ width: 48px; }
+.avatar-img{ width: 36px; height: 36px; display: block; border-radius: 50%; object-fit: cover; }
 .avatar-stack{ position: relative; height: 28px; }
-.avatar-stack .avatar-item{ position: absolute; top: 0; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
-.avatar-stack .avatar-item:nth-child(1){ left: 0; }
-.avatar-stack .avatar-item:nth-child(2){ left: 16px; }
-.avatar-stack .avatar-item:nth-child(3){ left: 32px; }
-.avatar-stack .avatar-item:nth-child(4){ left: 48px; }
+.avatar-stack .avatar-item{ position: absolute; border-radius: 50%; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
 .avatar-stack .avatar-item img{ width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-stack .avatar-item.more{ background: #ECEFF1; color: #546E7A; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-.col-main{ width: 100%; display: flex; flex-direction: column; row-gap: 4px; overflow: hidden; }
-.row-title{ display: flex; align-items: center; gap: 6px; line-height: 1.3; }
-.row-title .title{ font-size: 12px; color: #212121; display: block; }
-.row-title .member-count{ font-size: 10px; color: #9E9E9E; }
-.row-subtitle{ font-size: 10px; color: #484646; line-height: 1.5; margin: 0; }
+.avatar-stack.count-1{ height: 40px; width: 40px; }
+.avatar-stack.count-1 .avatar-item{ width: 36px; height: 36px; left: 2px; top: 2px; }
+
+/* 2개: 2x2 격자에서 (0,0)과 (1,1)에 배치, 살짝 겹침 */
+.avatar-stack.count-2{ height: 32px; width: 48px; position: relative; }
+.avatar-stack.count-2 .av-1{ width: 28px; height: 28px; left: 0; top: 2px; }
+.avatar-stack.count-2 .av-2{ width: 28px; height: 28px; left: 20px; top: 0; }
+
+/* 3개: 상단 두 개(0,0)(0,1), 가운데 아래 하나가 끼어드는 형태 */
+.avatar-stack.count-3{ height: 34px; width: 48px; position: relative; }
+.avatar-stack.count-3 .av-1{ width: 26px; height: 26px; left: 0; top: 0; }
+.avatar-stack.count-3 .av-2{ width: 26px; height: 26px; left: 22px; top: 0; }
+.avatar-stack.count-3 .av-3{ width: 26px; height: 26px; left: 11px; top: 12px; z-index: 12; }
+
+/* 4개: 2x2 그리드 배치 */
+.avatar-stack.count-4{ height: 34px; width: 48px; position: relative; }
+.avatar-stack.count-4 .av-1{ width: 22px; height: 22px; left: 0; top: 0; }
+.avatar-stack.count-4 .av-2{ width: 22px; height: 22px; left: 26px; top: 0; }
+.avatar-stack.count-4 .av-3{ width: 22px; height: 22px; left: 0; top: 18px; }
+.avatar-stack.count-4 .av-4{ width: 22px; height: 22px; left: 26px; top: 18px; }
+
+/* +N indicator position */
+.avatar-stack .avatar-item.more{ width: 18px; height: 18px; right: -6px; bottom: -6px; left: auto; top: auto; font-size: 10px; }
+.col-main { padding-top: 6px; padding-bottom: 6px; }
+.row-title{ display: flex; align-items: baseline; gap: 4px; line-height: 1.3; margin-bottom: 4px; }
+.row-title .title{ font-size: 13px; font-weight: 500; color: #212121; display: block; }
+.row-title .member-count{ font-size: 11px; color: #9E9E9E; }
+.row-subtitle{ font-size: 11px; color: #555; line-height: 1.5; margin: 0; }
 .text-ellipsis{ overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .row-subtitle-wrap{ display: flex; align-items: baseline; }
-.col-meta{ width: 96px; text-align: right; }
-.last-time{ font-size: 10px; color: #484646; margin-bottom: 6px; white-space: nowrap; }
+.col-meta{ width: 80px; text-align: right; white-space: nowrap; }
+.last-time{ font-size: 11px; color: #757575; margin-bottom: 4px; white-space: nowrap; }
 .badge-unread{
     display: inline-flex;
-    width: 14px;
-    height: 14px;
+    min-width: 16px;
+    height: 16px;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     background: #EF5350;
     color: #FFFFFF;
-    font-size: 9px;
-    font-weight: 500;
+    font-size: 10px;
+    font-weight: 600;
 }
 .badge-unread.preview{
     height: 24px;
