@@ -30,7 +30,7 @@
                         <input type="checkbox" class="keep-login-checkbox" v-model="rememberMe" />
                         <span>로그인 상태 유지</span>
                       </label>
-                      <router-link to="/forgot-password" class="text-link">비밀번호 찾기</router-link>
+                      <router-link to="/forgot-password/input-email" class="text-link">비밀번호 찾기</router-link>
                     </div>
 
                   <div class="btn-wrap">
