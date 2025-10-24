@@ -4,16 +4,41 @@
             <v-row justify="center">
                 <v-col cols="12" md="16" lg="16" xl="12">
                     <v-card class="chat-card">
-                        <div class="chat-banner">
+                        <div :class="['chat-banner', { 'with-user-panel': isUserPanelOpen }]"><!-- header shifts with panel -->
                             <v-btn class="banner-btn back" variant="text" size="small" @click="refreshPage" icon>
                                 <v-icon icon="mdi-chevron-left"></v-icon>
                             </v-btn>
                             <div class="banner-title">{{ computedTitle }}</div>
-                            <v-btn class="banner-btn menu" variant="text" size="small" icon>
-                                <img src="@/assets/icons/chat/menu.svg" alt="menu" class="menu-icon" />
-                            </v-btn>
+                            <template v-if="isUserPanelOpen">
+                                <v-btn class="banner-btn menu" variant="text" size="small" icon @click="closeUserPanel">
+                                    <img src="@/assets/icons/user/close.svg" alt="close" class="menu-icon" />
+                                </v-btn>
+                            </template>
+                            <template v-else>
+                                <v-menu v-model="isHeaderMenuOpen" :close-on-content-click="true" offset-y>
+                                    <template #activator="{ props }">
+                                        <v-btn class="banner-btn menu" v-bind="props" variant="text" size="small" icon>
+                                            <img src="@/assets/icons/chat/menu.svg" alt="menu" class="menu-icon" />
+                                        </v-btn>
+                                    </template>
+                                    <div class="header-menu">
+                                        <button class="header-menu-item" @click="onHeaderMenu('search')">
+                                            <img src="@/assets/icons/chat/magnify.svg" alt="search" class="menu-item-icon" />
+                                            <span>검색</span>
+                                        </button>
+                                        <button class="header-menu-item" @click="onHeaderMenu('users')">
+                                            <img src="@/assets/icons/chat/account-supervisor.svg" alt="users" class="menu-item-icon" />
+                                            <span>사용자 목록</span>
+                                        </button>
+                                        <button class="header-menu-item" @click="onHeaderMenu('docs')">
+                                            <img src="@/assets/icons/chat/file-multiple.svg" alt="docs" class="menu-item-icon" />
+                                            <span>문서함</span>
+                                        </button>
+                                    </div>
+                                </v-menu>
+                            </template>
                         </div>
-                        <v-card-text class="chat-body">
+                        <v-card-text :class="['chat-body', { 'with-user-panel': isUserPanelOpen }]">
                             <div class="chat-box">
                                 <div
                                     v-for="(msg, index) in messages"
@@ -100,6 +125,23 @@
                                 </div>
                             </v-overlay>
                         </v-card-text>
+                        <transition name="slide-user">
+                        <div v-if="isUserPanelOpen" class="user-panel">
+                            <div class="user-panel-header">
+                                <img src="@/assets/icons/chat/account-supervisor.svg" alt="users" class="user-panel-icon" />
+                                <span class="user-panel-title">사용자 목록</span>
+                                <span class="user-panel-count">{{ participantsList.length }}</span>
+                            </div>
+                            <div class="user-panel-body">
+                                <div v-for="(u, idx) in participantsList" :key="idx" class="user-row">
+                                    <div class="user-avatar">
+                                        <img :src="u.profileImageUrl || userDefault" alt="user" @error="onAvatarError($event)" :style="{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }" />
+                                    </div>
+                                    <div class="user-name">{{ u.name }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        </transition>
                     </v-card>
 
                 </v-col>
@@ -149,6 +191,9 @@ import axios from 'axios';
                     "😀","😁","😂","🤣","😊","😍","😘","😎","🤔","😢",
                     "👍","👏","🙏","🔥","🎉","💡","✅","⚠️","❗","❓"
                 ],
+                isHeaderMenuOpen: false,
+                isUserPanelOpen: false,
+                participantsList: [],
             }
         },
         created() {
@@ -340,6 +385,36 @@ import axios from 'axios';
                     try { this.$refs.composerInput?.focus(); } catch(_) {}
                 });
             },
+            onHeaderMenu(what){
+                this.isHeaderMenuOpen = false;
+                // TODO: 실제 라우팅/동작 연결 지점
+                if (what === 'search') {
+                    // 검색 오버레이/다이얼로그 연결 포인트
+                } else if (what === 'users') {
+                    // 사용자 목록 패널 토글
+                    this.isUserPanelOpen = !this.isUserPanelOpen;
+                    if (this.isUserPanelOpen) {
+                        this.fetchParticipants();
+                    }
+                } else if (what === 'docs') {
+                    // 문서함 이동/패널 연결 포인트
+                }
+            },
+            closeUserPanel(){
+                this.isUserPanelOpen = false;
+            },
+            async fetchParticipants(){
+                try {
+                    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+                    const url = `${baseURL}/chat-service/chat/room/${this.roomId}/participants`;
+                    const { data } = await axios.get(url);
+                    const list = Array.isArray(data?.result) ? data.result : [];
+                    this.participantsList = list.map(p => ({ name: p?.name || '', profileImageUrl: p?.profileImageUrl || '' }));
+                } catch (e) {
+                    console.warn('fetch participants failed', e);
+                    this.participantsList = [];
+                }
+            },
             onFilesSelected(event) {
                 const files = Array.from(event.target.files || []);
                 if (!files.length) return;
@@ -430,7 +505,8 @@ import axios from 'axios';
   background-color: #F5F5F5;
 }
 .chat-card{ --v-card-border-radius: 15px; border-radius: 15px !important; overflow: hidden; margin: 24px 0; border: 1px solid #E5E5E5; --chat-accent: #FFE364; }
-.chat-banner{ height: 56px; background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; }
+.chat-banner{ height: 56px; background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; position: sticky; top: 0; z-index: 2; }
+.chat-banner.with-user-panel{ margin-right: 280px; transition: margin-right 200ms ease; }
 .banner-title{ color: #1C0F0F; font-weight: 700; font-size: 18px; line-height: 22px; text-align: center; }
 .banner-btn{ min-width: 32px; height: 32px; padding: 0; }
 .banner-btn.back{ justify-self: start; }
@@ -445,7 +521,8 @@ import axios from 'axios';
   box-shadow: none !important;
 }
 
-.chat-body{ display: flex; flex-direction: column; padding: 0; height: calc(100vh - 64px - 80px - 56px); }
+.chat-body{ display: flex; flex-direction: column; padding: 0; height: calc(100vh - 64px - 80px - 56px); position: relative; }
+.chat-body.with-user-panel{ margin-right: 280px; transition: margin-right 200ms ease; }
 /* v-card-text 기본 좌우 패딩 제거 (배너와 동일 폭 맞춤) */
 .chat-card > .v-card-text.chat-body{ padding: 0 !important; }
 .chat-box{
@@ -494,6 +571,11 @@ import axios from 'axios';
 .emoji-panel{ display: grid; grid-template-columns: repeat(8, 28px); gap: 6px; padding: 8px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
 .emoji-btn{ width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; font-size: 18px; }
 .emoji-btn:focus{ outline: none; }
+
+.header-menu{ width: 140px; background: #FFFFFF; border: 1px solid #EEEEEE; border-radius: 15px; box-shadow: 0 6px 16px rgba(0,0,0,0.12); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.header-menu-item{ display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: none; background: transparent; cursor: pointer; border-radius: 8px; font-size: 14px; color: #000; }
+.header-menu-item:hover{ background: #F7F7F7; }
+.menu-item-icon{ width: 18px; height: 18px; display: block; }
 .send-btn{ flex: 0 0 112px; height: var(--composer-height) !important; border-radius: calc(var(--composer-height) / 2) !important; background-color: var(--chat-accent) !important; border-color: var(--chat-accent) !important; color: #000000 !important; font-weight: 400 !important; font-size: 12px !important; line-height: 15px !important; text-transform: none; letter-spacing: 0; }
 .send-btn:focus,
 .send-btn:focus-visible,
@@ -507,6 +589,23 @@ import axios from 'axios';
 .files-received{ justify-content: flex-start; }
 
 .reconnect-banner{ background: rgba(255,255,255,0.95); color: #2A2828; padding: 12px 16px; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+.user-panel{ position: absolute; top: 0; right: 0; width: 280px; height: 100%; background: #FFFFFF; border-left: 1px solid #E5E5E5; box-shadow: -4px 0 12px rgba(0,0,0,0.06); display: flex; flex-direction: column; }
+.slide-user-enter-from{ transform: translateX(100%); opacity: 0; }
+.slide-user-enter-active{ transition: transform 200ms ease, opacity 200ms ease; }
+.slide-user-enter-to{ transform: translateX(0); opacity: 1; }
+.slide-user-leave-from{ transform: translateX(0); opacity: 1; }
+.slide-user-leave-active{ transition: transform 200ms ease, opacity 200ms ease; }
+.slide-user-leave-to{ transform: translateX(100%); opacity: 0; }
+.user-panel-header{ height: 56px; background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 0 8px; }
+.user-panel-icon{ width: 24px; height: 24px; }
+.user-panel-title{ color: #1C0F0F; font-weight: 700; text-align: center; }
+.user-panel-count{ color: #1C0F0F; font-weight: 700; }
+.user-panel-body{ flex: 1 1 auto; overflow-y: auto; padding: 12px 8px; }
+.user-row{ display: flex; align-items: center; justify-content: flex-start; gap: 64px; padding: 12px 8px 12px 36px; border-bottom: 1px solid #F1F1F1; }
+.user-avatar{ width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: transparent; flex: 0 0 32px; border: 0; box-shadow: none; }
+.user-avatar img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.user-name{ font-size: 14px; color: #2A2828; text-align: center; }
 
 .attach-preview{ display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #eee; background: #FAFAFA; }
 .preview-item{ position: relative; }
