@@ -212,11 +212,6 @@ export default {
         return;
       }
       
-      if (this.selectedUsers.length === 0) {
-        alert('최소 1명의 멤버를 선택해주세요.');
-        return;
-      }
-      
       try {
         const response = await axios.post('http://localhost:8080/workspace-service/groups', {
           workspaceId: this.workspaceStore.getCurrentWorkspaceId,

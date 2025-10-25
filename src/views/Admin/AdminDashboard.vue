@@ -545,8 +545,15 @@ export default {
     },
     
     manageMembers(group) {
-      // 멤버 관리 로직
-      console.log('멤버 관리:', group);
+      // 관리자 그룹만 변경 불가
+      if (group.accessGroupName === '관리자 그룹') {
+        alert('관리자 그룹은 변경할 수 없습니다.');
+        this.activeActionMenu = null;
+        return;
+      }
+      
+      // 권한 그룹 사용자 추가/제거 페이지로 이동
+      this.$router.push(`/admin/permission-group/${group.accessGroupId}/add-users`);
       this.activeActionMenu = null;
     },
     
@@ -888,8 +895,10 @@ export default {
         );
         
         if (response.data.statusCode === 200) {
-          // API 응답 데이터를 컴포넌트 형식으로 변환
-          const groups = response.data.result || [];
+          // 페이지 객체에서 content 추출
+          const pageData = response.data.result;
+          const groups = pageData.content || [];
+          
           this.userGroups = groups.map(group => ({
             id: group.userGroupId || group.groupId,
             name: group.userGroupName || group.groupName,
