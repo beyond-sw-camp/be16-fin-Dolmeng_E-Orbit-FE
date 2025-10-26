@@ -233,10 +233,10 @@ export default {
         
         if (response.data.statusCode === 200) {
           const allUsers = response.data.result.userInfoList || [];
-          const currentUserId = localStorage.getItem('userId');
-          // 현재 로그인한 관리자 사용자 제외
+          const adminUserId = this.workspaceStore.getAdminUserId || localStorage.getItem('adminUserId');
+          // 관리자 사용자 제외
           this.individualUsers = allUsers.filter(user => 
-            user.userId !== currentUserId
+            user.userId !== adminUserId
           );
         }
       } catch (error) {
@@ -264,10 +264,10 @@ export default {
         
         if (response.data.statusCode === 200) {
           const allUsers = response.data.result.userInfoList || [];
-          const currentUserId = localStorage.getItem('userId');
-          // 현재 로그인한 관리자 사용자 제외
+          const adminUserId = this.workspaceStore.getAdminUserId || localStorage.getItem('adminUserId');
+          // 관리자 사용자 제외
           this.individualUsers = allUsers.filter(user => 
-            user.userId !== currentUserId
+            user.userId !== adminUserId
           );
         }
       } catch (error) {

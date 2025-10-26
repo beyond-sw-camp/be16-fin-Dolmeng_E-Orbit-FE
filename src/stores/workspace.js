@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
     currentWorkspace: null,
-    workspaces: []
+    workspaces: [],
+    adminUserId: null // 현재 워크스페이스의 관리자 ID
   }),
   
   getters: {
@@ -11,7 +12,8 @@ export const useWorkspaceStore = defineStore('workspace', {
     getWorkspaces: (state) => state.workspaces,
     getCurrentWorkspaceId: (state) => state.currentWorkspace?.workspaceId || null,
     getCurrentWorkspaceType: (state) => state.currentWorkspace?.workspaceTemplates || 'PERSONAL',
-    isPersonalWorkspace: (state) => (state.currentWorkspace?.workspaceTemplates || 'PERSONAL') === 'PERSONAL'
+    isPersonalWorkspace: (state) => (state.currentWorkspace?.workspaceTemplates || 'PERSONAL') === 'PERSONAL',
+    getAdminUserId: (state) => state.adminUserId
   },
   
   actions: {
@@ -25,11 +27,23 @@ export const useWorkspaceStore = defineStore('workspace', {
         localStorage.setItem('selectedWorkspaceName', workspace.workspaceName);
         localStorage.setItem('selectedWorkspaceRole', workspace.role);
         localStorage.setItem('selectedWorkspaceType', workspace.workspaceTemplates || 'PERSONAL');
+        
+        // 현재 사용자가 ADMIN인 경우 관리자 ID 저장
+        if (workspace.role === 'ADMIN') {
+          const currentUserId = localStorage.getItem('id');
+          this.adminUserId = currentUserId;
+          localStorage.setItem('adminUserId', currentUserId);
+        } else {
+          this.adminUserId = null;
+          localStorage.removeItem('adminUserId');
+        }
       } else {
         localStorage.removeItem('selectedWorkspaceId');
         localStorage.removeItem('selectedWorkspaceName');
         localStorage.removeItem('selectedWorkspaceRole');
         localStorage.removeItem('selectedWorkspaceType');
+        localStorage.removeItem('adminUserId');
+        this.adminUserId = null;
       }
       
       // 워크스페이스가 실제로 변경된 경우에만 이벤트 발생
@@ -74,6 +88,7 @@ export const useWorkspaceStore = defineStore('workspace', {
       const workspaceName = localStorage.getItem('selectedWorkspaceName');
       const workspaceRole = localStorage.getItem('selectedWorkspaceRole');
       const workspaceType = localStorage.getItem('selectedWorkspaceType');
+      const adminUserId = localStorage.getItem('adminUserId');
       
       if (workspaceId && workspaceName) {
         this.currentWorkspace = {
@@ -82,6 +97,9 @@ export const useWorkspaceStore = defineStore('workspace', {
           role: workspaceRole,
           workspaceTemplates: workspaceType || 'PERSONAL'
         };
+        
+        // 관리자 ID도 복원
+        this.adminUserId = adminUserId;
       }
     },
     
