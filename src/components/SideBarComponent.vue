@@ -65,10 +65,33 @@
       </div>
       
       <!-- 프로젝트 -->
-      <div class="nav-item">
-        <img src="@/assets/icons/sidebar/project.svg" alt="프로젝트" class="nav-icon" />
-        <div class="nav-text">프로젝트</div>
-        <div class="dropdown-arrow">▼</div>
+      <div class="project-nav-container">
+        <div class="nav-item" @click="toggleProjectDropdown" :class="{ active: currentRoute === '/project' }">
+          <img src="@/assets/icons/sidebar/project.svg" alt="프로젝트" class="nav-icon" />
+          <div class="nav-text">프로젝트</div>
+          <div class="dropdown-arrow" :class="{ 'rotated': showProjectDropdown }">▼</div>
+        </div>
+        
+        <!-- 프로젝트 드롭다운 -->
+        <div v-if="showProjectDropdown" class="project-dropdown">
+          <div 
+            v-for="project in projects" 
+            :key="project.id"
+            class="project-item"
+            @click="selectProject(project)"
+          >
+            <div class="project-circle" :style="{ background: project.color }"></div>
+            <div class="project-name">{{ project.name }}</div>
+          </div>
+          <div class="project-create-item" @click="createProject">
+            <div class="project-create-icon-wrapper">
+              <svg class="project-create-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 0V12M0 6H12" stroke="#FFE364" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="project-create-text">새 프로젝트 생성</div>
+          </div>
+        </div>
       </div>
       
       <!-- 관리자 페이지 (관리자 권한이 있고 PERSONAL 워크스페이스가 아닐 때만 표시) -->
@@ -107,8 +130,10 @@ export default {
   data() {
     return {
       showWorkspaceDropdown: false,
+      showProjectDropdown: false,
       currentStorage: 0,
-      maxStorage: 0
+      maxStorage: 0,
+      projectList: [] // API에서 받아온 프로젝트 목록
     };
   },
   setup() {
@@ -121,6 +146,14 @@ export default {
     },
     selectedWorkspace() {
       return this.workspaceStore.getCurrentWorkspace;
+    },
+    projects() {
+      // API에서 받아온 프로젝트 목록을 반환
+      return this.projectList.map(project => ({
+        id: project.projectId,
+        name: project.projectName,
+        color: '#FDF5EB'
+      }));
     },
     currentRoute() {
       return this.$route.path;
@@ -148,6 +181,9 @@ export default {
     
     // 현재 워크스페이스의 스토리지 정보 로드
     await this.loadWorkspaceStorage();
+    
+    // 프로젝트 목록 로드
+    await this.loadProjectList();
   },
   
   watch: {
@@ -156,6 +192,7 @@ export default {
       handler(newWorkspace, oldWorkspace) {
         if (newWorkspace && newWorkspace.workspaceId !== oldWorkspace?.workspaceId) {
           this.loadWorkspaceStorage();
+          this.loadProjectList(); // 워크스페이스 변경 시 프로젝트 목록 새로고침
         }
       },
       deep: true
@@ -238,11 +275,28 @@ export default {
       this.showWorkspaceDropdown = !this.showWorkspaceDropdown;
     },
     
+    toggleProjectDropdown() {
+      this.showProjectDropdown = !this.showProjectDropdown;
+    },
+    
     navigateToHome() {
       this.$router.push('/');
     },
     navigateToAdmin() {
       this.$router.push('/admin');
+    },
+    
+    selectProject(project) {
+      console.log('프로젝트 선택:', project);
+      this.showProjectDropdown = false;
+      this.$router.push({ path: '/project', query: { id: project.id } });
+    },
+    
+    createProject() {
+      console.log('프로젝트 생성');
+      this.showProjectDropdown = false;
+      // 프로젝트 생성 모달 열기
+      window.dispatchEvent(new CustomEvent('openCreateProjectModal'));
     },
     
     createWorkspace() {
@@ -300,6 +354,38 @@ export default {
       
       // 워크스페이스명이 변경된 경우 사이드바의 워크스페이스명도 즉시 반영
       // (이미 스토어가 업데이트되어 있으므로 computed 속성이 자동으로 반영됨)
+    },
+    
+    // 프로젝트 목록 조회 API 호출
+    async loadProjectList() {
+      try {
+        const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+        if (!currentWorkspace || !currentWorkspace.workspaceId) {
+          this.projectList = [];
+          return;
+        }
+        
+        const userId = localStorage.getItem('id') || 'user123';
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/project/${currentWorkspace.workspaceId}`,
+          {
+            headers: {
+              'X-User-Id': userId
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          this.projectList = response.data.result || [];
+          console.log('프로젝트 목록 로드:', this.projectList);
+        } else {
+          this.projectList = [];
+        }
+      } catch (error) {
+        console.error('프로젝트 목록 로드 실패:', error);
+        this.projectList = [];
+      }
     }
   }
 };
@@ -607,6 +693,97 @@ export default {
   font-size: 16px;
   line-height: 19px;
   color: #FDF5EB;
+}
+
+.project-nav-container {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.project-dropdown {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.project-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.project-item .project-circle {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.project-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FDF5EB;
+}
+
+.project-create-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-top: 1px solid #333;
+  transition: background-color 0.2s;
+  background: rgba(255, 221, 68, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-create-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.project-create-item:hover {
+  background: rgba(255, 221, 68, 0.2);
+}
+
+.project-create-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.project-create-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.project-create-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FFDD44;
 }
 
 .storage-section {

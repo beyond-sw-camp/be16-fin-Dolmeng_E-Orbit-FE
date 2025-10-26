@@ -5,6 +5,7 @@ import { userRouter } from './UserRouter';
 import { chatRouter } from './ChatRouter';
 import { workspaceRouter } from './WorkspaceRouter';
 import { adminRouter } from './AdminRouter';
+import { projectRouter } from './ProjectRouter';
 
 const routes = [
     ...homeRouter,
@@ -13,6 +14,7 @@ const routes = [
     ...chatRouter,
     ...workspaceRouter,
     ...adminRouter,
+    ...projectRouter,
 ];
 
 const router = createRouter({

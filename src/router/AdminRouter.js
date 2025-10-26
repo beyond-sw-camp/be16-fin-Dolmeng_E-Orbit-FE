@@ -8,6 +8,7 @@ import CreateUserGroup from '@/views/Admin/CreateUserGroup.vue';
 import EditUserGroup from '@/views/Admin/EditUserGroup.vue';
 import AddPermissionGroupUsers from '@/views/Admin/AddPermissionGroupUsers.vue';
 import PermissionGroupDetail from '@/views/Admin/PermissionGroupDetail.vue';
+import UserGroupDetail from '@/views/Admin/UserGroupDetail.vue';
 
 export const adminRouter = [
     {
@@ -95,6 +96,15 @@ export const adminRouter = [
         path: '/admin/permission-group/:groupId/detail',
         name: 'PermissionGroupDetail',
         component: PermissionGroupDetail,
+        meta: {
+            requiresAuth: true,
+            isAdmin: true
+        }
+    },
+    {
+        path: '/admin/user-group/:groupId/detail',
+        name: 'UserGroupDetail',
+        component: UserGroupDetail,
         meta: {
             requiresAuth: true,
             isAdmin: true

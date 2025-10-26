@@ -2,14 +2,9 @@
   <div class="permission-group-detail">
     <!-- 헤더 -->
     <div class="detail-header">
-      <div class="header-content">
-        <div class="title-section">
-          <h1 class="main-title">{{ groupDetail.groupName || '권한 그룹 상세' }}</h1>
-          <p class="sub-title">권한 그룹에 속한 멤버들을 확인할 수 있습니다</p>
-        </div>
-        <button class="back-btn" @click="goBack">
-          ← 뒤로가기
-        </button>
+      <div class="title-section">
+        <h1 class="main-title">{{ groupDetail.groupName || '권한 그룹 상세' }}</h1>
+        <p class="sub-title">권한 그룹에 속한 멤버들을 확인할 수 있습니다</p>
       </div>
     </div>
 
@@ -204,41 +199,16 @@ export default {
 
 .detail-header {
   padding: 30px 30px 0 30px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   text-align: left;
   flex-shrink: 0;
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
 }
 
 .title-section {
   flex: 1;
 }
 
-.back-btn {
-  background: none;
-  border: none;
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 17px;
-  color: #666666;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  display: block;
-  margin: 0;
-}
 
-.back-btn:hover {
-  color: #1C0F0F;
-  background-color: rgba(0, 0, 0, 0.05);
-}
 
 .main-title {
   font-family: 'Pretendard', sans-serif;
@@ -500,6 +470,8 @@ export default {
   .detail-header {
     padding: 20px 20px 0 20px;
   }
+  
+  
   
   .member-table-container {
     margin: 0 20px 20px 20px;

@@ -11,6 +11,9 @@
       :show="showCreateModal" 
       @close="closeCreateModal"
     />
+    
+    <!-- 프로젝트 생성 모달 (전체 화면에서 렌더링) -->
+    <CreateProjectModal v-model="showProjectModal" />
   </v-app>
 </template>
 
@@ -18,6 +21,7 @@
 import HeaderComponent from './components/HeaderComponent.vue';
 import SideBarComponent from './components/SideBarComponent.vue';
 import CreateWorkspaceModal from './views/Workspace/CreateWorkspaceModal.vue';
+import CreateProjectModal from './views/Project/CreateProjectModal.vue';
 
 export default {
   name: "App",
@@ -25,10 +29,12 @@ export default {
     SideBarComponent,
     HeaderComponent,
     CreateWorkspaceModal,
+    CreateProjectModal,
   },
   data() {
     return {
-      showCreateModal: false
+      showCreateModal: false,
+      showProjectModal: false
     };
   },
   computed: {
@@ -45,6 +51,10 @@ export default {
     // 전역 이벤트 리스너 등록 (Vue 3 방식)
     window.addEventListener('openCreateWorkspaceModal', () => {
       this.showCreateModal = true;
+    });
+    
+    window.addEventListener('openCreateProjectModal', () => {
+      this.showProjectModal = true;
     });
   }
 }
