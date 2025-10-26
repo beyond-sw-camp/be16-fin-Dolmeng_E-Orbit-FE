@@ -58,7 +58,11 @@
       <!-- 마일스톤 캔버스 -->
       <div 
         class="milestone-canvas" 
-        :class="{ panning: isPanning }"
+        :class="{ 
+          panning: isPanning,
+          'pan-mode': interactionMode === 'pan',
+          'click-mode': interactionMode === 'click'
+        }"
         ref="milestoneCanvas"
       >
         <div v-if="loading" class="loading-container">
@@ -79,96 +83,170 @@
           <!-- 확대/축소 그룹 -->
           <g :transform="`translate(${translate.x}, ${translate.y}) scale(${scale})`">
         <!-- 연결선들 -->
-          <g v-for="connection in connections" :key="connection.id">
+          <g v-for="connection in connections" :key="connection.id" class="connection-line">
             <line 
               :x1="connection.x1" 
               :y1="connection.y1" 
               :x2="connection.x2" 
               :y2="connection.y2"
-              :stroke="connection.isFromRoot ? '#FF8C00' : '#FFDD44'"
-                :stroke-width="connection.isFromRoot ? 2 : 1"
-              :opacity="connection.isFromRoot ? '0.8' : '0.6'"
+              stroke="#8EA8A0"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              :class="connection.isFromRoot ? 'root-connection-line' : 'milestone-line'"
             />
           </g>
         
         <!-- 스톤 노드들 -->
             <g v-for="stone in stoneNodes" :key="stone.id" class="stone-group">
-              <!-- 스톤 원형 배경 -->
-              <circle
-                :cx="stone.x + (stone.isRoot ? 90 : 75)"
-                :cy="stone.y + (stone.isRoot ? 90 : 75)"
-                :r="stone.isRoot ? 90 : 75"
-                :fill="stone.isRoot ? 'url(#rootGradient)' : 'url(#childGradient)'"
-                :stroke="stone.isRoot ? '#FF8C00' : '#FFDD44'"
-                :stroke-width="stone.isRoot ? 3 : 2"
-                class="stone-circle"
-                @click="onStoneClick(stone)"
-              />
-              
-              <!-- 스톤 텍스트 -->
-              <text
-                :x="stone.x + (stone.isRoot ? 90 : 75)"
-                :y="stone.y + (stone.isRoot ? 90 : 75) - 10"
-                text-anchor="middle"
-                class="stone-name"
-          @click="onStoneClick(stone)"
-        >
-                {{ stone.name }}
-              </text>
-              
-              <!-- D-Day 텍스트 -->
-              <text
-                v-if="stone.dDay"
-                :x="stone.x + (stone.isRoot ? 90 : 75)"
-                :y="stone.y + (stone.isRoot ? 90 : 75) + 15"
-                text-anchor="middle"
-                class="stone-dday"
-                @click="onStoneClick(stone)"
-              >
-              {{ stone.dDay }}
-              </text>
-          
-          <!-- 마일스톤 배지 -->
-              <g v-if="stone.milestone">
-                <rect
-                  :x="stone.x + (stone.isRoot ? 90 : 75) - 20"
-                  :y="stone.y + (stone.isRoot ? 90 : 75) + 30"
-                  width="40"
-                  height="20"
-                  fill="#FFDD44"
-                  rx="10"
+              <!-- 도넛형 진척도 스톤 -->
+              <g class="donut-stone" :class="{ 'root-stone': stone.isRoot }" @click="onStoneClick(stone, $event)">
+                <!-- 루트 스톤 배경 그라데이션 -->
+                <defs v-if="stone.isRoot">
+                  <radialGradient id="rootStoneGradient" cx="40%" cy="40%">
+                    <stop offset="0%" style="stop-color:#5F9EA0;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#4C6B7C;stop-opacity:1" />
+                  </radialGradient>
+                  <!-- 하이라이트 그라데이션 -->
+                  <radialGradient id="rootStoneHighlight" cx="25%" cy="25%">
+                    <stop offset="0%" style="stop-color:#E8EEED;stop-opacity:0.2" />
+                    <stop offset="100%" style="stop-color:#E8EEED;stop-opacity:0" />
+                  </radialGradient>
+                </defs>
+                
+                <!-- 루트 스톤 배경 원 -->
+                <circle
+                  v-if="stone.isRoot"
+                  :cx="stone.x + 90"
+                  :cy="stone.y + 90"
+                  :r="90"
+                  fill="url(#rootStoneGradient)"
+                  class="root-stone-bg"
                 />
+                
+                <!-- 루트 스톤 하이라이트 -->
+                <circle
+                  v-if="stone.isRoot"
+                  :cx="stone.x + 90"
+                  :cy="stone.y + 90"
+                  :r="60"
+                  fill="url(#rootStoneHighlight)"
+                  class="root-stone-highlight"
+                />
+                
+                <!-- 하위 스톤 배경 (루트가 아닌 경우) -->
+                <circle
+                  v-if="!stone.isRoot"
+                  :cx="stone.x + 75"
+                  :cy="stone.y + 75"
+                  :r="75"
+                  fill="#E8EEED"
+                  class="child-stone-bg"
+                />
+                
+                <!-- 하위 스톤 내부 그라데이션 -->
+                <defs v-if="!stone.isRoot">
+                  <radialGradient id="childStoneGradient" cx="30%" cy="30%">
+                    <stop offset="0%" style="stop-color:#E8EEED;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#D5E1DD;stop-opacity:1" />
+                  </radialGradient>
+                </defs>
+                <circle
+                  v-if="!stone.isRoot"
+                  :cx="stone.x + 75"
+                  :cy="stone.y + 75"
+                  :r="65"
+                  fill="url(#childStoneGradient)"
+                  class="child-stone-inner"
+                />
+                
+                <!-- 외곽 원형 테두리 -->
+                <circle
+                  :cx="stone.x + (stone.isRoot ? 90 : 75)"
+                  :cy="stone.y + (stone.isRoot ? 90 : 75)"
+                  :r="stone.isRoot ? 90 : 75"
+                  fill="none"
+                  :stroke="stone.isRoot ? '#AEC3B0' : '#B6A28E'"
+                  :stroke-width="stone.isRoot ? 16 : 4"
+                  class="donut-background"
+                />
+                
+                <!-- 진척도 progress ring -->
+                <circle
+                  v-if="stone.milestone"
+                  :cx="stone.x + (stone.isRoot ? 90 : 75)"
+                  :cy="stone.y + (stone.isRoot ? 90 : 75)"
+                  :r="stone.isRoot ? 90 : 75"
+                  fill="none"
+                  stroke="url(#progressGradient)"
+                  :stroke-width="stone.isRoot ? 16 : 12"
+                  stroke-linecap="round"
+                  :stroke-dasharray="2 * Math.PI * (stone.isRoot ? 90 : 75)"
+                  :stroke-dashoffset="2 * Math.PI * (stone.isRoot ? 90 : 75) * (1 - stone.milestone / 100)"
+                  class="donut-progress"
+                  transform="rotate(-90)"
+                  :transform-origin="`${stone.x + (stone.isRoot ? 90 : 75)}px ${stone.y + (stone.isRoot ? 90 : 75)}px`"
+                />
+                
+                <!-- 스톤명 텍스트 -->
                 <text
                   :x="stone.x + (stone.isRoot ? 90 : 75)"
-                  :y="stone.y + (stone.isRoot ? 90 : 75) + 42"
+                  :y="stone.y + (stone.isRoot ? 90 : 75) - 5"
                   text-anchor="middle"
-                  class="milestone-text"
+                  :class="stone.isRoot ? 'root-stone-name' : 'stone-name'"
                 >
-            {{ stone.milestone }}%
+                  {{ stone.name }}
+                </text>
+                
+                <!-- D-Day 텍스트 -->
+                <text
+                  v-if="stone.dDay"
+                  :x="stone.x + (stone.isRoot ? 90 : 75)"
+                  :y="stone.y + (stone.isRoot ? 90 : 75) + 15"
+                  text-anchor="middle"
+                  :class="stone.isRoot ? 'root-stone-dday' : 'stone-dday'"
+                >
+                  {{ stone.dDay }}
                 </text>
               </g>
               
-              <!-- 스톤 생성 텍스트 -->
-              <text
-                :x="stone.x + (stone.isRoot ? 90 : 75) + 80"
-                :y="stone.y + (stone.isRoot ? 90 : 75) + 80"
-                class="stone-create-text"
-                @click="openCreateStoneModal(stone)"
-              >
-                스톤 생성
-              </text>
+              <!-- 스톤 생성 텍스트 버튼 -->
+              <g class="create-stone-text stone-add-text" @click="openCreateStoneModal(stone, $event)">
+                <!-- 클릭 영역을 넓히기 위한 투명한 원 -->
+                <circle
+                  :cx="calculateTextPosition(stone).x"
+                  :cy="calculateTextPosition(stone).y"
+                  r="40"
+                  fill="transparent"
+                  class="create-stone-click-area"
+                />
+                <text
+                  :x="calculateTextPosition(stone).x"
+                  :y="calculateTextPosition(stone).y"
+                  class="create-stone-text-content stone-add-text"
+                  @click="openCreateStoneModal(stone, $event)"
+                >
+                  ＋ 스톤 추가
+                </text>
+              </g>
             </g>
           </g>
           
           <!-- 그라데이션 정의 -->
           <defs>
-            <linearGradient id="rootGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#FF8C00;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#F9A825;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#FFB300;stop-opacity:1" />
             </linearGradient>
-            <linearGradient id="childGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#FFDD44;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#FFE55C;stop-opacity:1" />
+            <!-- 연결선 그라데이션 -->
+            <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#C9D6CF;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#8EA8A0;stop-opacity:1" />
+            </linearGradient>
+            <!-- 루트 연결선 그라데이션 -->
+            <linearGradient id="rootConnectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#C9D6CF;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#8EA8A0;stop-opacity:1" />
             </linearGradient>
           </defs>
         </svg>
@@ -187,6 +265,19 @@
     <div class="zoom-controls">
       <button class="zoom-btn zoom-in" @click="zoomIn" :disabled="zoomLevel >= zoomMax">+</button>
       <button class="zoom-btn zoom-out" @click="zoomOut" :disabled="zoomLevel <= zoomMin">-</button>
+    </div>
+    
+    <!-- 모드 전환 버튼 -->
+    <div class="mode-controls">
+      <button 
+        class="mode-btn" 
+        :class="{ active: interactionMode === 'click' }"
+        @click="toggleInteractionMode"
+        :title="interactionMode === 'click' ? '클릭 모드' : '팬 모드'"
+      >
+        <span v-if="interactionMode === 'click'" class="mode-icon">🔘</span>
+        <span v-else class="mode-icon">🖐️</span>
+      </button>
     </div>
     
     <!-- 스톤 생성 모달 -->
@@ -457,6 +548,8 @@ export default {
       startPt: { x: 0, y: 0 },
       startTranslate: { x: 0, y: 0 },
       panMode: false,
+      interactionMode: 'click', // 'click' or 'pan'
+      isPotentialClick: false,
       canvasWidth: 1000,
       canvasHeight: 600,
       stoneNodes: [],
@@ -706,18 +799,36 @@ export default {
       }
     },
     
+    // 모드 전환 메서드
+    toggleInteractionMode() {
+      this.interactionMode = this.interactionMode === 'click' ? 'pan' : 'click';
+      this.panMode = this.interactionMode === 'pan';
+    },
+    
     // 마우스 다운 이벤트 핸들러
     onMouseDown(e) {
+      // 스톤 추가 텍스트 클릭은 팬 모드에서도 허용
+      if (e.target.classList.contains('create-stone-text') || 
+          e.target.classList.contains('create-stone-text-content') ||
+          e.target.classList.contains('create-stone-click-area') ||
+          e.target.classList.contains('stone-add-text')) {
+        return;
+      }
+      
       if (e.button === 0 && (this.panMode || e.target.classList.contains('milestone-svg'))) { // 좌클릭 + Space 키 또는 SVG 배경 클릭
-        this.isPanning = true;
         this.startPt = { x: e.clientX, y: e.clientY };
         this.startTranslate = { ...this.translate };
+        this.isPotentialClick = true;
         e.preventDefault();
       }
     },
     
     // 마우스 이동 이벤트 핸들러
     onMouseMove(e) {
+      if (this.isPotentialClick && (Math.abs(e.clientX - this.startPt.x) > 5 || Math.abs(e.clientY - this.startPt.y) > 5)) {
+        this.isPanning = true;
+        this.isPotentialClick = false;
+      }
       if (this.isPanning) {
         this.translate.x = this.startTranslate.x + (e.clientX - this.startPt.x);
         this.translate.y = this.startTranslate.y + (e.clientY - this.startPt.y);
@@ -727,7 +838,10 @@ export default {
     
     // 마우스 업 이벤트 핸들러
     onMouseUp(e) {
-      this.isPanning = false;
+      if (this.isPanning) {
+        this.isPanning = false;
+      }
+      this.isPotentialClick = false;
     },
     
     // 키보드 이벤트 핸들러들
@@ -816,7 +930,11 @@ export default {
       });
     },
     // 스톤 관련 메서드들
-    onStoneClick(stone) {
+    onStoneClick(stone, event) {
+      if (this.interactionMode === 'pan') {
+        event.stopPropagation();
+        return;
+      }
       console.log('스톤 클릭:', stone);
     },
     calculateDDay(endTime) {
@@ -959,17 +1077,55 @@ export default {
           const childCenterX = child.x + 75;
           const childCenterY = child.y + 75;
           
+          // 부모 노드 반지름 (도넛 외곽에서 5px 안쪽)
+          const parentRadius = (node.isRoot ? 90 : 75) - 5;
+          const childRadius = 75 - 5;
+          
+          // 방향 벡터 계산
+          const dx = childCenterX - parentCenterX;
+          const dy = childCenterY - parentCenterY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // 정규화된 방향 벡터
+          const unitX = dx / distance;
+          const unitY = dy / distance;
+          
+          // 부모 노드에서 시작점 (도넛 외곽)
+          const startX = parentCenterX + unitX * parentRadius;
+          const startY = parentCenterY + unitY * parentRadius;
+          
+          // 자식 노드에서 끝점 (도넛 외곽)
+          const endX = childCenterX - unitX * childRadius;
+          const endY = childCenterY - unitY * childRadius;
+          
           const connection = {
             id: `conn-${node.id}-${child.id}`,
-            x1: parentCenterX,
-            y1: parentCenterY,
-            x2: childCenterX,
-            y2: childCenterY,
-            isFromRoot: node.isRoot
+            x1: startX,
+            y1: startY,
+            x2: endX,
+            y2: endY,
+            isFromRoot: node.isRoot,
+            angle: Math.atan2(dy, dx) // 연결선 각도 저장
           };
           this.connections.push(connection);
         });
       });
+    },
+    
+    // 스톤 추가 텍스트 위치 계산
+    calculateTextPosition(stone) {
+      const centerX = stone.x + (stone.isRoot ? 90 : 75);
+      const centerY = stone.y + (stone.isRoot ? 90 : 75);
+      const radius = stone.isRoot ? 90 : 75;
+      
+      // 오른쪽 하단에 충분히 떨어뜨려 배치
+      const offsetX = radius * 1.1; // x축 오프셋
+      const offsetY = radius * 1.0; // y축 오프셋
+      
+      return {
+        x: centerX + offsetX,
+        y: centerY + offsetY
+      };
     },
     updateCanvasSize() {
       if (this.$refs.milestoneCanvas) {
@@ -1015,10 +1171,14 @@ export default {
     },
     
     // 스톤 생성 모달 관련 메서드들
-    openCreateStoneModal(parentStone) {
+    openCreateStoneModal(parentStone, event) {
+      console.log('스톤 생성 모달 열기 시도:', parentStone.name);
+      // 팬 모드에서도 스톤 추가 텍스트 클릭은 허용
+      event.stopPropagation(); // 팬 모드 드래그 방지
       this.selectedParentStone = parentStone;
       this.newStone.parentStoneName = parentStone.name;
       this.showCreateStoneModal = true;
+      console.log('모달 상태:', this.showCreateStoneModal);
     },
     
     closeCreateStoneModal() {
@@ -1652,28 +1812,69 @@ export default {
   z-index: 1000;
 }
 
+/* 모드 전환 컨트롤 */
+.mode-controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1001;
+}
+
+.mode-btn {
+  width: 50px;
+  height: 50px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 247, 204, 0.8);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 20px;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 245, 157, 0.9);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.mode-btn.active {
+  background: rgba(255, 212, 79, 0.9);
+  box-shadow: 0 0 0 2px rgba(255, 179, 0, 0.3);
+}
+
+.mode-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
 .zoom-btn {
   width: 44px;
   height: 44px;
   border: 2px solid #E0E0E0;
   border-radius: 8px;
-  background: #FFFFFF;
-  color: #666666;
+  background: rgba(255, 247, 204, 0.8);
+  color: #A67600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(166, 118, 0, 0.15);
   transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
 }
 
 .zoom-btn:hover {
-  background: #F8F8F8;
-  color: #333333;
-  border-color: #CCCCCC;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 247, 204, 0.95);
+  color: #8B5A00;
+  border-color: #D4AF37;
+  box-shadow: 0 4px 12px rgba(166, 118, 0, 0.2);
   transform: translateY(-1px);
 }
 
@@ -1740,21 +1941,31 @@ export default {
   bottom: 0;
   width: auto;
   height: auto;
-  background: #fffdf7;
-  background-image: radial-gradient(circle, rgba(217, 217, 217, 0.5) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-repeat: repeat;
+  background-color: #F7F8F8;
+  background-image:
+    radial-gradient(rgba(120, 130, 130, 0.1) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(120, 130, 130, 0.1) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
   overflow: auto; /* 스크롤 허용 */
 }
 
 /* SVG 캔버스 */
 .milestone-canvas {
   user-select: none;
-  cursor: grab;
+  cursor: default;
 }
 
 .milestone-canvas.panning {
   cursor: grabbing;
+}
+
+.milestone-canvas.pan-mode {
+  cursor: grab;
+}
+
+.milestone-canvas.click-mode {
+  cursor: default;
 }
 
 .milestone-svg {
@@ -1766,17 +1977,178 @@ export default {
   cursor: pointer;
 }
 
-.stone-group:hover .stone-circle {
-  stroke-width: 4;
+/* 연결선 스타일 */
+.connection-line {
+  cursor: pointer;
+  animation: fadeInLine 0.5s cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+@keyframes fadeInLine {
+  0% {
+    opacity: 0;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+  }
+  100% {
+    opacity: 1;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+.milestone-line {
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.2s ease;
+}
+
+.milestone-line:hover {
+  stroke-width: 2.5;
+}
+
+/* 루트 연결선 스타일 */
+.root-connection-line {
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.2s ease;
+}
+
+.root-connection-line:hover {
+  stroke-width: 2.5;
+}
+
+/* 도넛형 스톤 스타일 */
+.donut-stone {
+  cursor: pointer;
+  transition: transform 0.25s ease-out;
+  animation: fadeInScale 0.5s cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.click-mode .donut-stone {
+  cursor: pointer;
+}
+
+.pan-mode .donut-stone {
+  cursor: grab;
+}
+
+/* 루트 스톤 특별 스타일 */
+.root-stone {
+  filter: drop-shadow(0 0 10px rgba(78, 110, 129, 0.25)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+}
+
+.root-stone:hover {
+  filter: drop-shadow(0 0 15px rgba(78, 110, 129, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  transform: scale(1.02);
+}
+
+.root-stone-bg {
+  transition: all 0.3s ease;
+}
+
+.root-stone-highlight {
+  transition: all 0.3s ease;
+}
+
+/* 하위 스톤 스타일 */
+.child-stone-bg {
+  transition: all 0.2s ease;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
+}
+
+.child-stone-inner {
+  transition: all 0.2s ease;
+}
+
+.donut-background {
+  stroke: #8EA8A0;
+  stroke-width: 2;
+  transition: all 0.2s ease;
+}
+
+.root-stone .donut-background {
+  stroke: #8EA8A0;
+  stroke-width: 2;
+}
+
+/* 하위 스톤 테두리 */
+.child-stone-bg + .child-stone-inner + .donut-background {
+  stroke: #8EA8A0;
+  stroke-width: 2;
+}
+
+
+.donut-progress {
+  transition: all 0.2s ease;
+}
+
+/* 스톤 생성 텍스트 버튼 스타일 */
+.create-stone-text {
+  cursor: pointer !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+.create-stone-text:hover {
+  cursor: pointer !important;
+}
+
+.create-stone-text:active {
+  transform: none !important;
+}
+
+.click-mode .create-stone-text {
+  cursor: pointer !important;
+}
+
+.pan-mode .create-stone-text {
+  cursor: pointer !important;
+}
+
+.create-stone-click-area {
+  cursor: pointer !important;
+  pointer-events: all;
+}
+
+.create-stone-text-content {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  fill: #6B8E89;
+  text-anchor: middle;
+  pointer-events: all;
+  letter-spacing: 0.5px;
+  transition: none !important;
+  cursor: pointer !important;
+}
+
+.create-stone-text:hover .create-stone-text-content {
+  fill: #6B8E89;
 }
 
 /* SVG 텍스트 스타일 */
 .stone-name {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
-  fill: #1C0F0F;
+  fill: #1A1A1A;
   pointer-events: none;
+  text-anchor: middle;
+  line-height: 1.2;
 }
 
 .stone-dday {
@@ -1785,28 +2157,29 @@ export default {
   font-size: 12px;
   fill: #666666;
   pointer-events: none;
+  text-anchor: middle;
 }
 
-.milestone-text {
+/* 루트 스톤 텍스트 스타일 */
+.root-stone-name {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
-  font-size: 10px;
-  fill: #1C0F0F;
+  font-weight: 700;
+  font-size: 16px;
+  fill: #F8F8F2;
   pointer-events: none;
+  text-anchor: middle;
+  line-height: 1.2;
 }
 
-.stone-create-text {
+.root-stone-dday {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 500;
-  font-size: 10px;
-  fill: #666666;
-  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  fill: #F8F8F2;
+  pointer-events: none;
+  text-anchor: middle;
 }
 
-.stone-create-text:hover {
-  fill: #1C0F0F;
-  font-weight: 600;
-}
 
 /* 다른 탭들 */
 .other-tabs {
@@ -1823,154 +2196,7 @@ export default {
   justify-content: center;
 }
 
-.connection-lines {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.stone-node {
-  position: absolute;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  border: 10px solid #FFDD44;
-  background: #FFFFFF;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  z-index: 10;
-}
-
-.root-stone {
-  width: 180px;
-  height: 180px;
-  border: 15px solid #FF8C00;
-  background: #FFFFFF;
-  box-shadow: 
-    0 12px 35px rgba(255, 140, 0, 0.5),
-    0 0 0 12px rgba(255, 221, 68, 0.2),
-    0 0 0 20px rgba(255, 140, 0, 0.1);
-  position: relative;
-  overflow: visible;
-}
-
-.root-stone-glow {
-  position: absolute;
-  top: -30px;
-  left: -30px;
-  right: -30px;
-  bottom: -30px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 140, 0, 0.4) 0%, rgba(255, 221, 68, 0.2) 50%, transparent 80%);
-  z-index: -2;
-}
-
-.stone-content {
-  text-align: center;
-  padding: 8px;
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 2px;
-}
-
-.stone-name {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 18px;
-  color: #1C0F0F;
-  word-break: break-word;
-  text-align: center;
-  margin: 0;
-  z-index: 3;
-  max-width: 120px;
-}
-
-.root-stone .stone-name {
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 20px;
-  max-width: 140px;
-}
-
-.dday-display {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 800;
-  font-size: 16px;
-  color: #1C0F0F;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-  z-index: 15;
-  pointer-events: none;
-  margin: 0;
-}
-
-.root-stone .dday-display {
-  font-size: 18px;
-  font-weight: 900;
-  color: #1C0F0F;
-  text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9);
-}
-
-.root-stone-icon {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  z-index: 6;
-}
-
-.milestone-badge {
-  background: #2A2828;
-  color: #FFFFFF;
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
-  font-size: 10px;
-  line-height: 12px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  z-index: 6;
-}
-
-.stone-create-text {
-  position: absolute;
-  bottom: 10px;
-  right: -60px;
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 500;
-  font-size: 10px;
-  line-height: 12px;
-  color: #666666;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(102, 102, 102, 0.2);
-  z-index: 5;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-}
-
-.stone-create-text:hover {
-  background: rgba(255, 221, 68, 0.9);
-  color: #1C0F0F;
-  border-color: rgba(255, 221, 68, 0.5);
-  transform: translateY(-1px);
-}
+/* 기존 스타일들은 새로운 SVG 기반 디자인으로 대체됨 */
 
 /* 스톤 생성 모달 스타일 */
 .modal-overlay {
