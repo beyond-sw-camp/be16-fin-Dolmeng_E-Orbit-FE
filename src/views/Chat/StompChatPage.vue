@@ -154,7 +154,7 @@
                         </transition>
                         <transition name="slide-user">
                         <div v-if="isDocsPanelOpen" class="user-panel docs-mode">
-                            <div class="user-panel-header">
+                            <div class="user-panel-header docs-header">
                                 <img src="@/assets/icons/chat/file-multiple.svg" alt="docs" class="user-panel-icon" />
                                 <span class="user-panel-title">문서함</span>
                                 <span class="user-panel-count">{{ filesList.length }}</span>
@@ -263,6 +263,14 @@ import axios from 'axios';
         },
         created() {
             this.senderId = localStorage.getItem("id");
+        },
+        watch: {
+            roomId(){
+                // 채팅방 변경 시 사이드 패널 닫기
+                this.isUserPanelOpen = false;
+                this.isDocsPanelOpen = false;
+                this.isHeaderMenuOpen = false;
+            }
         },
         beforeRouteLeave(to, from, next) {
             this.teardownRoomSubscription();
@@ -736,12 +744,13 @@ import axios from 'axios';
 .slide-user-leave-from{ transform: translateX(0); opacity: 1; }
 .slide-user-leave-active{ transition: transform 200ms ease, opacity 200ms ease; }
 .slide-user-leave-to{ transform: translateX(100%); opacity: 0; }
-.user-panel-header{ height: var(--banner-height); background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 0 8px; position: sticky; top: 0; z-index: 2; }
-.user-panel.docs-mode .user-panel-header{ height: 112px; background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 0 8px; position: sticky; top: 0; z-index: 2; }
+.user-panel-header{ height: var(--banner-height); min-height: var(--banner-height); flex: 0 0 var(--banner-height); box-sizing: border-box; background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 0 8px; position: sticky; top: 0; z-index: 2; }
+.user-panel.docs-mode .user-panel-header{ height: var(--banner-height); min-height: var(--banner-height); flex: 0 0 var(--banner-height); box-sizing: border-box; background: var(--chat-accent); display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; padding: 0 8px; position: sticky; top: 0; z-index: 2; }
 .user-panel-icon{ width: 24px; height: 24px; }
 .user-panel-title{ color: #1C0F0F; font-weight: 700; text-align: center; }
 .user-panel-count{ color: #1C0F0F; font-weight: 700; justify-self: end; }
 .user-panel-body{ flex: 1 1 auto; overflow-y: auto; padding: 12px 8px; }
+.docs-panel-body{ flex: 1 1 auto; overflow-y: auto; padding: 12px 10px; }
 .user-row{ display: flex; align-items: center; justify-content: flex-start; gap: 64px; padding: 12px 8px 12px 36px; border-bottom: 1px solid #F1F1F1; }
 .user-avatar{ width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: transparent; flex: 0 0 32px; border: 0; box-shadow: none; }
 .user-avatar img{ width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -752,6 +761,8 @@ import axios from 'axios';
 .docs-group{ margin-bottom: 12px; }
 .docs-date{ font-size: 12px; color: #777; margin: 8px 4px; }
 .file-grid{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.docs-mode .user-panel-header{ position: sticky; top: 0; }
+.docs-mode{ display: flex; flex-direction: column; }
 .file-card{ background: #F9F9F9; border: 1px solid #EAEAEA; border-radius: 8px; overflow: hidden; }
 .file-thumb{ width: 100%; height: 120px; object-fit: cover; display: block; }
 .file-doc{ display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 10px; text-decoration: none; color: #2A2828; background: #F9F9F9; border: 1px solid #EAEAEA; border-radius: 8px; }
