@@ -5,8 +5,11 @@
                 <ChatRoomList embedded @select-room="handleSelectRoom" @preview-summary="handlePreviewSummary" :summaries-by-room-id="summariesByRoomId" :selected-room-id="selectedRoomId" />
             </div>
             <div class="chat-panel">
-                <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" :room-title="selectedRoomTitle" :participant-count="selectedRoomParticipantCount" />
-                <div v-else class="empty-state">채팅방을 선택하세요</div>
+                  <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" :room-title="selectedRoomTitle" :participant-count="selectedRoomParticipantCount" />
+                  <div v-else class="empty-state">
+                    <img class="empty-icon" src="@/assets/icons/chat/chat-processing.svg" alt="chat processing" />
+                    <div class="empty-text">채팅방을 선택하세요</div>
+                  </div>
             </div>
         </div>
     </div>

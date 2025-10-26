@@ -102,7 +102,7 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
         },
         computed: {
             roomsWithSummary() {
-                return (this.chatRoomList || []).map((room) => {
+                const merged = (this.chatRoomList || []).map((room) => {
                     const s = this.summariesByRoomId[room.roomId] || {};
                     return {
                         ...room,
@@ -111,6 +111,19 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
                         unreadCount: s.unreadCount ?? room.unreadCount,
                         messageType: s.messageType ?? room.messageType,
                     };
+                });
+                // 최근 메시지 시간 순(내림차순) 정렬
+                return merged.sort((a, b) => {
+                    const parse = (t) => {
+                        if (!t) return 0;
+                        const d = new Date(t);
+                        if (!isNaN(d)) return d.getTime();
+                        // 마이크로초가 붙은 문자열 등 보정
+                        const normalized = String(t).replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d{3})\d+$/, '$1.$2');
+                        const d2 = new Date(normalized);
+                        return isNaN(d2) ? 0 : d2.getTime();
+                    };
+                    return parse(b.lastSendTime) - parse(a.lastSendTime);
                 });
             }
         },
