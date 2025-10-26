@@ -7,8 +7,8 @@
             <div class="chat-panel">
                   <StompChatPage v-if="selectedRoomId" embedded :room-id="selectedRoomId" :room-title="selectedRoomTitle" :participant-count="selectedRoomParticipantCount" />
                   <div v-else class="empty-state">
-                    <img class="empty-icon" src="@/assets/icons/chat/chat-processing.svg" alt="chat processing" />
-                    <div class="empty-text">채팅방을 선택하세요</div>
+                    <div class="empty-icon" aria-hidden="true"></div>
+                    <div class="empty-text">채팅방을 선택하세요.</div>
                   </div>
             </div>
         </div>
@@ -220,7 +220,15 @@ export default {
   justify-content: center;
   color: #9E9E9E;
   font-size: 14px;
+  flex-direction: column;
 }
+.empty-icon{
+  width: 64px; height: 64px; margin-bottom: 12px; opacity: 0.9;
+  mask: url('@/assets/icons/chat/chat-processing.svg') no-repeat center / contain;
+  -webkit-mask: url('@/assets/icons/chat/chat-processing.svg') no-repeat center / contain;
+  background-color: #9E9E9E; /* 텍스트와 동일 색상 */
+}
+.empty-text{ font-size: 14px; color: #9E9E9E; }
 .chatbot-fab {
   position: fixed;
   right: 24px;
