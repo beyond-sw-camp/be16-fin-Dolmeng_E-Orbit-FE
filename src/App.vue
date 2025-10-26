@@ -8,7 +8,16 @@
     </v-main>
 
     <!-- 전역 챗봇 버튼 및 오버레이 -->
-    <v-btn v-if="!hideLayout && !hideChatbot" class="chatbot-fab" icon @click="isChatBotOpen = true">
+    <v-btn
+      v-if="!hideLayout && !hideChatbot"
+      class="chatbot-fab"
+      :class="{ dragging: isFabDragging }"
+      icon
+      :style="{ left: fabX + 'px', top: fabY + 'px' }"
+      @mousedown.prevent="onFabPointerDown($event)"
+      @touchstart.passive="onFabPointerDown($event)"
+      @click.stop.prevent="onFabClick"
+    >
       <v-icon>mdi-robot-outline</v-icon>
     </v-btn>
     <v-overlay v-if="!hideLayout && !hideChatbot" :model-value="isChatBotOpen" scrim="rgba(0,0,0,0.25)" @click:outside="isChatBotOpen = false" class="align-end justify-end" persistent>
@@ -34,7 +43,31 @@ export default {
   data() {
     return {
       isChatBotOpen: false,
+      fabX: 0,
+      fabY: 0,
+      isFabDragging: false,
+      hasFabMoved: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+      fabSize: 56,
     };
+  },
+  mounted() {
+    this.$nextTick(() => {
+      this.loadFabPosition();
+      window.addEventListener('mousemove', this.onFabPointerMove, { passive: true });
+      window.addEventListener('mouseup', this.onFabPointerUp, { passive: true });
+      window.addEventListener('touchmove', this.onFabPointerMove, { passive: false });
+      window.addEventListener('touchend', this.onFabPointerUp, { passive: true });
+      window.addEventListener('resize', this.onWindowResize, { passive: true });
+    });
+  },
+  beforeUnmount() {
+    window.removeEventListener('mousemove', this.onFabPointerMove);
+    window.removeEventListener('mouseup', this.onFabPointerUp);
+    window.removeEventListener('touchmove', this.onFabPointerMove);
+    window.removeEventListener('touchend', this.onFabPointerUp);
+    window.removeEventListener('resize', this.onWindowResize);
   },
   computed: {
     hideLayout() {
@@ -43,7 +76,86 @@ export default {
     hideChatbot() {
       return this.$route.meta?.hideChatbot === true;
     }
-  }
+  },
+  methods: {
+    onFabClick() {
+      if (this.hasFabMoved) { this.hasFabMoved = false; return; }
+      this.isChatBotOpen = true;
+    },
+    onFabPointerDown(e) {
+      const point = this.getPoint(e);
+      this.isFabDragging = true;
+      this.hasFabMoved = false;
+      this.dragOffsetX = point.x - this.fabX;
+      this.dragOffsetY = point.y - this.fabY;
+    },
+    onFabPointerMove(e) {
+      if (!this.isFabDragging) return;
+      const point = this.getPoint(e);
+      const nextX = point.x - this.dragOffsetX;
+      const nextY = point.y - this.dragOffsetY;
+      const clamped = this.clampToViewport(nextX, nextY);
+      if (Math.abs(clamped.x - this.fabX) > 1 || Math.abs(clamped.y - this.fabY) > 1) {
+        this.hasFabMoved = true;
+      }
+      this.fabX = clamped.x;
+      this.fabY = clamped.y;
+      if (e.cancelable) e.preventDefault();
+    },
+    onFabPointerUp() {
+      if (!this.isFabDragging) return;
+      this.isFabDragging = false;
+      this.saveFabPosition();
+    },
+    getPoint(e) {
+      if (e.touches && e.touches[0]) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    },
+    clampToViewport(x, y) {
+      const margin = 8;
+      const maxX = Math.max(margin, window.innerWidth - this.fabSize - margin);
+      const maxY = Math.max(margin, window.innerHeight - this.fabSize - margin);
+      const clampedX = Math.min(Math.max(x, margin), maxX);
+      const clampedY = Math.min(Math.max(y, margin), maxY);
+      return { x: clampedX, y: clampedY };
+    },
+    onWindowResize() {
+      const clamped = this.clampToViewport(this.fabX, this.fabY);
+      this.fabX = clamped.x;
+      this.fabY = clamped.y;
+      this.saveFabPosition();
+    },
+    loadFabPosition() {
+      try {
+        const x = Number(localStorage.getItem('chatbotFabX'));
+        const y = Number(localStorage.getItem('chatbotFabY'));
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          // 레거시/이상치 보정: 좌상단에 너무 붙어있다면 기본값으로 재설정
+          if (x <= 24 && y <= 24) {
+            // fall through to default
+          } else {
+            const clampedStored = this.clampToViewport(x, y);
+            this.fabX = clampedStored.x;
+            this.fabY = clampedStored.y;
+            return;
+          }
+        }
+      } catch (_) {}
+      const defX = window.innerWidth - 24 - this.fabSize;
+      const defY = window.innerHeight - 24 - this.fabSize;
+      const clampedDefault = this.clampToViewport(defX, defY);
+      this.fabX = clampedDefault.x;
+      this.fabY = clampedDefault.y;
+    },
+    saveFabPosition() {
+      try {
+        localStorage.setItem('chatbotFabX', String(this.fabX));
+        localStorage.setItem('chatbotFabY', String(this.fabY));
+      } catch (_) {}
+    },
+  },
 }
 </script>
 
@@ -63,13 +175,8 @@ export default {
 .with-offset { padding-top: 64px; padding-left: 240px; }
 .no-offset { padding: 0; }
 
-.chatbot-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  background: #FFE364;
-  color: #2A2828;
-}
+.chatbot-fab { position: fixed; background: #FFE364; color: #2A2828; cursor: grab; z-index: 1500; width: 56px; height: 56px; }
+.chatbot-fab.dragging { cursor: grabbing; }
 .chatbot-fab:focus, .chatbot-fab:focus-visible { outline: none !important; box-shadow: none !important; }
 .chatbot-fab { -webkit-tap-highlight-color: transparent; }
 </style>

@@ -8,6 +8,11 @@
           <div class="subtitle">무엇을 도와드릴까요?</div>
         </div>
       </div>
+      <div class="header-actions">
+        <button class="header-close-btn" aria-label="닫기" @click="closeWidget">
+          <v-icon size="18" color="#8B8B8B">mdi-close</v-icon>
+        </button>
+      </div>
     </div>
     <div class="chatbot-body">
       <div
@@ -24,7 +29,7 @@
         </template>
       </div>
       <div class="suggestions">
-        <button class="chip" type="button">도움말</button>
+        <button class="chip" type="button">제가 할 수 있는 일은요..!</button>
       </div>
     </div>
     <div class="chatbot-footer">
@@ -57,10 +62,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, nextTick, onMounted, defineEmits } from 'vue';
 import axios from 'axios';
 
 const WELCOME = '안녕하세요! ORBIT의 귀염둥이 챗봇 오르빙입니다🤖 무엇을 도와드릴까요?';
+const emit = defineEmits(['close']);
 const messages = ref([]);
 const inputText = ref('');
 const isLoading = ref(false);
@@ -123,6 +129,10 @@ function scrollToBottom() {
   if (el) el.scrollTop = el.scrollHeight;
 }
 
+function closeWidget(){
+  isCalendarDialogOpen.value = false;
+  emit('close');
+}
 // 초기 히스토리 불러오기
 onMounted(loadHistory);
 async function loadHistory() {
@@ -175,6 +185,12 @@ function normalizeContent(content) {
 .title-wrap { min-width: 0; }
 .title { font-size: 14px; font-weight: 700; color: #2A2828; }
 .subtitle { font-size: 12px; color: #8B8B8B; }
+.header-actions { display: flex; align-items: center; }
+.header-close-btn { border: 0; background: transparent; width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; line-height: 0; }
+.header-close-btn:hover { background: #F1F3F4; }
+.header-close-btn .v-icon { display: block; line-height: 1; }
+.header-close-btn:focus, .header-close-btn:focus-visible { outline: none !important; box-shadow: none !important; }
+.header-close-btn { -webkit-tap-highlight-color: transparent; }
 .chatbot-body { flex: 1 1 auto; padding: 12px; overflow-y: auto; background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFA 100%); }
 .bubble-row { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 10px; }
 .bubble-row.received { justify-content: flex-start; }
@@ -193,11 +209,11 @@ function normalizeContent(content) {
 .chip:hover { background: #F8FAFC; }
 .chatbot-footer { padding: 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #F0F0F0; background: #FFFFFF; }
 .input-wrap { flex: 1 1 auto; }
-.input { width: 100%; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E3E3; outline: none; background: #FFF; color: #2A2828; }
+.input { width: 100%; height: 40px !important; min-height: 40px; max-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E3E3; outline: none; background: #FFF; color: #2A2828; box-sizing: border-box; -webkit-appearance: none; appearance: none; }
 .input-wrap { flex: 1 1 auto; }
 .input::placeholder { color: #9E9E9E; }
 .footer-actions { display: flex; align-items: center; }
-.send-btn { height: 36px; padding: 0 12px; border-radius: 10px; border: 0; background: #FFE364; color: #2A2828; font-weight: 700; cursor: pointer; }
+.send-btn { height: 40px !important; min-height: 40px; max-height: 40px; padding: 0 14px; border-radius: 10px !important; border: 1px solid #E3E3E3 !important; background-color: #FFE364 !important; color: #2A2828 !important; font-weight: 700; cursor: pointer; -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .send-btn:hover { filter: brightness(0.98); }
 
 .calendar-detail { display: grid; grid-template-columns: 80px 1fr; row-gap: 8px; column-gap: 12px; font-size: 14px; }
