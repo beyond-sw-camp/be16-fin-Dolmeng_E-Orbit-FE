@@ -110,21 +110,53 @@
               </svg>
               <span>담당자</span>
             </div>
-            <div class="info-value">{{ stoneData.manager || '김올빗' }}</div>
+            <div class="info-value-with-action">
+              <span class="info-value" :class="{ 'empty-value': !stoneData.manager || stoneData.manager === '김올빗' }">{{ stoneData.manager || '김올빗' }}</span>
+              <button class="edit-user-btn" @click="editManager" title="담당자 수정">
+                <div class="icon-with-plus">
+                  <!-- 담당자 아이콘 -->
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="#999999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="7" r="4" stroke="#999999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <!-- + 기호 (오른쪽에 별도 위치) -->
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M5 12H19" stroke="#999999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </button>
+            </div>
           </div>
 
           <!-- 참여자 정보 -->
           <div class="info-section">
-            <div class="info-label">
+            <div class="info-label" :class="{ 'empty-label': !stoneData.participants || stoneData.participants === '비어 있음' }">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="rgba(244, 206, 83, 0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="9" cy="7" r="4" stroke="rgba(244, 206, 83, 0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? 'rgba(244, 206, 83, 0.4)' : 'rgba(102, 102, 102, 0.4)'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="9" cy="7" r="4" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? 'rgba(244, 206, 83, 0.4)' : 'rgba(102, 102, 102, 0.4)'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M23 21V19C23 17.9391 22.5786 16.9217 21.8284 16.1716C21.0783 15.4214 20.0609 15 19 15H16" stroke="rgba(102, 102, 102, 0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45768C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="rgba(102, 102, 102, 0.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
               <span>참여자</span>
             </div>
-            <div class="info-value">{{ stoneData.participants || '비어 있음' }}</div>
+            <div class="info-value-with-action">
+              <span class="info-value" :class="{ 'empty-value': !stoneData.participants || stoneData.participants === '비어 있음' }">{{ stoneData.participants || '비어 있음' }}</span>
+              <button class="edit-user-btn" @click="editParticipants" title="참여자 수정">
+                <div class="icon-with-plus">
+                  <!-- 참여자 아이콘 -->
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? '#F4CE53' : '#999999'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="9" cy="7" r="4" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? '#F4CE53' : '#999999'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M23 21V19C23 17.9391 22.5786 16.9217 21.8284 16.1716C21.0783 15.4214 20.0609 15 19 15H16" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? '#F4CE53' : '#999999'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="19" cy="7" r="3" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? '#F4CE53' : '#999999'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <!-- + 기호 (오른쪽에 별도 위치) -->
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M5 12H19" :stroke="stoneData.participants && stoneData.participants !== '비어 있음' ? '#F4CE53' : '#999999'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </button>
+            </div>
           </div>
 
           <!-- 채팅방 -->
@@ -226,8 +258,11 @@
             <p class="delete-modal-message">스톤을 삭제하시겠습니까?</p>
           </div>
           <div class="delete-modal-actions">
-            <button class="cancel-btn" @click="cancelDelete">취소</button>
-            <button class="delete-btn" @click="confirmDelete">스톤 삭제</button>
+            <button class="cancel-btn" @click="cancelDelete" :disabled="isDeleting">취소</button>
+            <button class="delete-btn" @click="confirmDelete" :disabled="isDeleting">
+              <span v-if="isDeleting">삭제 중...</span>
+              <span v-else>스톤 삭제</span>
+            </button>
           </div>
         </div>
       </div>
@@ -236,6 +271,9 @@
 </template>
 
 <script>
+import { deleteStone } from '@/services/stoneService.js';
+import { showSnackbar } from '@/services/snackbar.js';
+
 export default {
   name: 'StoneDetailModal',
   props: {
@@ -292,7 +330,8 @@ export default {
   data() {
     return {
       isCollapsed: false,
-      showDeleteConfirm: false
+      showDeleteConfirm: false,
+      isDeleting: false
     }
   },
   methods: {
@@ -309,15 +348,57 @@ export default {
       console.log('휴지통 아이콘 클릭됨!', this.stoneData)
       this.showDeleteConfirm = true
     },
-    confirmDelete() {
-      this.$emit('delete', this.stoneData)
-      this.showDeleteConfirm = false
+    async confirmDelete() {
+      if (this.isDeleting) return;
+      
+      try {
+        this.isDeleting = true;
+        
+        // 스톤 ID 확인
+        const stoneId = this.stoneData.stoneId || this.stoneData.id;
+        if (!stoneId) {
+          showSnackbar('스톤 ID를 찾을 수 없습니다.', { color: 'error' });
+          return;
+        }
+        
+        // API 호출
+        await deleteStone(stoneId);
+        
+        // 성공 메시지
+        showSnackbar('스톤이 성공적으로 삭제되었습니다.', { color: 'success' });
+        
+        // 부모 컴포넌트에 삭제 완료 알림
+        this.$emit('stone-deleted', {
+          stoneId: stoneId,
+          stoneName: this.stoneData.stoneName
+        });
+        
+        // 모달 닫기
+        this.showDeleteConfirm = false;
+        this.closeModal();
+        
+      } catch (error) {
+        console.error('스톤 삭제 실패:', error);
+        showSnackbar(error.message || '스톤 삭제에 실패했습니다.', { color: 'error' });
+      } finally {
+        this.isDeleting = false;
+      }
     },
     cancelDelete() {
       this.showDeleteConfirm = false
     },
     addTask() {
       this.$emit('add-task', this.stoneData)
+    },
+    editManager() {
+      console.log('담당자 수정 클릭:', this.stoneData)
+      // TODO: 담당자 수정 API 연동
+      this.$emit('edit-manager', this.stoneData)
+    },
+    editParticipants() {
+      console.log('참여자 수정 클릭:', this.stoneData)
+      // TODO: 참여자 수정 API 연동
+      this.$emit('edit-participants', this.stoneData)
     },
     formatDateRange(startDate, endDate) {
       if (!startDate || !endDate) return '날짜 미설정'
@@ -534,6 +615,56 @@ export default {
   word-break: break-word;
   white-space: normal;
   max-width: 100%;
+}
+
+.info-value-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-user-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.edit-user-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.edit-user-btn:active {
+  transform: scale(0.95);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.icon-with-plus {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+/* 빈 값일 때 회색 스타일 */
+.empty-value {
+  color: #999999 !important;
+}
+
+.empty-label {
+  color: #999999 !important;
+}
+
+.empty-label svg {
+  opacity: 0.5;
 }
 
 
@@ -915,9 +1046,14 @@ export default {
   justify-content: center;
 }
 
-.cancel-btn:hover {
+.cancel-btn:hover:not(:disabled) {
   background: #F5F5F5;
   border-color: #9CA3AF;
+}
+
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .delete-btn {
@@ -941,15 +1077,22 @@ export default {
   opacity: 1;
 }
 
-.delete-btn:hover {
+.delete-btn:hover:not(:disabled) {
   background: #DC2626;
   transform: translateY(-1px);
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.15);
 }
 
-.delete-btn:active {
+.delete-btn:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.delete-btn:disabled {
+  background: #9CA3AF;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* 반응형 디자인 */

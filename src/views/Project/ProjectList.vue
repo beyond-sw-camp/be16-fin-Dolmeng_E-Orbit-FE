@@ -532,7 +532,10 @@
       @close="closeStoneDetailModal"
       @expand="expandStoneDetailModal"
       @delete="deleteStoneFromModal"
+      @stone-deleted="handleStoneDeleted"
       @add-task="addTaskToStone"
+      @edit-manager="editStoneManager"
+      @edit-participants="editStoneParticipants"
     />
   </div>
 </template>
@@ -605,6 +608,7 @@ export default {
       selectedGroupMembers: [], // 선택된 그룹의 멤버들
       allSelectedUsers: [], // 모든 선택된 사용자들 (누적)
       confirmedParticipants: [], // 확정된 참여자 ID 리스트
+      selectedStoneForParticipants: null, // 참여자 수정을 위한 선택된 스톤
       currentUser: {
         id: '',
         name: '',
@@ -1111,6 +1115,11 @@ export default {
         if (response.data.statusCode === 200) {
           const stoneDetail = response.data.result;
           
+          // 참여자 목록 처리
+          const participants = stoneDetail.stoneParticipantDtoList || [];
+          const participantNames = participants.map(p => p.participantName);
+          const participantsText = participantNames.length > 0 ? participantNames.join(', ') : '비어 있음';
+          
           // API 응답 데이터를 모달에 맞는 형태로 변환
           this.selectedStoneData = {
             stoneId: stone.id,
@@ -1118,7 +1127,7 @@ export default {
             startTime: stoneDetail.startTime,
             endTime: stoneDetail.endTime,
             manager: stoneDetail.stoneManagerName,
-            participants: '비어 있음', // API에 참여자 정보가 없으므로 기본값
+            participants: participantsText,
             documentLink: '바로가기', // API에 문서 링크가 없으므로 기본값
             chatCreation: stoneDetail.chatCreation,
             tasks: (stoneDetail.taskResDtoList || []).map((task, index) => ({
@@ -1429,10 +1438,43 @@ export default {
       this.closeStoneDetailModal();
     },
     
+    // 스톤 삭제 완료 처리 (API 삭제 후 호출)
+    async handleStoneDeleted(deletedStone) {
+      console.log('스톤 삭제 완료:', deletedStone);
+      
+      try {
+        // 스톤 목록 새로고침
+        const projectId = this.$route.query.id;
+        if (projectId) {
+          await this.loadStones(projectId);
+          console.log('스톤 목록이 새로고침되었습니다.');
+        }
+      } catch (error) {
+        console.error('스톤 목록 새로고침 실패:', error);
+      }
+    },
+    
     addTaskToStone(stoneData) {
       console.log('태스크 추가:', stoneData);
       // 태스크 추가 로직 (향후 구현)
       alert('태스크 추가 기능은 곧 구현될 예정입니다.');
+    },
+    
+    editStoneManager(stoneData) {
+      console.log('스톤 담당자 수정:', stoneData);
+      // TODO: 담당자 수정 API 연동
+      alert('담당자 수정 기능은 곧 구현될 예정입니다.');
+    },
+    
+    async editStoneParticipants(stoneData) {
+      console.log('스톤 참여자 수정:', stoneData);
+      // 참여자 선택 모달 열기
+      this.selectedStoneForParticipants = stoneData;
+      
+      // 기존 참여자 정보를 미리 로드
+      await this.loadExistingParticipants(stoneData.stoneId);
+      
+      this.openUserSelectModal('participants');
     },
     
     resetNewStoneForm() {
@@ -1565,6 +1607,11 @@ export default {
       this.selectedGroup = '';
       this.filteredUserList = [...this.userList];
       
+      // 스톤 생성 시에는 기존 참여자 초기화
+      if (!this.selectedStoneForParticipants) {
+        this.allSelectedUsers = [];
+      }
+      
       // 사용자 그룹 목록 로드
       await this.loadUserGroupList();
     },
@@ -1580,23 +1627,29 @@ export default {
       this.selectedUser = null;
       this.selectedGroupMembers = [];
       this.allSelectedUsers = [];
+      this.selectedStoneForParticipants = null;
     },
     
     // 사용자 선택 확인
-    confirmUserSelection() {
+    async confirmUserSelection() {
       if (this.userSelectType === 'participants') {
-        // 선택된 사용자들의 이름을 참여자 목록에 표시
-        const participantNames = this.allSelectedUsers.map(user => user.name);
-        this.newStone.participants = participantNames.join(', ');
-        
-        // participantId를 사용 (없으면 userId 사용)
-        this.confirmedParticipants = this.allSelectedUsers.map(user => {
-          return user.participantId || user.id;
-        });
-        
-        console.log('선택된 참여자 이름들:', participantNames);
-        console.log('선택된 참여자 객체:', this.allSelectedUsers);
-        console.log('확정된 참여자 ID들 (participantId 우선):', this.confirmedParticipants);
+        if (this.selectedStoneForParticipants) {
+          // 스톤 참여자 수정인 경우
+          await this.updateStoneParticipants();
+        } else {
+          // 스톤 생성 시 참여자 선택인 경우
+          const participantNames = this.allSelectedUsers.map(user => user.name);
+          this.newStone.participants = participantNames.join(', ');
+          
+          // userId만 사용 (UUID 타입)
+          this.confirmedParticipants = this.allSelectedUsers.map(user => {
+            return user.id;
+          });
+          
+          console.log('선택된 참여자 이름들:', participantNames);
+          console.log('선택된 참여자 객체:', this.allSelectedUsers);
+          console.log('확정된 참여자 ID들 (participantId 우선):', this.confirmedParticipants);
+        }
       }
       this.closeUserSelectModal();
     },
@@ -1899,6 +1952,135 @@ export default {
       } catch (error) {
         console.error('그룹 생성 API 호출 실패:', error);
         alert('그룹 생성 중 오류가 발생했습니다.');
+      }
+    },
+    
+    // 기존 참여자 정보 로드
+    async loadExistingParticipants(stoneId) {
+      try {
+        const userId = localStorage.getItem('id');
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/stone/${stoneId}`,
+          {
+            headers: {
+              'X-User-Id': userId
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          const stoneDetail = response.data.result;
+          const participants = stoneDetail.stoneParticipantDtoList || [];
+          
+          // 기존 참여자들을 allSelectedUsers에 추가
+          this.allSelectedUsers = participants.map(participant => ({
+            id: participant.userId,
+            name: participant.participantName,
+            email: participant.participantEmail || participant.userEmail || '', // 이메일 정보 추가
+            participantId: participant.participantId,
+            group: '기존 참여자'
+          }));
+          
+          // 이메일이 없는 경우 사용자 정보를 별도로 조회
+          await this.loadParticipantEmails();
+          
+          console.log('기존 참여자 로드 완료:', this.allSelectedUsers);
+        } else {
+          console.error('기존 참여자 로드 실패:', response.data);
+          this.allSelectedUsers = [];
+        }
+      } catch (error) {
+        console.error('기존 참여자 로드 API 호출 실패:', error);
+        this.allSelectedUsers = [];
+      }
+    },
+    
+    // 참여자 이메일 정보 조회
+    async loadParticipantEmails() {
+      const usersWithoutEmail = this.allSelectedUsers.filter(user => !user.email);
+      
+      if (usersWithoutEmail.length === 0) return;
+      
+      try {
+        const userId = localStorage.getItem('id');
+        
+        // 각 사용자에 대해 이메일 정보 조회
+        for (const user of usersWithoutEmail) {
+          try {
+            const response = await axios.get(
+              `http://localhost:8080/user-service/user/${user.id}`,
+              {
+                headers: {
+                  'X-User-Id': userId
+                }
+              }
+            );
+            
+            if (response.data.statusCode === 200) {
+              const userInfo = response.data.result;
+              user.email = userInfo.email || '';
+            }
+          } catch (error) {
+            console.warn(`사용자 ${user.id}의 이메일 조회 실패:`, error);
+            user.email = '';
+          }
+        }
+      } catch (error) {
+        console.error('참여자 이메일 조회 중 오류:', error);
+      }
+    },
+    
+    // 스톤 참여자 변경
+    async updateStoneParticipants() {
+      if (!this.selectedStoneForParticipants || this.allSelectedUsers.length === 0) {
+        alert('선택된 스톤이나 참여자가 없습니다.');
+        return;
+      }
+      
+      try {
+        const userId = localStorage.getItem('id');
+        const participantIds = this.allSelectedUsers.map(user => user.id); // userId만 사용
+        
+        console.log('스톤 참여자 변경 요청 데이터:', {
+          stoneId: this.selectedStoneForParticipants.stoneId,
+          stoneParticipantList: participantIds
+        });
+        
+        const response = await axios.patch(
+          `http://localhost:8080/workspace-service/stone/participant/join`,
+          {
+            stoneId: this.selectedStoneForParticipants.stoneId,
+            stoneParticipantList: participantIds
+          },
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          console.log('스톤 참여자 변경 성공:', response.data);
+          alert('참여자가 성공적으로 변경되었습니다.');
+          
+          // 스톤 상세 모달 닫기
+          this.closeStoneDetailModal();
+          
+          // 스톤 목록 새로고침
+          const projectId = this.$route.query.id;
+          if (projectId) {
+            await this.loadStones(projectId);
+          }
+        } else {
+          console.error('스톤 참여자 변경 실패:', response.data);
+          alert('참여자 변경에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('스톤 참여자 변경 API 호출 실패:', error);
+        const errorMessage = error.response?.data?.statusMessage || error.message || '참여자 변경 중 오류가 발생했습니다.';
+        alert(errorMessage);
       }
     }
   }

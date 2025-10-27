@@ -29,6 +29,7 @@
       @close="closeStoneModal"
       @expand="expandStoneModal"
       @delete="deleteStone"
+      @stone-deleted="handleStoneDeleted"
     />
   </div>
 </template>
@@ -358,6 +359,33 @@ const deleteStone = (stoneData) => {
   }
   closeStoneModal()
   emit('delete-stone', stoneData)
+}
+
+// 스톤 삭제 완료 처리 (API 삭제 후 호출)
+const handleStoneDeleted = (deletedStone) => {
+  console.log('스톤 삭제 완료:', deletedStone)
+  
+  // elements 배열에서 해당 스톤 노드 제거
+  const stoneIndex = elements.value.findIndex(el => 
+    el.data.stoneId === deletedStone.stoneId || el.id === deletedStone.stoneId
+  )
+  
+  if (stoneIndex !== -1) {
+    const deletedNode = elements.value[stoneIndex]
+    
+    // 해당 노드와 연결된 모든 엣지 제거
+    elements.value = elements.value.filter(el => 
+      !(el.source === deletedNode.id || el.target === deletedNode.id)
+    )
+    
+    // 노드 자체 제거
+    elements.value.splice(stoneIndex, 1)
+    
+    console.log('스톤이 UI에서 제거되었습니다:', deletedStone.stoneName)
+  }
+  
+  // 부모 컴포넌트에 삭제 완료 알림
+  emit('delete-stone', deletedStone)
 }
 
 // Watchers
