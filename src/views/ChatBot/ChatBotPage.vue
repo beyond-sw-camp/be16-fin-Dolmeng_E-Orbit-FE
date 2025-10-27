@@ -213,7 +213,7 @@ function normalizeContent(content) {
 .input-wrap { flex: 1 1 auto; }
 .input::placeholder { color: #9E9E9E; }
 .footer-actions { display: flex; align-items: center; }
-.send-btn { height: 40px !important; min-height: 40px; max-height: 40px; padding: 0 14px; border-radius: 10px !important; border: 1px solid #E3E3E3 !important; background-color: #FFE364 !important; color: #2A2828 !important; font-weight: 700; cursor: pointer; -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.send-btn { height: 40px !important; min-height: 40px; max-height: 40px; padding: 0 14px; border-radius: 10px !important; border: 1px solid #E3E3E3 !important; background-color: #FFE364 !important; color: #2A2828 !important; font-size: 14px; font-weight: 700 !important; cursor: pointer; -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .send-btn:hover { filter: brightness(0.98); }
 
 .calendar-detail { display: grid; grid-template-columns: 80px 1fr; row-gap: 8px; column-gap: 12px; font-size: 14px; }
