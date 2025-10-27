@@ -1,11 +1,37 @@
 <template>
   <v-navigation-drawer class="app-sidebar" permanent>
     <!-- 로고 섹션 -->
-    <div class="logo-section">
+    <div class="logo-section" @click="toggleWorkspaceDropdown">
       <div class="logo-icon"></div>
-      <div class="logo-text">Orbit 워크스페이스</div>
-      <div class="dropdown-arrow">▼</div>
+      <div class="logo-text-container">
+        <div class="logo-text">{{ selectedWorkspace?.workspaceName || '워크스페이스 선택' }}</div>
+      </div>
+      <div class="dropdown-arrow" :class="{ 'rotated': showWorkspaceDropdown }">▼</div>
     </div>
+    
+    <!-- 워크스페이스 드롭다운 -->
+    <div v-if="showWorkspaceDropdown" class="workspace-dropdown">
+      <div 
+        v-for="workspace in workspaces" 
+        :key="workspace.workspaceId"
+        class="workspace-item"
+        :class="{ 'selected': selectedWorkspace?.workspaceId === workspace.workspaceId }"
+        @click="selectWorkspace(workspace)"
+      >
+        <div class="workspace-name">{{ workspace.workspaceName }}</div>
+      </div>
+      <div v-if="workspaces.length === 0" class="workspace-empty">
+        <div class="empty-message">워크스페이스가 없습니다</div>
+        <div class="empty-submessage">새 워크스페이스를 생성하거나 초대를 받아보세요</div>
+      </div>
+      <!-- 워크스페이스 생성 버튼 -->
+      <div class="workspace-create-item" @click="createWorkspace">
+        <div class="workspace-create-icon">[+]</div>
+        <div class="workspace-create-text">워크스페이스 생성</div>
+      </div>
+    </div>
+    
+    
     
     <!-- 저작권 -->
     <div class="copyright">
@@ -14,8 +40,8 @@
     
     <!-- 네비게이션 메뉴 -->
     <div class="nav-section">
-      <!-- 홈 (활성 상태) -->
-      <div class="nav-item active">
+      <!-- 홈 -->
+      <div class="nav-item" :class="{ active: currentRoute === '/' }" @click="navigateToHome">
         <img src="@/assets/icons/sidebar/home.svg" alt="홈" class="nav-icon" />
         <div class="nav-text">홈</div>
       </div>
@@ -39,10 +65,39 @@
       </div>
       
       <!-- 프로젝트 -->
-      <div class="nav-item">
-        <img src="@/assets/icons/sidebar/project.svg" alt="프로젝트" class="nav-icon" />
-        <div class="nav-text">프로젝트</div>
-        <div class="dropdown-arrow">▼</div>
+      <div class="project-nav-container">
+        <div class="nav-item" @click="toggleProjectDropdown" :class="{ active: currentRoute === '/project' }">
+          <img src="@/assets/icons/sidebar/project.svg" alt="프로젝트" class="nav-icon" />
+          <div class="nav-text">프로젝트</div>
+          <div class="dropdown-arrow" :class="{ 'rotated': showProjectDropdown }">▼</div>
+        </div>
+        
+        <!-- 프로젝트 드롭다운 -->
+        <div v-if="showProjectDropdown" class="project-dropdown">
+          <div 
+            v-for="project in projects" 
+            :key="project.id"
+            class="project-item"
+            @click="selectProject(project)"
+          >
+            <div class="project-circle" :style="{ background: project.color }"></div>
+            <div class="project-name">{{ project.name }}</div>
+          </div>
+          <div class="project-create-item" @click="createProject">
+            <div class="project-create-icon-wrapper">
+              <svg class="project-create-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 0V12M0 6H12" stroke="#FFE364" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="project-create-text">새 프로젝트 생성</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 관리자 페이지 (관리자 권한이 있고 PERSONAL 워크스페이스가 아닐 때만 표시) -->
+      <div v-if="isAdmin && !isPersonalWorkspace" class="nav-item admin-nav-item" :class="{ active: currentRoute === '/admin' }" @click="navigateToAdmin">
+        <img src="@/assets/icons/sidebar/admin.svg" alt="관리자 페이지" class="nav-icon" />
+        <div class="nav-text">관리자 페이지</div>
       </div>
     </div>
     
@@ -55,18 +110,297 @@
       
       <div class="storage-progress">
         <div class="storage-bar">
-          <div class="storage-fill"></div>
+          <div class="storage-fill" :style="{ width: getStoragePercentage() + '%' }"></div>
         </div>
       </div>
       
-      <div class="storage-info">4.8GB/10GB</div>
+      <div class="storage-info">{{ formatStorage(currentStorage) }}/{{ formatStorage(maxStorage) }}</div>
     </div>
   </v-navigation-drawer>
 </template>
 
 <script>
+import axios from 'axios';
+import { useWorkspaceStore } from '@/stores/workspace';
+import { workspaceWatcher } from '@/mixins/workspaceWatcher';
+
 export default {
   name: "SideBarComponent",
+  mixins: [workspaceWatcher],
+  data() {
+    return {
+      showWorkspaceDropdown: false,
+      showProjectDropdown: false,
+      currentStorage: 0,
+      maxStorage: 0,
+      projectList: [] // API에서 받아온 프로젝트 목록
+    };
+  },
+  setup() {
+    const workspaceStore = useWorkspaceStore();
+    return { workspaceStore };
+  },
+  computed: {
+    workspaces() {
+      return this.workspaceStore.getWorkspaces;
+    },
+    selectedWorkspace() {
+      return this.workspaceStore.getCurrentWorkspace;
+    },
+    projects() {
+      // API에서 받아온 프로젝트 목록을 반환
+      return this.projectList.map(project => ({
+        id: project.projectId,
+        name: project.projectName,
+        color: '#FDF5EB'
+      }));
+    },
+    currentRoute() {
+      return this.$route.path;
+    },
+    isAdmin() {
+      // 스토어의 현재 워크스페이스에서 role 확인 (반응형)
+      const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+      return currentWorkspace && currentWorkspace.role === 'ADMIN';
+    },
+    isPersonalWorkspace() {
+      const isPersonal = this.workspaceStore.isPersonalWorkspace;
+      const workspaceType = this.workspaceStore.getCurrentWorkspaceType;
+      console.log('워크스페이스 타입 체크:', { 
+        workspaceType, 
+        isPersonal, 
+        currentWorkspace: this.workspaceStore.getCurrentWorkspace 
+      });
+      return isPersonal;
+    }
+  },
+  async mounted() {
+    // 스토어 초기화 (localStorage에서 데이터 로드)
+    this.workspaceStore.initialize();
+    await this.loadWorkspaces();
+    
+    // 현재 워크스페이스의 스토리지 정보 로드
+    await this.loadWorkspaceStorage();
+    
+    // 프로젝트 목록 로드
+    await this.loadProjectList();
+    
+    // 프로젝트 생성 이벤트 리스너 추가
+    window.addEventListener('projectCreated', this.onProjectCreated);
+  },
+  
+  beforeUnmount() {
+    // 이벤트 리스너 제거
+    window.removeEventListener('projectCreated', this.onProjectCreated);
+  },
+  watch: {
+    // 워크스페이스 변경 감지
+    'workspaceStore.currentWorkspace': {
+      handler(newWorkspace, oldWorkspace) {
+        if (newWorkspace && newWorkspace.workspaceId !== oldWorkspace?.workspaceId) {
+          this.loadWorkspaceStorage();
+          this.loadProjectList(); // 워크스페이스 변경 시 프로젝트 목록 새로고침
+        }
+      },
+      deep: true
+    }
+  },
+  methods: {
+    async loadWorkspaces() {
+      try {
+        // localStorage에서 사용자 ID 가져오기 (id 키 사용)
+        const userId = localStorage.getItem('id') || 'user123';
+        console.log('현재 사용자 ID:', userId);
+        
+        const response = await axios.get('http://localhost:8080/workspace-service/workspace', {
+          headers: {
+            'X-User-Id': userId
+          }
+        });
+        
+        
+        if (response.data.statusCode === 200) {
+          console.log('워크스페이스 목록 로드:', response.data.result);
+          this.workspaceStore.setWorkspaces(response.data.result);
+          
+          // API에서 워크스페이스가 있으면 사용, 없으면 기본 워크스페이스 사용
+          if (response.data.result.length > 0) {
+            // localStorage에 저장된 워크스페이스가 있으면 그것을 사용, 없으면 첫 번째 워크스페이스 선택
+            const savedWorkspaceId = localStorage.getItem('selectedWorkspaceId');
+            if (savedWorkspaceId) {
+              const savedWorkspace = response.data.result.find(w => w.workspaceId === savedWorkspaceId);
+              if (savedWorkspace) {
+                this.workspaceStore.setCurrentWorkspace(savedWorkspace);
+              } else {
+                this.selectWorkspace(response.data.result[0]);
+              }
+            } else {
+              this.selectWorkspace(response.data.result[0]);
+            }
+          } else {
+            // API에서 워크스페이스가 없으면 기본 워크스페이스 사용
+            this.setDefaultWorkspace();
+          }
+        } else {
+          this.setDefaultWorkspace();
+        }
+      } catch (error) {
+        console.error('워크스페이스 목록 로드 실패:', error);
+        console.error('에러 상세:', error.response?.data || error.message);
+        this.setDefaultWorkspace();
+      }
+    },
+    
+    setDefaultWorkspace() {
+      // API 실패 시 기본 워크스페이스 설정
+      const defaultWorkspace = {
+        workspaceId: 'default',
+        workspaceName: '기본 워크스페이스',
+        role: 'MEMBER'
+      };
+      this.workspaceStore.setWorkspaces([defaultWorkspace]);
+      this.workspaceStore.setCurrentWorkspace(defaultWorkspace);
+    },
+    
+    selectWorkspace(workspace) {
+      // 현재 선택된 워크스페이스와 다른 워크스페이스인지 확인
+      const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+      const isDifferentWorkspace = !currentWorkspace || currentWorkspace.workspaceId !== workspace.workspaceId;
+      
+      this.workspaceStore.setCurrentWorkspace(workspace);
+      this.showWorkspaceDropdown = false;
+      
+      // 다른 워크스페이스로 변경될 때만 라우팅
+      if (isDifferentWorkspace) {
+        // 워크스페이스 변경 시 항상 홈으로 라우팅
+        this.$router.push('/');
+      }
+    },
+    
+    
+    toggleWorkspaceDropdown() {
+      this.showWorkspaceDropdown = !this.showWorkspaceDropdown;
+    },
+    
+    toggleProjectDropdown() {
+      this.showProjectDropdown = !this.showProjectDropdown;
+    },
+    
+    navigateToHome() {
+      this.$router.push('/');
+    },
+    navigateToAdmin() {
+      this.$router.push('/admin');
+    },
+    
+    selectProject(project) {
+      console.log('프로젝트 선택:', project);
+      this.showProjectDropdown = false;
+      this.$router.push({ path: '/project', query: { id: project.id } });
+    },
+    
+    createProject() {
+      console.log('프로젝트 생성');
+      this.showProjectDropdown = false;
+      // 프로젝트 생성 모달 열기
+      window.dispatchEvent(new CustomEvent('openCreateProjectModal'));
+    },
+    
+    createWorkspace() {
+      // 전역 이벤트 발생 (Vue 3 방식)
+      window.dispatchEvent(new CustomEvent('openCreateWorkspaceModal'));
+    },
+    
+    async loadWorkspaceStorage() {
+      try {
+        const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+        if (!currentWorkspace || !currentWorkspace.workspaceId) return;
+        
+        const userId = localStorage.getItem('id') || 'user123';
+        const token = localStorage.getItem('token');
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/workspace/${currentWorkspace.workspaceId}`,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          this.currentStorage = response.data.result.currentStorage || 0;
+          this.maxStorage = response.data.result.maxStorage || 0;
+        }
+      } catch (error) {
+        console.error('워크스페이스 스토리지 정보 로드 실패:', error);
+        // 에러 발생 시 기본값 사용
+        this.currentStorage = 0;
+        this.maxStorage = 0;
+      }
+    },
+    
+    formatStorage(bytes) {
+      if (!bytes) return '0GB';
+      const gb = bytes / (1024 * 1024 * 1024);
+      return gb.toFixed(1) + 'GB';
+    },
+    
+    getStoragePercentage() {
+      if (!this.maxStorage || this.maxStorage === 0) return 0;
+      return Math.round((this.currentStorage / this.maxStorage) * 100);
+    },
+    
+    // 워크스페이스 변경 감지 메서드 오버라이드
+    onWorkspaceChanged(workspaceData) {
+      console.log('SideBarComponent: 워크스페이스 변경됨', workspaceData);
+      
+      // 워크스페이스 변경 시 스토리지 정보 새로고침
+      this.loadWorkspaceStorage();
+      
+      // 워크스페이스명이 변경된 경우 사이드바의 워크스페이스명도 즉시 반영
+      // (이미 스토어가 업데이트되어 있으므로 computed 속성이 자동으로 반영됨)
+    },
+    
+    // 프로젝트 목록 조회 API 호출
+    async loadProjectList() {
+      try {
+        const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
+        if (!currentWorkspace || !currentWorkspace.workspaceId) {
+          this.projectList = [];
+          return;
+        }
+        
+        const userId = localStorage.getItem('id') || 'user123';
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/project/${currentWorkspace.workspaceId}`,
+          {
+            headers: {
+              'X-User-Id': userId
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          this.projectList = response.data.result || [];
+          console.log('프로젝트 목록 로드:', this.projectList);
+        } else {
+          this.projectList = [];
+        }
+      } catch (error) {
+        console.error('프로젝트 목록 로드 실패:', error);
+        this.projectList = [];
+      }
+    },
+    
+    // 프로젝트 생성 이벤트 핸들러
+    async onProjectCreated() {
+      console.log('프로젝트 생성 이벤트 수신 - 목록 새로고침');
+      await this.loadProjectList();
+    }
+  }
 };
 </script>
 
@@ -77,7 +411,7 @@ export default {
   left: 0;
   bottom: 0;
   width: 280px;
-  z-index: 900;
+  z-index: 100;
   background: #2A2828;
   color: #FDF5EB;
   padding: 20px;
@@ -105,6 +439,14 @@ export default {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.logo-section:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .logo-icon {
@@ -118,44 +460,164 @@ export default {
   border-radius: 4px;
 }
 
-.logo-text {
+.logo-text-container {
   position: absolute;
   left: 32px;
+  right: 32px;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.logo-text {
   font-family: 'Pretendard', sans-serif;
   font-weight: 800;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 20px;
   color: #FDF5EB;
+  word-wrap: break-word;
+  white-space: normal;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
-  .logo-text {
+  .logo-text-container {
     left: 28px;
-    font-size: 18px;
-    line-height: 22px;
+    right: 28px;
+  }
+  
+  .logo-text {
+    font-size: 14px;
+    line-height: 18px;
   }
 }
 
 @media (max-width: 480px) {
-  .logo-text {
+  .logo-text-container {
     left: 25px;
-    font-size: 16px;
-    line-height: 20px;
+    right: 25px;
+  }
+  
+  .logo-text {
+    font-size: 12px;
+    line-height: 16px;
   }
 }
 
 .dropdown-arrow {
   position: absolute;
-  right: 0;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   font-family: 'Pretendard', sans-serif;
   font-weight: 400;
-  font-size: 16px;
-  line-height: 19px;
+  font-size: 14px;
+  line-height: 17px;
   color: #FDF5EB;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.dropdown-arrow.rotated {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.workspace-dropdown {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.workspace-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s;
+}
+
+.workspace-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.workspace-item.selected {
+  background: rgba(255, 221, 68, 0.2);
+}
+
+.workspace-item:last-child {
+  border-bottom: none;
+}
+
+.workspace-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FDF5EB;
+}
+
+.workspace-empty {
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.empty-message {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FDF5EB;
+  margin-bottom: 8px;
+}
+
+.empty-submessage {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 14px;
+  color: #CCCCCC;
+}
+
+.workspace-create-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-top: 1px solid #333;
+  transition: background-color 0.2s;
+  background: rgba(255, 221, 68, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.workspace-create-item:hover {
+  background: rgba(255, 221, 68, 0.2);
+}
+
+.workspace-create-icon {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 17px;
+  color: #FFDD44;
+  flex-shrink: 0;
+}
+
+.workspace-create-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FFDD44;
 }
 
 .copyright {
@@ -246,6 +708,97 @@ export default {
   color: #FDF5EB;
 }
 
+.project-nav-container {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.project-dropdown {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.project-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.project-item .project-circle {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.project-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FDF5EB;
+}
+
+.project-create-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-top: 1px solid #333;
+  transition: background-color 0.2s;
+  background: rgba(255, 221, 68, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-create-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.project-create-item:hover {
+  background: rgba(255, 221, 68, 0.2);
+}
+
+.project-create-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.project-create-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.project-create-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #FFDD44;
+}
+
 .storage-section {
   position: absolute;
   left: 20px;
@@ -312,5 +865,15 @@ export default {
   font-size: 10px;
   line-height: 12px;
   color: #CCCCCC;
+}
+
+/* 관리자 페이지 메뉴 */
+.admin-nav-item {
+  /* 일반 nav-item과 동일한 스타일 사용 */
+}
+
+.admin-nav-item.active {
+  background: #554C2E;
+  border-radius: 8px;
 }
 </style>
