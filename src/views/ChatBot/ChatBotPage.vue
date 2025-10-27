@@ -29,7 +29,7 @@
         </template>
       </div>
       <div class="suggestions">
-        <button class="chip" type="button">제가 할 수 있는 일은요..!</button>
+        <button class="chip" type="button">📍 사용 가이드</button>
       </div>
     </div>
     <div class="chatbot-footer">
