@@ -23,12 +23,23 @@
     <v-overlay v-if="!hideLayout && !hideChatbot" :model-value="isChatBotOpen" scrim="rgba(0,0,0,0.25)" @click:outside="isChatBotOpen = false" class="align-end justify-end" persistent>
       <ChatBotPage @close="isChatBotOpen = false" />
     </v-overlay>
+    
+    <!-- 워크스페이스 생성 모달 (전체 화면에서 렌더링) -->
+    <CreateWorkspaceModal 
+      :show="showCreateModal" 
+      @close="closeCreateModal"
+    />
+    
+    <!-- 프로젝트 생성 모달 (전체 화면에서 렌더링) -->
+    <CreateProjectModal v-model="showProjectModal" />
   </v-app>
 </template>
 
 <script>
 import HeaderComponent from './components/HeaderComponent.vue';
 import SideBarComponent from './components/SideBarComponent.vue';
+import CreateWorkspaceModal from './views/Workspace/CreateWorkspaceModal.vue';
+import CreateProjectModal from './views/Project/CreateProjectModal.vue';
 import GlobalSnackbar from './components/GlobalSnackbar.vue';
 import ChatBotPage from './views/ChatBot/ChatBotPage.vue';
 
@@ -38,6 +49,8 @@ export default {
     SideBarComponent,
     HeaderComponent,
     GlobalSnackbar,
+    CreateWorkspaceModal,
+    CreateProjectModal,
     ChatBotPage,
   },
   data() {
@@ -50,6 +63,8 @@ export default {
       dragOffsetX: 0,
       dragOffsetY: 0,
       fabSize: 56,
+      showCreateModal: false,
+      showProjectModal: false
     };
   },
   mounted() {
@@ -156,6 +171,19 @@ export default {
       } catch (_) {}
     },
   },
+  closeCreateModal() {
+    this.showCreateModal = false;
+  },
+  mounted() {
+    // 전역 이벤트 리스너 등록 (Vue 3 방식)
+    window.addEventListener('openCreateWorkspaceModal', () => {
+      this.showCreateModal = true;
+    });
+    
+    window.addEventListener('openCreateProjectModal', () => {
+      this.showProjectModal = true;
+    });
+  },
 }
 </script>
 
@@ -179,4 +207,16 @@ export default {
 .chatbot-fab.dragging { cursor: grabbing; }
 .chatbot-fab:focus, .chatbot-fab:focus-visible { outline: none !important; box-shadow: none !important; }
 .chatbot-fab { -webkit-tap-highlight-color: transparent; }
+</style>
+
+<style>
+/* 관리자 페이지일 때 전체 배경을 회색으로 설정 */
+body {
+  background: #F5F5F5;
+}
+
+/* 관리자 페이지 라우트일 때 */
+.v-main {
+  background: #F5F5F5;
+}
 </style>

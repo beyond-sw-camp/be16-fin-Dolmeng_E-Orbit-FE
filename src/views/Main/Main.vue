@@ -59,8 +59,22 @@
           </v-card>
         </v-col>
 
+        <!-- Workspace -->
+        <v-col cols="12" md="4">
+          <v-card>
+            <v-card-title>Workspace</v-card-title>
+            <v-card-text>
+              워크스페이스 관련
+            </v-card-text>
+            <v-card-actions>
+              <v-btn variant="flat" color="primary" :to="'/workspace/test'">워크스페이스 테스트</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-col>
 
 
+
+        
         
       </v-row>
     </v-container>
