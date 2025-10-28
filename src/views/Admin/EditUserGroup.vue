@@ -46,7 +46,7 @@
                   :key="user.userId" 
                   class="user-item"
                 >
-                  <div class="user-avatar"></div>
+                  <img src="/user_default_icon.svg" alt="user" class="user-avatar" />
                   <div class="user-info">
                     <div class="user-name">{{ user.userName }}</div>
                     <div class="user-email">{{ user.userEmail }}</div>
@@ -92,7 +92,7 @@
                   :key="user.userId" 
                   class="selected-user-item"
                 >
-                  <div class="user-avatar"></div>
+                  <img src="/user_default_icon.svg" alt="user" class="user-avatar" />
                   <div class="user-info">
                     <div class="user-name">{{ user.userName }}</div>
                     <div class="user-email">{{ user.userEmail }}</div>
@@ -553,9 +553,8 @@ export default {
 .user-avatar {
   width: 24px;
   height: 24px;
-  background: #2A2828;
-  border-radius: 50%;
   flex-shrink: 0;
+  background: none;
 }
 
 .user-info {

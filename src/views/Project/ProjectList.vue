@@ -4,10 +4,15 @@
     <div class="project-header">
       <div class="title-wrapper">
         <h1 class="project-title">{{ projectName }}</h1>
-        <svg class="edit-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M10.5 1.5L12.5 3.5L11 5L9 3L10.5 1.5Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M9 3L11 5L4.5 11.5L1 13L2.5 9.5L9 3Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <div class="action-icons">
+          <svg class="edit-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" @click="openEditModal">
+            <path d="M10.5 1.5L12.5 3.5L11 5L9 3L10.5 1.5Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 3L11 5L4.5 11.5L1 13L2.5 9.5L9 3Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg class="delete-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" @click="openDeleteModal">
+            <path d="M11.6667 3.5H2.33333M5.83333 6.41667V9.33333M8.16667 6.41667V9.33333M2.33333 3.5V11.6667C2.33333 12.1269 2.70643 12.5 3.16667 12.5H10.8333C11.2936 12.5 11.6667 12.1269 11.6667 11.6667V3.5M4.66667 3.5V2.33333C4.66667 1.8731 5.03976 1.5 5.5 1.5H8.5C8.96024 1.5 9.33333 1.8731 9.33333 2.33333V3.5" stroke="#FF3E41" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
       </div>
       <!-- 프로젝트 정보 (제목 오른쪽) -->
       <div class="project-info">
@@ -375,6 +380,7 @@
           <div class="form-group">
             <label class="form-label">
               채팅방 생성
+              <span v-if="isChatCreationDisabled" class="disabled-text">(이미 채팅방이 생성되어 있습니다)</span>
             </label>
             <div class="checkbox-wrapper">
               <input 
@@ -382,8 +388,9 @@
                 class="form-checkbox" 
                 v-model="newStone.createChat"
                 id="createChat"
+                :disabled="isChatCreationDisabled"
               />
-              <label for="createChat" class="checkbox-label"></label>
+              <label for="createChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
             </div>
           </div>
         </div>
@@ -404,7 +411,7 @@
       <div class="user-select-modal" @click.stop>
         <div class="modal-header">
           <h2 class="modal-title">
-            {{ userSelectType === 'assignee' ? '담당자 선택' : '참여자 선택' }}
+            {{ userSelectType === 'assignee' ? '담당자 선택' : userSelectType === 'project-manager' ? '프로젝트 담당자 선택' : '참여자 선택' }}
           </h2>
         </div>
         
@@ -525,15 +532,214 @@
     </div>
 
     <!-- 스톤 상세 모달 -->
-    <StoneDetailModal 
+    <StoneDetailModal
       :is-visible="showStoneDetailModal"
       :stone-data="selectedStoneData"
       :is-loading="isLoadingStoneDetail"
+      :workspace-id="currentWorkspaceId"
       @close="closeStoneDetailModal"
       @expand="expandStoneDetailModal"
+      @stone-updated="onStoneUpdatedFromModal"
       @delete="deleteStoneFromModal"
+      @stone-deleted="handleStoneDeleted"
       @add-task="addTaskToStone"
+      @edit-manager="editStoneManager"
+      @edit-participants="editStoneParticipants"
+      @manager-changed="handleManagerChanged"
     />
+
+    <!-- 프로젝트 수정 모달 -->
+    <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+      <div class="edit-modal" @click.stop>
+        <div class="modal-header">
+          <h2 class="modal-title">프로젝트 수정</h2>
+        </div>
+        
+        <div class="modal-content">
+          <div class="form-group">
+            <label class="form-label">프로젝트명</label>
+            <input 
+              v-model="editForm.projectName" 
+              type="text" 
+              class="form-input"
+              placeholder="프로젝트명을 입력하세요"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">기간</label>
+            <div class="date-range-container">
+              <div class="date-input-group">
+                <label class="date-label">시작일</label>
+                <input 
+                  v-model="editForm.startDate" 
+                  type="date" 
+                  class="form-input date-input"
+                />
+              </div>
+              <div class="date-separator">~</div>
+              <div class="date-input-group">
+                <label class="date-label">종료일</label>
+                <input 
+                  v-model="editForm.endDate" 
+                  type="date" 
+                  class="form-input date-input"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">담당자</label>
+            <div class="manager-select-container">
+              <input 
+                v-model="editForm.manager" 
+                type="text" 
+                class="form-input manager-input"
+                placeholder="담당자를 선택하세요"
+                readonly
+              />
+              <button type="button" class="btn-select-manager" @click="openProjectManagerSelectModal">
+                선택
+              </button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">상태</label>
+            <div class="select-wrapper">
+              <select v-model="editForm.status" class="form-select">
+                <option value="진행중">진행중</option>
+                <option value="완료">완료</option>
+                <option value="보관">보관</option>
+              </select>
+              <span class="select-arrow">▼</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">설명</label>
+            <textarea 
+              v-model="editForm.description" 
+              class="form-textarea"
+              placeholder="프로젝트 설명을 입력하세요"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeEditModal">취소</button>
+          <button class="btn btn-primary" @click="saveProject">프로젝트 수정</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 프로젝트 담당자 선택 모달 -->
+    <div v-if="showProjectManagerSelectModal" class="manager-select-overlay" @click="closeProjectManagerSelectModal">
+      <div class="manager-select-modal" @click.stop>
+        <div class="modal-header">
+          <h2 class="modal-title">프로젝트 담당자 선택</h2>
+          <button class="close-btn" @click="closeProjectManagerSelectModal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6L18 18" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="search-section">
+            <div class="search-input-container">
+              <input 
+                type="text" 
+                class="search-input" 
+                v-model="projectManagerSearchKeyword"
+                placeholder="담당자 검색..."
+                @keyup.enter="filterProjectManagers"
+              />
+              <button class="search-btn" @click="filterProjectManagers" :disabled="isProjectManagerSearching">
+                <span v-if="!isProjectManagerSearching">검색</span>
+                <div v-else class="search-spinner"></div>
+              </button>
+            </div>
+          </div>
+          
+          <div class="manager-list">
+            <div v-if="filteredProjectManagers.length === 0" class="no-managers">
+              <p>선택 가능한 담당자가 없습니다.</p>
+            </div>
+            <div 
+              v-else
+              v-for="manager in filteredProjectManagers" 
+              :key="manager.id" 
+              class="manager-item"
+              @click="selectProjectManager(manager)"
+            >
+              <div class="manager-info">
+                <div class="manager-avatar">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="#F4CE53" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="12" cy="7" r="4" stroke="#F4CE53" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="manager-details">
+                  <div class="manager-name">{{ manager.name }}</div>
+                  <div class="manager-email">{{ manager.email }}</div>
+                </div>
+              </div>
+              <div class="select-indicator">
+                <svg v-if="selectedProjectManagerId === manager.id" width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 12L11 14L15 10" stroke="#F4CE53" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="closeProjectManagerSelectModal">취소</button>
+          <button class="confirm-btn" @click="confirmProjectManagerChange" :disabled="!selectedProjectManagerId || isProjectManagerUpdating">
+            <span v-if="isProjectManagerUpdating">변경 중...</span>
+            <span v-else>담당자 선택</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 프로젝트 삭제 확인 모달 -->
+    <div v-if="showDeleteModal" class="delete-modal-overlay" @click="closeDeleteModal">
+      <div class="delete-modal" @click.stop>
+        <div class="modal-header">
+          <h2 class="modal-title">프로젝트 삭제</h2>
+        </div>
+        
+        <div class="modal-content">
+          <div class="delete-content">
+            <div class="project-info-section">
+              <h3 class="project-name">{{ projectName }}</h3>
+            </div>
+            
+            <div class="warning-section">
+              <div class="warning-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#FF3E41" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="warning-text">
+                <p class="warning-title">정말로 이 프로젝트를 삭제하시겠습니까?</p>
+                <p class="warning-description">삭제된 프로젝트는 복구할 수 없습니다. 프로젝트와 관련된 모든 데이터가 영구적으로 삭제됩니다.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeDeleteModal">취소</button>
+          <button class="btn btn-delete" @click="confirmDeleteProject">프로젝트 삭제</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -541,6 +747,7 @@
 import axios from 'axios';
 import * as d3 from 'd3';
 import StoneDetailModal from '@Project/StoneDetailModal.vue';
+import { searchWorkspaceParticipants } from '@/services/stoneService.js';
 
 export default {
   name: 'ProjectList',
@@ -554,6 +761,7 @@ export default {
       projectDescription: '프로젝트 협업을 위한 일정 관리 서비스',
       stones: [],
       loading: false,
+      currentWorkspaceId: '', // 현재 워크스페이스 ID
       scale: 1,
       minScale: 0.5,
       maxScale: 2,
@@ -586,6 +794,27 @@ export default {
       showStoneDetailModal: false,
       selectedStoneData: {},
       isLoadingStoneDetail: false,
+      // 프로젝트 수정 모달 관련
+      showEditModal: false,
+      editForm: {
+        projectName: '',
+        startDate: '',
+        endDate: '',
+        manager: '',
+        managerId: '', // 담당자 ID 저장
+        status: '진행중',
+        description: ''
+      },
+      // 프로젝트 담당자 선택 모달 관련
+      showProjectManagerSelectModal: false,
+      projectManagerSearchKeyword: '',
+      availableProjectManagers: [],
+      filteredProjectManagers: [],
+      selectedProjectManagerId: null,
+      isProjectManagerSearching: false,
+      isProjectManagerUpdating: false,
+      // 프로젝트 삭제 모달 관련
+      showDeleteModal: false,
       newStone: {
         parentStoneName: '',
         stoneName: '',
@@ -605,6 +834,7 @@ export default {
       selectedGroupMembers: [], // 선택된 그룹의 멤버들
       allSelectedUsers: [], // 모든 선택된 사용자들 (누적)
       confirmedParticipants: [], // 확정된 참여자 ID 리스트
+      selectedStoneForParticipants: null, // 참여자 수정을 위한 선택된 스톤
       currentUser: {
         id: '',
         name: '',
@@ -620,9 +850,28 @@ export default {
       filteredUserList: []
     };
   },
+  computed: {
+    // 채팅방 생성 체크박스 비활성화 여부
+    isChatCreationDisabled() {
+      // 프로젝트에 이미 채팅방이 생성되어 있으면 비활성화
+      if (this.projectDetail?.isChatCreation === true) {
+        return true;
+      }
+      
+      // 선택된 부모 스톤이 있고, 그 스톤에 이미 채팅방이 생성되어 있으면 비활성화
+      if (this.selectedParentStone?.isChatCreation === true) {
+        return true;
+      }
+      
+      return false;
+    }
+  },
   async mounted() {
     // 현재 사용자 정보 로드
     await this.loadCurrentUserInfo();
+    
+    // 워크스페이스 ID 초기화
+    this.currentWorkspaceId = localStorage.getItem('selectedWorkspaceId') || '';
     
     const projectId = this.$route.query.id;
     if (projectId) {
@@ -638,6 +887,11 @@ export default {
     // 윈도우 리사이즈 이벤트 리스너 추가
     window.addEventListener('resize', this.updateCanvasSize);
     
+    // 스톤 수정 이벤트 리스너 추가
+    window.addEventListener('stoneUpdated', this.onStoneUpdated);
+    console.log('=== ProjectList 이벤트 리스너 등록 완료 ===');
+    console.log('stoneUpdated 이벤트 리스너 등록됨');
+    
     // 키보드 이벤트 리스너 추가 (Space 키로 팬 모드 토글)
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -646,6 +900,7 @@ export default {
     window.removeEventListener('resize', this.updateCanvasSize);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('stoneUpdated', this.onStoneUpdated);
   },
   watch: {
     stones: {
@@ -802,7 +1057,10 @@ export default {
             projectDescription: projectData.projectDescription || '프로젝트 협업을 위한 일정 관리 서비스',
             startTime: projectData.startTime || '2025-09-12',
             endTime: projectData.endTime || '2025-11-12',
-            manager: projectData.projectManagerName || projectData.managerName || projectData.manager || projectData.projectManager || '김을빗'
+            manager: projectData.projectManagerName || projectData.managerName || projectData.manager || projectData.projectManager || '김을빗',
+            managerId: projectData.projectManagerId || projectData.managerId || '',
+            projectStatus: projectData.projectStatus || 'PROGRESS',
+            isChatCreation: projectData.isChatCreation || false
           };
         }
       } catch (error) {
@@ -1082,7 +1340,9 @@ export default {
                 isProject: true // 프로젝트 모달임을 표시
               };
               
+              console.log('프로젝트 모달 표시 설정:', this.selectedStoneData);
               this.showStoneDetailModal = true;
+              console.log('showStoneDetailModal 상태:', this.showStoneDetailModal);
               return;
             } else {
               console.error('프로젝트 상세 조회 실패:', response.data.statusMessage);
@@ -1109,6 +1369,11 @@ export default {
         if (response.data.statusCode === 200) {
           const stoneDetail = response.data.result;
           
+          // 참여자 목록 처리
+          const participants = stoneDetail.stoneParticipantDtoList || [];
+          const participantNames = participants.map(p => p.participantName);
+          const participantsText = participantNames.length > 0 ? participantNames.join(', ') : '비어 있음';
+          
           // API 응답 데이터를 모달에 맞는 형태로 변환
           this.selectedStoneData = {
             stoneId: stone.id,
@@ -1116,7 +1381,7 @@ export default {
             startTime: stoneDetail.startTime,
             endTime: stoneDetail.endTime,
             manager: stoneDetail.stoneManagerName,
-            participants: '비어 있음', // API에 참여자 정보가 없으므로 기본값
+            participants: participantsText,
             documentLink: '바로가기', // API에 문서 링크가 없으므로 기본값
             chatCreation: stoneDetail.chatCreation,
             tasks: (stoneDetail.taskResDtoList || []).map((task, index) => ({
@@ -1129,7 +1394,9 @@ export default {
             isProject: false // 일반 스톤 모달임을 표시
           };
           
+          console.log('일반 스톤 모달 표시 설정:', this.selectedStoneData);
           this.showStoneDetailModal = true;
+          console.log('showStoneDetailModal 상태:', this.showStoneDetailModal);
         } else {
           console.error('스톤 상세 조회 실패:', response.data.statusMessage);
           alert('스톤 정보를 불러오는데 실패했습니다.');
@@ -1151,7 +1418,9 @@ export default {
           tasks: [],
           isProject: stone.isRoot || false
         };
+        console.log('에러 처리 후 모달 표시 설정:', this.selectedStoneData);
         this.showStoneDetailModal = true;
+        console.log('showStoneDetailModal 상태:', this.showStoneDetailModal);
       } finally {
         this.isLoadingStoneDetail = false;
       }
@@ -1406,6 +1675,172 @@ export default {
       this.resetNewStoneForm();
     },
     
+    // 스톤 수정 이벤트 처리
+    onStoneUpdated(event) {
+      console.log('=== ProjectList에서 스톤 수정 이벤트 수신 ===');
+      console.log('전체 이벤트 객체:', event);
+      console.log('이벤트 detail:', event.detail);
+      
+      const updatedStone = event.detail;
+      if (!updatedStone) {
+        console.error('이벤트 detail이 없습니다!');
+        return;
+      }
+      
+      console.log('현재 stones 배열:', this.stones);
+      console.log('찾을 stoneId:', updatedStone.stoneId);
+      
+      // stones 배열의 첫 번째 요소 구조 확인
+      if (this.stones.length > 0) {
+        console.log('첫 번째 스톤 객체 구조:', this.stones[0]);
+        console.log('첫 번째 스톤의 모든 키들:', Object.keys(this.stones[0]));
+        console.log('모든 스톤의 stoneId들:', this.stones.map(s => s.stoneId));
+      }
+      
+      console.log('현재 프로젝트 ID:', this.$route.query.id);
+      console.log('수정하려는 스톤이 현재 프로젝트에 속해있는지 확인 필요');
+      
+      // stones 배열에서 해당 스톤 찾아서 업데이트 (최상위 스톤과 하위 스톤 모두 확인)
+      let stoneIndex = -1;
+      let foundStone = null;
+      let parentStoneIndex = -1;
+      
+      // 1. 최상위 스톤에서 찾기
+      stoneIndex = this.stones.findIndex(stone => 
+        stone.id === updatedStone.stoneId || 
+        stone.stoneId === updatedStone.stoneId ||
+        stone.stone_id === updatedStone.stoneId
+      );
+      
+      if (stoneIndex !== -1) {
+        foundStone = this.stones[stoneIndex];
+        console.log('최상위 스톤에서 찾음:', foundStone);
+      } else {
+        // 2. 하위 스톤에서 찾기
+        for (let i = 0; i < this.stones.length; i++) {
+          const parentStone = this.stones[i];
+          if (parentStone.childStone && Array.isArray(parentStone.childStone)) {
+            const childIndex = parentStone.childStone.findIndex(child => 
+              child.id === updatedStone.stoneId || 
+              child.stoneId === updatedStone.stoneId ||
+              child.stone_id === updatedStone.stoneId
+            );
+            
+            if (childIndex !== -1) {
+              foundStone = parentStone.childStone[childIndex];
+              parentStoneIndex = i;
+              stoneIndex = childIndex;
+              console.log('하위 스톤에서 찾음:', foundStone);
+              console.log('부모 스톤 인덱스:', parentStoneIndex);
+              console.log('하위 스톤 인덱스:', stoneIndex);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (foundStone) {
+        console.log('수정 전 스톤 정보:', foundStone);
+        
+        if (parentStoneIndex !== -1) {
+          // 하위 스톤 업데이트
+          this.stones[parentStoneIndex].childStone[stoneIndex] = {
+            ...this.stones[parentStoneIndex].childStone[stoneIndex],
+            stoneName: updatedStone.stoneName,
+            startTime: updatedStone.startTime,
+            endTime: updatedStone.endTime,
+            chatCreation: updatedStone.chatCreation
+          };
+          console.log('하위 스톤 업데이트 완료');
+        } else {
+          // 최상위 스톤 업데이트
+          this.stones[stoneIndex] = {
+            ...this.stones[stoneIndex],
+            stoneName: updatedStone.stoneName,
+            startTime: updatedStone.startTime,
+            endTime: updatedStone.endTime,
+            chatCreation: updatedStone.chatCreation
+          };
+          console.log('최상위 스톤 업데이트 완료');
+        }
+        
+        // Vue 반응성을 위해 강제로 업데이트 트리거
+        this.$forceUpdate();
+        
+        console.log('수정 후 스톤 정보:', foundStone);
+        console.log('stones 배열 업데이트 완료');
+      } else {
+        console.warn('해당 stoneId를 가진 스톤을 찾을 수 없습니다:', updatedStone.stoneId);
+        console.log('현재 stones 배열의 ID들:', this.stones.map(s => s.stoneId));
+        
+        // 백엔드에서 리턴된 스톤 ID가 다를 수 있으므로, 스톤 목록을 다시 로드
+        console.log('스톤 목록을 다시 로드합니다...');
+        this.loadProjectData(this.$route.query.id);
+      }
+      
+      // 현재 선택된 스톤이 수정된 스톤이라면 상세 정보도 업데이트
+      if (this.selectedStone && (
+        this.selectedStone.id === updatedStone.stoneId ||
+        this.selectedStone.stoneId === updatedStone.stoneId ||
+        this.selectedStone.stone_id === updatedStone.stoneId
+      )) {
+        console.log('선택된 스톤도 업데이트 중...');
+        console.log('수정 전 selectedStone:', this.selectedStone);
+        
+        this.selectedStone = {
+          ...this.selectedStone,
+          stoneName: updatedStone.stoneName,
+          startTime: updatedStone.startTime,
+          endTime: updatedStone.endTime,
+          chatCreation: updatedStone.chatCreation
+        };
+        
+        console.log('수정 후 selectedStone:', this.selectedStone);
+        console.log('selectedStone 업데이트 완료');
+      } else {
+        console.log('선택된 스톤이 없거나 다른 스톤입니다.');
+        console.log('현재 selectedStone:', this.selectedStone);
+      }
+      
+      // selectedStoneData도 업데이트 (스톤 상세 모달에서 보여지는 데이터)
+      console.log('=== selectedStoneData 업데이트 확인 ===');
+      console.log('현재 selectedStoneData:', this.selectedStoneData);
+      console.log('찾을 stoneId:', updatedStone.stoneId);
+      
+      if (this.selectedStoneData && (
+        this.selectedStoneData.id === updatedStone.stoneId ||
+        this.selectedStoneData.stoneId === updatedStone.stoneId ||
+        this.selectedStoneData.stone_id === updatedStone.stoneId
+      )) {
+        console.log('selectedStoneData도 업데이트 중...');
+        console.log('수정 전 selectedStoneData:', this.selectedStoneData);
+        
+        // Vue 반응성을 위해 전체 객체를 새로 할당
+        this.selectedStoneData = Object.assign({}, this.selectedStoneData, {
+          stoneName: updatedStone.stoneName,
+          startTime: updatedStone.startTime,
+          endTime: updatedStone.endTime,
+          chatCreation: updatedStone.chatCreation
+        });
+        
+        console.log('수정 후 selectedStoneData:', this.selectedStoneData);
+        console.log('selectedStoneData 업데이트 완료');
+        
+        // Vue 반응성을 위해 강제로 업데이트 트리거
+        this.$forceUpdate();
+      } else {
+        console.log('selectedStoneData가 없거나 다른 스톤입니다.');
+        console.log('현재 selectedStoneData:', this.selectedStoneData);
+      }
+    },
+    
+    // 스톤 상세 모달에서 스톤 수정 이벤트 처리
+    onStoneUpdatedFromModal(updatedStone) {
+      console.log('=== ProjectList에서 모달 이벤트 수신 ===');
+      console.log('모달에서 받은 데이터:', updatedStone);
+      this.onStoneUpdated({ detail: updatedStone });
+    },
+    
     // 스톤 상세 모달 관련 메서드들
     closeStoneDetailModal() {
       this.showStoneDetailModal = false;
@@ -1423,10 +1858,76 @@ export default {
       this.closeStoneDetailModal();
     },
     
+    // 스톤 삭제 완료 처리 (API 삭제 후 호출)
+    async handleStoneDeleted(deletedStone) {
+      console.log('스톤 삭제 완료:', deletedStone);
+      
+      try {
+        // 스톤 목록 새로고침
+        const projectId = this.$route.query.id;
+        if (projectId) {
+          await this.loadStones(projectId);
+          console.log('스톤 목록이 새로고침되었습니다.');
+        }
+      } catch (error) {
+        console.error('스톤 목록 새로고침 실패:', error);
+      }
+    },
+    
     addTaskToStone(stoneData) {
       console.log('태스크 추가:', stoneData);
       // 태스크 추가 로직 (향후 구현)
       alert('태스크 추가 기능은 곧 구현될 예정입니다.');
+    },
+    
+    editStoneManager(stoneData) {
+      console.log('스톤 담당자 수정:', stoneData);
+      // 담당자 수정은 StoneDetailModal에서 처리됨
+    },
+    
+    // 담당자 변경 완료 처리
+    handleManagerChanged(data) {
+      console.log('담당자 변경 완료:', data);
+      
+      // 선택된 스톤 데이터의 담당자 정보 업데이트
+      if (this.selectedStoneData && this.selectedStoneData.stoneId === data.stoneId) {
+        this.selectedStoneData.manager = data.newManagerName;
+      }
+      
+      // 스톤 목록에서도 해당 스톤의 담당자 정보 업데이트
+      this.updateStoneManagerInList(data.stoneId, data.newManagerName);
+      
+      // 성공 메시지는 StoneDetailModal에서 이미 표시됨
+    },
+    
+    // 스톤 목록에서 담당자 정보 업데이트
+    updateStoneManagerInList(stoneId, newManagerName) {
+      // 프로젝트 스톤 목록에서 업데이트
+      if (this.projectStones) {
+        const stone = this.projectStones.find(s => s.stoneId === stoneId || s.id === stoneId);
+        if (stone) {
+          stone.manager = newManagerName;
+        }
+      }
+      
+      // 전체 스톤 목록에서도 업데이트 (필요한 경우)
+      if (this.stones) {
+        const stone = this.stones.find(s => s.stoneId === stoneId || s.id === stoneId);
+        if (stone) {
+          stone.manager = newManagerName;
+        }
+      }
+    },
+    
+    async editStoneParticipants(stoneData) {
+      console.log('스톤 참여자 수정:', stoneData);
+      // 참여자 선택 모달 열기
+      this.selectedStoneForParticipants = stoneData;
+      
+      // 기존 참여자 정보를 미리 로드
+      await this.loadExistingParticipants(stoneData.stoneId);
+      
+      this.openUserSelectModal('participants');
     },
     
     resetNewStoneForm() {
@@ -1444,6 +1945,11 @@ export default {
     async createStone() {
       if (!this.validateStoneForm()) {
         return;
+      }
+      
+      // 채팅방 생성이 비활성화된 경우 createChat을 false로 강제 설정
+      if (this.isChatCreationDisabled) {
+        this.newStone.createChat = false;
       }
       
       try {
@@ -1559,6 +2065,11 @@ export default {
       this.selectedGroup = '';
       this.filteredUserList = [...this.userList];
       
+      // 스톤 생성 시에는 기존 참여자 초기화
+      if (!this.selectedStoneForParticipants) {
+        this.allSelectedUsers = [];
+      }
+      
       // 사용자 그룹 목록 로드
       await this.loadUserGroupList();
     },
@@ -1574,23 +2085,29 @@ export default {
       this.selectedUser = null;
       this.selectedGroupMembers = [];
       this.allSelectedUsers = [];
+      this.selectedStoneForParticipants = null;
     },
     
     // 사용자 선택 확인
-    confirmUserSelection() {
+    async confirmUserSelection() {
       if (this.userSelectType === 'participants') {
-        // 선택된 사용자들의 이름을 참여자 목록에 표시
-        const participantNames = this.allSelectedUsers.map(user => user.name);
-        this.newStone.participants = participantNames.join(', ');
-        
-        // participantId를 사용 (없으면 userId 사용)
-        this.confirmedParticipants = this.allSelectedUsers.map(user => {
-          return user.participantId || user.id;
-        });
-        
-        console.log('선택된 참여자 이름들:', participantNames);
-        console.log('선택된 참여자 객체:', this.allSelectedUsers);
-        console.log('확정된 참여자 ID들 (participantId 우선):', this.confirmedParticipants);
+        if (this.selectedStoneForParticipants) {
+          // 스톤 참여자 수정인 경우
+          await this.updateStoneParticipants();
+        } else {
+          // 스톤 생성 시 참여자 선택인 경우
+          const participantNames = this.allSelectedUsers.map(user => user.name);
+          this.newStone.participants = participantNames.join(', ');
+          
+          // userId만 사용 (UUID 타입)
+          this.confirmedParticipants = this.allSelectedUsers.map(user => {
+            return user.id;
+          });
+          
+          console.log('선택된 참여자 이름들:', participantNames);
+          console.log('선택된 참여자 객체:', this.allSelectedUsers);
+          console.log('확정된 참여자 ID들 (participantId 우선):', this.confirmedParticipants);
+        }
       }
       this.closeUserSelectModal();
     },
@@ -1672,6 +2189,13 @@ export default {
     // 사용자 선택 (참여자만)
     selectUser(user) {
       this.selectedUser = user;
+      
+      // 프로젝트 담당자 선택인 경우
+      if (this.userSelectType === 'project-manager') {
+        this.editForm.manager = user.name;
+        this.closeUserSelectModal();
+        return;
+      }
       
       // 기존 선택된 사용자들과 중복 제거하면서 추가
       const existingIndex = this.allSelectedUsers.findIndex(selectedUser => selectedUser.id === user.id);
@@ -1894,6 +2418,475 @@ export default {
         console.error('그룹 생성 API 호출 실패:', error);
         alert('그룹 생성 중 오류가 발생했습니다.');
       }
+    },
+    
+    // 기존 참여자 정보 로드
+    async loadExistingParticipants(stoneId) {
+      try {
+        const userId = localStorage.getItem('id');
+        
+        const response = await axios.get(
+          `http://localhost:8080/workspace-service/stone/${stoneId}`,
+          {
+            headers: {
+              'X-User-Id': userId
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          const stoneDetail = response.data.result;
+          const participants = stoneDetail.stoneParticipantDtoList || [];
+          
+          // 기존 참여자들을 allSelectedUsers에 추가
+          this.allSelectedUsers = participants.map(participant => ({
+            id: participant.userId,
+            name: participant.participantName,
+            email: participant.participantEmail || participant.userEmail || '', // 이메일 정보 추가
+            participantId: participant.participantId,
+            group: '기존 참여자'
+          }));
+          
+          // 이메일이 없는 경우 사용자 정보를 별도로 조회
+          await this.loadParticipantEmails();
+          
+          console.log('기존 참여자 로드 완료:', this.allSelectedUsers);
+        } else {
+          console.error('기존 참여자 로드 실패:', response.data);
+          this.allSelectedUsers = [];
+        }
+      } catch (error) {
+        console.error('기존 참여자 로드 API 호출 실패:', error);
+        this.allSelectedUsers = [];
+      }
+    },
+    
+    // 참여자 이메일 정보 조회
+    async loadParticipantEmails() {
+      const usersWithoutEmail = this.allSelectedUsers.filter(user => !user.email);
+      
+      if (usersWithoutEmail.length === 0) return;
+      
+      try {
+        const userId = localStorage.getItem('id');
+        
+        // 각 사용자에 대해 이메일 정보 조회
+        for (const user of usersWithoutEmail) {
+          try {
+            const response = await axios.get(
+              `http://localhost:8080/user-service/user/${user.id}`,
+              {
+                headers: {
+                  'X-User-Id': userId
+                }
+              }
+            );
+            
+            if (response.data.statusCode === 200) {
+              const userInfo = response.data.result;
+              user.email = userInfo.email || '';
+            }
+          } catch (error) {
+            console.warn(`사용자 ${user.id}의 이메일 조회 실패:`, error);
+            user.email = '';
+          }
+        }
+      } catch (error) {
+        console.error('참여자 이메일 조회 중 오류:', error);
+      }
+    },
+    
+    // 스톤 참여자 변경
+    async updateStoneParticipants() {
+      if (!this.selectedStoneForParticipants || this.allSelectedUsers.length === 0) {
+        alert('선택된 스톤이나 참여자가 없습니다.');
+        return;
+      }
+      
+      try {
+        const userId = localStorage.getItem('id');
+        const participantIds = this.allSelectedUsers.map(user => user.id); // userId만 사용
+        
+        console.log('스톤 참여자 변경 요청 데이터:', {
+          stoneId: this.selectedStoneForParticipants.stoneId,
+          stoneParticipantList: participantIds
+        });
+        
+        const response = await axios.patch(
+          `http://localhost:8080/workspace-service/stone/participant/join`,
+          {
+            stoneId: this.selectedStoneForParticipants.stoneId,
+            stoneParticipantList: participantIds
+          },
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (response.data.statusCode === 200) {
+          console.log('스톤 참여자 변경 성공:', response.data);
+          alert('참여자가 성공적으로 변경되었습니다.');
+          
+          // 스톤 상세 모달 닫기
+          this.closeStoneDetailModal();
+          
+          // 스톤 목록 새로고침
+          const projectId = this.$route.query.id;
+          if (projectId) {
+            await this.loadStones(projectId);
+          }
+        } else {
+          console.error('스톤 참여자 변경 실패:', response.data);
+          alert('참여자 변경에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('스톤 참여자 변경 API 호출 실패:', error);
+        const errorMessage = error.response?.data?.statusMessage || error.message || '참여자 변경 중 오류가 발생했습니다.';
+        alert(errorMessage);
+      }
+    },
+
+    // 프로젝트 수정 모달 관련 메서드들
+    openEditModal() {
+      // 현재 프로젝트 정보로 폼 초기화
+      this.editForm = {
+        projectName: this.projectName,
+        startDate: this.formatDateForInput(this.projectDetail.startTime),
+        endDate: this.formatDateForInput(this.projectDetail.endTime),
+        manager: this.projectDetail.manager,
+        managerId: this.projectDetail.managerId || '', // 기존 담당자 ID 설정
+        status: this.mapStatusFromAPI(this.projectDetail.projectStatus) || '진행중',
+        description: this.projectDescription
+      };
+      this.showEditModal = true;
+    },
+
+    closeEditModal() {
+      this.showEditModal = false;
+      this.editForm = {
+        projectName: '',
+        startDate: '',
+        endDate: '',
+        manager: '',
+        managerId: '',
+        status: '진행중',
+        description: ''
+      };
+    },
+
+    async saveProject() {
+      try {
+        // 프로젝트 수정 API 호출
+        const userId = localStorage.getItem('id');
+        const projectId = this.$route.query.id;
+        const workspaceId = this.currentWorkspaceId;
+        
+        if (!projectId) {
+          alert('프로젝트 ID가 없습니다.');
+          return;
+        }
+
+        if (!workspaceId) {
+          alert('워크스페이스 ID가 없습니다.');
+          return;
+        }
+
+        // 날짜 형식 변환 (YYYY-MM-DD -> YYYY-MM-DDTHH:mm:ss)
+        const startTime = this.formatDateTimeForAPI(this.editForm.startDate);
+        const endTime = this.formatDateTimeForAPI(this.editForm.endDate);
+        
+        // 상태 매핑
+        const statusMapping = {
+          '진행중': 'PROGRESS',
+          '완료': 'COMPLETED',
+          '보관': 'STORAGE'
+        };
+        
+        const requestBody = {
+          projectId: projectId,
+          workspaceId: workspaceId,
+          projectName: this.editForm.projectName,
+          startTime: startTime,
+          endTime: endTime,
+          projectObjective: this.editForm.description, // description을 objective로 매핑
+          projectDescription: this.editForm.description,
+          projectStatus: statusMapping[this.editForm.status] || 'PROGRESS'
+        };
+
+        // 담당자가 변경된 경우에만 projectManagerId 추가
+        if (this.editForm.managerId) {
+          requestBody.projectManagerId = this.editForm.managerId;
+        }
+        
+        // 요청 객체 로그 출력
+        console.log('프로젝트 수정 API 요청 객체:', requestBody);
+        console.log('요청 헤더:', {
+          'X-User-Id': userId,
+          'Content-Type': 'application/json'
+        });
+        
+        const response = await axios.patch(
+          'http://localhost:8080/workspace-service/project',
+          requestBody,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.data.statusCode === 200) {
+          console.log('프로젝트 수정 성공:', response.data);
+          alert('프로젝트가 성공적으로 수정되었습니다.');
+          
+          // 프로젝트 정보 업데이트
+          this.projectName = this.editForm.projectName;
+          this.projectDescription = this.editForm.description;
+          this.projectDetail.projectName = this.editForm.projectName;
+          this.projectDetail.manager = this.editForm.manager;
+          this.projectDetail.startTime = startTime;
+          this.projectDetail.endTime = endTime;
+          this.projectDetail.managerId = this.editForm.managerId;
+          
+          // 사이드바 프로젝트 목록 업데이트를 위한 이벤트 발생
+          window.dispatchEvent(new CustomEvent('projectUpdated', {
+            detail: {
+              projectId: this.$route.query.id,
+              projectName: this.editForm.projectName,
+              manager: this.editForm.manager,
+              status: statusMapping[this.editForm.status] || 'PROGRESS'
+            }
+          }));
+          
+          this.closeEditModal();
+        } else {
+          console.error('프로젝트 수정 실패:', response.data);
+          alert('프로젝트 수정에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('프로젝트 수정 API 호출 실패:', error);
+        const errorMessage = error.response?.data?.statusMessage || error.message || '프로젝트 수정 중 오류가 발생했습니다.';
+        alert(errorMessage);
+      }
+    },
+
+    formatDateForInput(dateStr) {
+      if (!dateStr) return '';
+      // YYYY-MM-DDTHH:mm:ss 또는 YYYY-MM-DD 형식을 input[type="date"]에 맞게 변환
+      if (dateStr.includes('T')) {
+        return dateStr.split('T')[0]; // T 이전 부분만 추출
+      }
+      return dateStr;
+    },
+
+    formatDateForAPI(dateStr) {
+      if (!dateStr) return '';
+      // input[type="date"] 형식을 API에 맞게 변환
+      return dateStr;
+    },
+
+    formatDateTimeForAPI(dateStr) {
+      if (!dateStr) return '';
+      // YYYY-MM-DD 형식을 YYYY-MM-DDTHH:mm:ss 형식으로 변환
+      return `${dateStr}T09:00:00`; // 기본적으로 오전 9시로 설정
+    },
+
+    // API 상태를 한국어 상태로 변환
+    mapStatusFromAPI(apiStatus) {
+      const statusMapping = {
+        'PROGRESS': '진행중',
+        'COMPLETED': '완료',
+        'STORAGE': '보관'
+      };
+      return statusMapping[apiStatus] || '진행중';
+    },
+
+    async openProjectManagerSelectModal() {
+      try {
+        // 워크스페이스 참여자 목록을 가져와서 담당자 선택 모달에 표시
+        await this.loadAvailableProjectManagers();
+        this.showProjectManagerSelectModal = true;
+        this.projectManagerSearchKeyword = '';
+        this.selectedProjectManagerId = null;
+      } catch (error) {
+        console.error('담당자 목록 로드 실패:', error);
+        alert('담당자 목록을 불러올 수 없습니다.');
+      }
+    },
+
+    closeProjectManagerSelectModal() {
+      this.showProjectManagerSelectModal = false;
+      this.projectManagerSearchKeyword = '';
+      this.selectedProjectManagerId = null;
+      this.isProjectManagerSearching = false;
+    },
+
+    // 프로젝트 담당자 목록 로드 (실제 API 호출)
+    async loadAvailableProjectManagers() {
+      try {
+        if (!this.currentWorkspaceId) {
+          throw new Error('워크스페이스 ID가 없습니다.');
+        }
+        
+        // 워크스페이스 참여자 검색 API 호출
+        const response = await searchWorkspaceParticipants(this.currentWorkspaceId, '');
+        
+        if (response && response.result && response.result.userInfoList) {
+          // API 응답을 담당자 목록 형태로 변환
+          this.availableProjectManagers = response.result.userInfoList.map(user => ({
+            id: user.userId, // UUID 형태의 사용자 ID
+            name: user.userName,
+            email: user.userEmail,
+            profileImageUrl: user.profileImageUrl
+          }));
+        } else {
+          this.availableProjectManagers = [];
+        }
+        
+        this.filteredProjectManagers = [...this.availableProjectManagers];
+        
+      } catch (error) {
+        console.error('담당자 목록 로드 실패:', error);
+        alert(error.message || '담당자 목록을 불러올 수 없습니다.');
+        this.availableProjectManagers = [];
+        this.filteredProjectManagers = [];
+      }
+    },
+    
+    // 프로젝트 담당자 검색 필터링 (실제 API 호출)
+    async filterProjectManagers() {
+      try {
+        this.isProjectManagerSearching = true;
+        
+        if (!this.currentWorkspaceId) {
+          this.filteredProjectManagers = [...this.availableProjectManagers];
+          return;
+        }
+        
+        const keyword = this.projectManagerSearchKeyword.trim();
+        
+        if (keyword === '') {
+          // 빈 검색어인 경우 전체 목록 표시
+          this.filteredProjectManagers = [...this.availableProjectManagers];
+        } else {
+          // API 호출로 검색
+          const response = await searchWorkspaceParticipants(this.currentWorkspaceId, keyword);
+          
+          if (response && response.result && response.result.userInfoList) {
+            this.filteredProjectManagers = response.result.userInfoList.map(user => ({
+              id: user.userId, // UUID 형태의 사용자 ID
+              name: user.userName,
+              email: user.userEmail,
+              profileImageUrl: user.profileImageUrl
+            }));
+          } else {
+            this.filteredProjectManagers = [];
+          }
+        }
+        
+      } catch (error) {
+        console.error('담당자 검색 실패:', error);
+        // 검색 실패 시 클라이언트 사이드 필터링으로 폴백
+        const keyword = this.projectManagerSearchKeyword.toLowerCase();
+        this.filteredProjectManagers = this.availableProjectManagers.filter(manager => 
+          manager.name.toLowerCase().includes(keyword) || 
+          manager.email.toLowerCase().includes(keyword)
+        );
+      } finally {
+        this.isProjectManagerSearching = false;
+      }
+    },
+    
+    // 프로젝트 담당자 선택
+    selectProjectManager(manager) {
+      this.selectedProjectManagerId = manager.id;
+    },
+    
+    // 프로젝트 담당자 선택 확인
+    confirmProjectManagerChange() {
+      if (!this.selectedProjectManagerId) {
+        alert('담당자를 선택해주세요.');
+        return;
+      }
+      
+      const selectedManager = this.availableProjectManagers.find(m => m.id === this.selectedProjectManagerId);
+      if (selectedManager) {
+        this.editForm.manager = selectedManager.name;
+        this.editForm.managerId = selectedManager.id;
+        this.closeProjectManagerSelectModal();
+      }
+    },
+
+    // 프로젝트 삭제 모달 관련 메서드들
+    openDeleteModal() {
+      this.showDeleteModal = true;
+    },
+
+    closeDeleteModal() {
+      this.showDeleteModal = false;
+    },
+
+    async confirmDeleteProject() {
+      try {
+        const userId = localStorage.getItem('id');
+        const projectId = this.$route.query.id;
+        const workspaceId = this.currentWorkspaceId;
+        
+        if (!projectId) {
+          alert('프로젝트 ID가 없습니다.');
+          return;
+        }
+
+        if (!workspaceId) {
+          alert('워크스페이스 ID가 없습니다.');
+          return;
+        }
+
+        // 프로젝트 삭제 API 호출
+        const response = await axios.delete(
+          `http://localhost:8080/workspace-service/project/${projectId}`,
+          {
+            headers: {
+              'X-User-Id': userId,
+              'Content-Type': 'application/json'
+            },
+            data: {
+              workspaceId: workspaceId
+            }
+          }
+        );
+
+        if (response.data.statusCode === 200) {
+          console.log('프로젝트 삭제 성공:', response.data);
+          alert('프로젝트가 성공적으로 삭제되었습니다.');
+          
+          // 사이드바 프로젝트 목록에서 제거를 위한 이벤트 발생
+          window.dispatchEvent(new CustomEvent('projectDeleted', {
+            detail: {
+              projectId: this.$route.query.id
+            }
+          }));
+          
+          // 홈화면으로 이동
+          this.$router.push('/');
+        } else {
+          console.error('프로젝트 삭제 실패:', response.data);
+          alert('프로젝트 삭제에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('프로젝트 삭제 오류:', error);
+        if (error.response && error.response.data) {
+          alert(`프로젝트 삭제 실패: ${error.response.data.statusMessage || '알 수 없는 오류가 발생했습니다.'}`);
+        } else {
+          alert('프로젝트 삭제 중 오류가 발생했습니다.');
+        }
+      } finally {
+        this.closeDeleteModal();
+      }
     }
   }
 };
@@ -1925,6 +2918,32 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.action-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-icon {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-icon:hover {
+  transform: scale(1.1);
+  opacity: 0.8;
+}
+
+.delete-icon {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delete-icon:hover {
+  transform: scale(1.1);
+  opacity: 0.8;
 }
 
 .project-title {
@@ -2619,6 +3638,17 @@ export default {
   font-weight: bold;
 }
 
+.form-checkbox:disabled {
+  background: #F5F5F5;
+  border-color: #CCCCCC;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-checkbox:disabled:checked {
+  background: #CCCCCC;
+}
+
 .checkbox-label {
   font-family: 'Pretendard', sans-serif;
   font-weight: 500;
@@ -2626,6 +3656,21 @@ export default {
   line-height: 22px;
   color: #7C7C7C;
   cursor: pointer;
+}
+
+.checkbox-label.disabled {
+  color: #CCCCCC;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.disabled-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 14px;
+  color: #999999;
+  margin-left: 8px;
 }
 
 .modal-footer {
@@ -2753,8 +3798,9 @@ export default {
 
 .search-group {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
 }
 
 .search-label {
@@ -2854,13 +3900,14 @@ export default {
 }
 
 .search-input {
-  height: 40px;
+  height: 48px;
   border: 1px solid #DDDDDD;
   border-radius: 8px;
-  padding: 0 12px;
+  padding: 0 16px;
   font-family: 'Pretendard', sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   background: #FFFFFF;
+  flex: 1;
 }
 
 .search-input:focus {
@@ -2870,17 +3917,19 @@ export default {
 
 .btn-search {
   height: 40px;
-  padding: 0 16px;
+  padding: 0 12px;
   background: #F4CE53;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-family: 'Pretendard', sans-serif;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   color: #1C0F0F;
   cursor: pointer;
   transition: background-color 0.2s ease;
   margin-left: 8px;
+  min-width: 50px;
+  flex-shrink: 0;
 }
 
 .btn-search:hover {
@@ -3156,4 +4205,773 @@ export default {
 .btn-clear-all:hover {
   background: #FF5252;
 }
+
+/* 프로젝트 수정 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.edit-modal {
+  width: 764px;
+  max-height: 80vh;
+  background: #F5F5F5;
+  border: 1px solid #000000;
+  box-shadow: 4px 4px 32px rgba(0, 0, 0, 0.25), -4px -4px 32px rgba(0, 0, 0, 0.25);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(42, 40, 40, 0.1);
+}
+
+.modal-title {
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 28px;
+  color: #1C0F0F;
+  margin: 0;
+  text-align: center;
+}
+
+.modal-content {
+  flex: 1;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 17px;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  height: 48px;
+  background: #FFFFFF;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 1px solid #D1D5DB;
+  padding: 0 16px;
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 20px;
+  color: #1C0F0F;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #F4CE53;
+  box-shadow: 0 0 0 3px rgba(244, 206, 83, 0.1);
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 80px;
+  background: #FFFFFF;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 1px solid #D1D5DB;
+  padding: 12px 16px;
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 20px;
+  color: #1C0F0F;
+  box-sizing: border-box;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #F4CE53;
+  box-shadow: 0 0 0 3px rgba(244, 206, 83, 0.1);
+}
+
+.select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.form-select {
+  width: 100%;
+  height: 48px;
+  background: #FFFFFF;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 1px solid #D1D5DB;
+  padding: 0 16px;
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 20px;
+  color: #1C0F0F;
+  box-sizing: border-box;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #F4CE53;
+  box-shadow: 0 0 0 3px rgba(244, 206, 83, 0.1);
+}
+
+.select-arrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #6B7280;
+  pointer-events: none;
+}
+
+.modal-footer {
+  padding: 20px 30px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(42, 40, 40, 0.1);
+  background: #F5F5F5;
+}
+
+.btn {
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  padding: 0 20px;
+}
+
+.btn-cancel {
+  background: #F3F4F6;
+  color: #374151;
+  border: 1px solid #D1D5DB;
+}
+
+.btn-cancel:hover {
+  background: #E5E7EB;
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: #F4CE53;
+  color: #1C0F0F;
+  border: 1px solid #E6B800;
+}
+
+.btn-primary:hover {
+  background: #E6B800;
+  transform: translateY(-1px);
+}
+
+/* 연필 아이콘 스타일 */
+.edit-icon {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-icon:hover {
+  transform: scale(1.1);
+}
+
+.edit-icon:hover path {
+  stroke: #FFDD44;
+}
+
+/* 날짜 범위 컨테이너 */
+.date-range-container {
+  display: flex;
+  align-items: end;
+  gap: 15px;
+}
+
+.date-input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.date-label {
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 17px;
+  color: #666666;
+}
+
+.date-input {
+  height: 48px;
+  font-size: 16px;
+  padding: 0 15px;
+  width: 100%;
+}
+
+.date-separator {
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 22px;
+  color: #666666;
+  margin-bottom: 5px;
+}
+
+/* 담당자 선택 컨테이너 */
+.manager-select-container {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+
+.manager-input {
+  flex: 1;
+}
+
+.btn-select-manager {
+  height: 48px;
+  padding: 0 16px;
+  background: #2A2828;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-select-manager:hover {
+  background: #1A1818;
+}
+
+/* 프로젝트 담당자 선택 모달 스타일 */
+.manager-select-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.manager-select-modal {
+  width: 500px;
+  max-height: 600px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  animation: slideInUp 0.3s ease-out;
+}
+
+.manager-select-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #E5E7EB;
+  background: #F9FAFB;
+  border-radius: 12px 12px 0 0;
+}
+
+.manager-select-modal .modal-title {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 24px;
+  color: #1C0F0F;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background: #E5E7EB;
+}
+
+.manager-select-modal .modal-body {
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-input-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 14px;
+  color: #1C0F0F;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #F4CE53;
+  box-shadow: 0 0 0 3px rgba(244, 206, 83, 0.1);
+}
+
+.search-btn {
+  height: 44px;
+  min-width: 80px;
+  padding: 0 20px;
+  background: #F4CE53;
+  color: #1C0F0F;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-btn:hover:not(:disabled) {
+  background: #E6B800;
+  transform: translateY(-1px);
+}
+
+.search-btn:disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #1C0F0F;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.manager-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.no-managers {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6B7280;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 14px;
+}
+
+.manager-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #FFFFFF;
+}
+
+.manager-item:hover {
+  border-color: #F4CE53;
+  background: #FFFBEB;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 206, 83, 0.15);
+}
+
+.manager-item:last-child {
+  margin-bottom: 0;
+}
+
+.manager-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.manager-avatar {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F3F4F6;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.manager-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.manager-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: #1C0F0F;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.manager-email {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 16px;
+  color: #6B7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select-indicator {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.manager-select-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #E5E7EB;
+  background: #F9FAFB;
+  border-radius: 0 0 12px 12px;
+}
+
+.cancel-btn {
+  height: 44px;
+  padding: 0 20px;
+  background: #F3F4F6;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #E5E7EB;
+  transform: translateY(-1px);
+}
+
+.confirm-btn {
+  height: 44px;
+  padding: 0 20px;
+  background: #F4CE53;
+  color: #1C0F0F;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #E6B800;
+  transform: translateY(-1px);
+}
+
+.confirm-btn:disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 프로젝트 삭제 모달 스타일 */
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.delete-modal {
+  background: #F5F5F5;
+  border: 1px solid #000000;
+  box-shadow: 4px 4px 32px rgba(0, 0, 0, 0.25), -4px -4px 32px rgba(0, 0, 0, 0.25);
+  border-radius: 16px;
+  width: 764px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideIn 0.3s ease;
+}
+
+.delete-modal .modal-header {
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(42, 40, 40, 0.1);
+  background: #F5F5F5;
+  flex-shrink: 0;
+}
+
+.delete-modal .modal-title {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 800;
+  font-size: 28px;
+  line-height: 33px;
+  margin: 0;
+  text-align: center;
+  color: #1C0F0F;
+}
+
+.delete-modal .modal-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 30px;
+}
+
+.delete-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.project-info-section {
+  text-align: center;
+  padding: 20px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.project-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 29px;
+  margin: 0 0 8px 0;
+  color: #1C0F0F;
+}
+
+
+.warning-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: #FFF5F5;
+  border: 1px solid #FECACA;
+  border-radius: 12px;
+}
+
+.warning-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.warning-text {
+  flex: 1;
+}
+
+.warning-title {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 22px;
+  margin: 0 0 8px 0;
+  color: #DC2626;
+}
+
+.warning-description {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 18px;
+  margin: 0;
+  color: #7F1D1D;
+}
+
+.delete-modal .modal-footer {
+  padding: 20px 30px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(42, 40, 40, 0.1);
+  background: #F5F5F5;
+}
+
+.btn-delete {
+  background: #FF3E41;
+  color: #F5F5F5;
+  border: none;
+  border-radius: 8px;
+  height: 44px;
+  font-size: 16px;
+  line-height: 20px;
+  min-width: 120px;
+  padding: 0 20px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+}
+
+.btn-delete:hover {
+  background: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-delete:active {
+  transform: translateY(0);
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 </style>
