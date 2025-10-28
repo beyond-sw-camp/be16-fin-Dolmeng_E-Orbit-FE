@@ -303,7 +303,7 @@ export default {
 .card.placeholder { height: 60px; }
 .dot { width: 8px; height: 8px; background: #2A2828; border-radius: 50%; }
 .user-col { display: flex; flex-direction: column; gap: 4px; flex: 1; text-align: left; }
-.user-name { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 13px; color: #1C0F0F; }
+.user-name { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 13px; color: #1C0F0F; text-align: left; }
 .user-email { font-family: 'Pretendard', sans-serif; font-weight: 400; font-size: 13px; color: #666666; }
 .accent-btn { background: #FFDD44; border: none; border-radius: 6px; padding: 8px 12px; font-weight: 700; font-size: 14px; color: #1C0F0F; cursor: pointer; }
 .danger-btn { background: #FF0000; border: none; border-radius: 6px; padding: 8px 12px; font-weight: 700; font-size: 12px; color: #FFFFFF; cursor: pointer; }
