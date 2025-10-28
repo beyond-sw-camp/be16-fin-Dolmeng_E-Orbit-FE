@@ -1,17 +1,21 @@
 <template>
   <div class="add-permission-group-users-page">
-    <!-- 메인 컨텐츠 -->
-    <div class="main-content">
-      <!-- 헤더 섹션 -->
-      <div class="header-section">
-        <h1 class="page-title">권한 그룹에 사용자를 추가/제거 하세요</h1>
-      </div>
+    <!-- 메인 콘텐츠 -->
+    <div class="page-content">
+      <div class="content-container">
+        <!-- 제목 섹션 -->
+        <div class="title-section">
+          <h1 class="main-title">사용자 편집</h1>
+          <p class="sub-title">권한그룹에 사용자를 추가/제거 하세요</p>
+        </div>
 
       <!-- 개별 사용자 검색 섹션 -->
-      <div class="individual-search-section">
-        <div class="form-container">
-          <label class="section-label">개별 사용자 검색</label>
-          <div class="search-input-wrapper">
+      <div class="section">
+        <div class="section-heading">개별 사용자 검색</div>
+        <div class="panel">
+          <div class="form-container">
+            <label class="section-label">개별 사용자 검색</label>
+            <div class="search-input-wrapper">
             <input 
               type="text" 
               class="user-search-input" 
@@ -28,10 +32,10 @@
               :key="user.userId" 
               class="individual-user-item"
             >
-              <div class="user-avatar"></div>
+              <img src="/user_default_icon.svg" alt="user" class="user-avatar" />
               <div class="user-info">
                 <div class="user-name">{{ user.userName }}</div>
-                <div class="user-role">{{ user.role }}</div>
+                <div class="user-email">{{ user.userEmail }}</div>
               </div>
               <button 
                 class="add-user-btn" 
@@ -42,14 +46,17 @@
               </button>
             </div>
           </div>
+          </div>
         </div>
       </div>
 
       <!-- 사용자 그룹 검색 섹션 -->
-      <div class="group-search-section">
-        <div class="form-container">
-          <label class="section-label">사용자 그룹 검색</label>
-          <div class="group-search-input-wrapper">
+      <div class="section">
+        <div class="section-heading">사용자 그룹 검색</div>
+        <div class="panel">
+          <div class="form-container">
+            <label class="section-label">사용자 그룹 검색</label>
+            <div class="group-search-input-wrapper">
             <input 
               type="text" 
               class="group-search-input-field" 
@@ -79,23 +86,24 @@
               </button>
             </div>
           </div>
+          </div>
         </div>
       </div>
 
       <!-- 선택된 사용자 섹션 -->
-      <div class="selected-users-section">
-        <div class="form-container">
-          <label class="section-label">선택된 사용자</label>
-          <div class="selected-count">총 {{ selectedUsers.length }}명의 사용자가 선택되었습니다</div>
+      <div class="section">
+        <div class="section-heading">선택된 사용자</div>
+        <div class="panel">
+          <div class="form-container">
+            <label class="section-label">선택된 사용자</label>
+            <div class="selected-count">총 {{ selectedUsers.length }}명의 사용자가 선택되었습니다</div>
           <div class="selected-users-container">
             <div 
               v-for="user in selectedUsers" 
               :key="user.userId" 
               class="selected-user-item"
             >
-              <div class="user-avatar">
-                <img src="@/assets/icons/user/user_default_icon.svg" alt="user" />
-              </div>
+              <img src="/user_default_icon.svg" alt="user" class="user-avatar" />
               <div class="user-info">
                 <div class="user-name">{{ user.userName }}</div>
                 <div v-if="user.userEmail" class="user-email">{{ user.userEmail }}</div>
@@ -104,6 +112,8 @@
             </div>
           </div>
           <button class="clear-all-btn" @click="clearAllUsers">전체 삭제</button>
+          </div>
+          </div>
         </div>
       </div>
 
@@ -336,6 +346,7 @@ export default {
         this.selectedUsers.push({
           userId: user.userId,
           userName: user.userName,
+          userEmail: user.userEmail,
           groupName: '개별 사용자'
         });
       }
@@ -429,62 +440,49 @@ export default {
   bottom: 0;
   width: calc(100vw - 280px);
   height: calc(100vh - 83px);
-  background: #F5F5F5 !important;
-  font-family: 'Pretendard', sans-serif;
-  overflow-y: auto;
+  background: #F5F5F5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   z-index: 100;
-  margin: 0;
-  padding: 0;
-  border: none;
-  box-sizing: border-box;
 }
 
-/* 메인 컨텐츠 */
-.main-content {
-  padding: 20px;
-  width: 100%;
-  max-width: none;
-  margin: 0;
-}
 
-/* 헤더 섹션 */
-.header-section {
-  margin-bottom: 32px;
-}
+/* 콘텐츠 영역 */
+.page-content { flex: 1; padding: 30px; overflow-y: auto; background: #F5F5F5; }
+.content-container { max-width: 1200px; margin: 0 auto; }
 
-.page-title {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 19px;
-  color: #666666;
-  margin: 0;
-  text-align: left;
-}
+/* 타이틀 섹션 */
+.title-section { margin-bottom: 40px; }
+.main-title { font-family: 'Pretendard', sans-serif; font-weight: 800; font-size: 28px; line-height: 33px; color: #1C0F0F; margin: 0 0 15px 0; text-align: left; }
+.sub-title { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 16px; line-height: 19px; color: #666666; margin: 0; text-align: left; }
+
+/* 공통 섹션 */
+.section { margin-bottom: 24px; }
+.section-heading { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 18px; line-height: 21px; color: #1C0F0F; margin-bottom: 12px; text-align: left; }
+.panel { background: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 2px; padding: 12px; }
 
 /* 폼 컨테이너 */
 .form-container {
   background: #FFFFFF;
-  border: 1px solid #DDDDDD;
+  border: 1px solid #E0E0E0;
   border-radius: 2px;
-  padding: 20px;
-  margin-bottom: 20px;
+  padding: 12px;
+  margin-bottom: 0;
   width: 100%;
 }
 
 .section-label {
   display: block;
-  font-size: 18px;
+  font-family: 'Pretendard', sans-serif;
   font-weight: 700;
+  font-size: 18px;
+  line-height: 21px;
   color: #1C0F0F;
   margin-bottom: 12px;
   text-align: left;
 }
 
-/* 개별 사용자 검색 */
-.individual-search-section {
-  margin-bottom: 20px;
-}
 
 .search-input-wrapper {
   display: flex;
@@ -527,10 +525,6 @@ export default {
   background: #FFDD44;
 }
 
-/* 사용자 그룹 검색 */
-.group-search-section {
-  margin-bottom: 20px;
-}
 
 .group-search-input-wrapper {
   display: flex;
@@ -677,12 +671,7 @@ export default {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-}
-
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  background: none;
 }
 
 .user-info {
@@ -696,9 +685,10 @@ export default {
   color: #1C0F0F;
   line-height: 12px;
   margin-bottom: 2px;
+  text-align: left;
 }
 
-.user-role {
+.user-email {
   font-size: 10px;
   color: #666666;
   line-height: 12px;
@@ -722,10 +712,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* 선택된 사용자 섹션 */
-.selected-users-section {
-  margin-bottom: 20px;
-}
 
 .selected-count {
   font-size: 14px;
