@@ -32,7 +32,7 @@
     
     <!-- 프로젝트 설명 -->
     <div class="project-description-section">
-      <p class="project-description-text">{{ projectDescription }}</p>
+      <p class="project-description-text">{{ projectDescrinpption }}</p>
     </div>
     
     <!-- 탭 메뉴 -->
