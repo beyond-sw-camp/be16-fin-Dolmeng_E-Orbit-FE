@@ -5,6 +5,11 @@ const DriveRouter = [
         component: () => import('@/views/Drive/DriveMain.vue'),
     },
     {
+        path: '/drive/:rootType/:rootId',
+        name: 'driveRoot',
+        component: () => import('@/views/Drive/DriveMain.vue'),
+    },
+    {
         path: '/drive/:folderId',
         name: 'driveFolder',
         component: () => import('@/views/Drive/DriveMain.vue'),

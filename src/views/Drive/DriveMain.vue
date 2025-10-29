@@ -298,35 +298,53 @@ export default {
   },
 
   mounted() {
-    const folderId = this.$route.params.folderId;
-    this.initializeDrive(folderId);
+    const { rootType, rootId, folderId } = this.$route.params;
+    
+    if (rootType && rootId) {
+      // rootType/rootId 형태로 접근한 경우
+      this.initializeDrive(null, rootType, rootId);
+    } else if (folderId) {
+      // 기존 folderId 형태로 접근한 경우
+      this.initializeDrive(folderId);
+    } else {
+      // 기본 드라이브
+      this.initializeDrive(null, 'WORKSPACE', localStorage.getItem('selectedWorkspaceId'));
+    }
   },
 
   watch: {
-    '$route.params.folderId'(newFolderId) {
-      this.loadFolderContents(newFolderId);
+    '$route.params': {
+      handler(newParams) {
+        const { rootType, rootId, folderId } = newParams;
+        
+        if (rootType && rootId) {
+          this.loadFolderContents(null, rootType, rootId);
+        } else if (folderId) {
+          this.loadFolderContents(folderId);
+        }
+      },
+      deep: true
     }
   },
 
   methods: {
     // 드라이브 초기화
-    async initializeDrive(folderId) {
-      // 워크스페이스 루트인 경우 한 번만 API 호출하고 결과 공유
-      if (!folderId || this.isWorkspaceId(folderId)) {
-        const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
-        console.log('워크스페이스 루트 초기화:', workspaceId);
+    async initializeDrive(folderId, rootType, rootId) {
+      // rootType과 rootId가 있으면 루트 API 사용
+      if (rootType && rootId) {
+        console.log(`${rootType} 루트 초기화:`, rootId);
         
         try {
           this.loading = true;
           this.loadingTree = true;
           
-          const response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
+          const response = await driveService.getContentsByRoot(rootType, rootId);
           
           if (response.result) {
             // 메인 콘텐츠 업데이트
             this.items = this.parseItems(response.result);
             this.currentFolderId = null;
-            this.updateBreadcrumbs(folderId, response.result);
+            this.updateBreadcrumbs(null, response.result, rootType);
             
             // 폴더 트리 업데이트 (폴더만 추출)
             const folders = [];
@@ -343,9 +361,12 @@ export default {
             }
             
             this.folderCache['root'] = folders;
+            const rootName = rootType === 'WORKSPACE' ? '내 드라이브' : 
+                             rootType === 'PROJECT' ? '프로젝트 문서함' : 
+                             rootType === 'STONE' ? '스톤 문서함' : '문서함';
             const rootFolder = {
               id: 'root',
-              name: '내 드라이브',
+              name: rootName,
               children: folders,
             };
             this.folderTree = [rootFolder];
@@ -361,8 +382,14 @@ export default {
           this.loading = false;
           this.loadingTree = false;
         }
-      } else {
-        // 일반 폴더인 경우 기존 로직 사용
+      }
+      // 워크스페이스 루트인 경우
+      else if (!folderId || this.isWorkspaceId(folderId)) {
+        const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
+        await this.initializeDrive(null, 'WORKSPACE', workspaceId);
+      }
+      // 일반 폴더인 경우
+      else {
         await Promise.all([
           this.loadFolderTree(),
           this.loadFolderContents(folderId)
@@ -448,19 +475,26 @@ export default {
     },
 
     // 폴더 내용 로드 (폴더, 파일, 문서 모두)
-    async loadFolderContents(folderId) {
+    async loadFolderContents(folderId, rootType, rootId) {
       try {
         this.loading = true;
         let response;
         
+        // rootType과 rootId가 있으면 루트 API 사용
+        if (rootType && rootId) {
+          console.log(`${rootType} 루트 로드:`, rootId);
+          response = await driveService.getContentsByRoot(rootType, rootId);
+          this.currentFolderId = null; // 루트이므로 null
+        }
         // folderId가 없거나 워크스페이스 ID인 경우
-        if (!folderId || this.isWorkspaceId(folderId)) {
+        else if (!folderId || this.isWorkspaceId(folderId)) {
           const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
           console.log('워크스페이스 루트 로드:', workspaceId);
           response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
           this.currentFolderId = null; // 루트이므로 null
-        } else {
-          // 일반 폴더인 경우
+        } 
+        // 일반 폴더인 경우
+        else {
           console.log('폴더 내용 로드:', folderId);
           response = await driveService.getFolderContents(folderId);
           this.currentFolderId = folderId;
@@ -468,7 +502,7 @@ export default {
         
         if (response.result) {
           this.items = this.parseItems(response.result);
-          this.updateBreadcrumbs(folderId, response.result);
+          this.updateBreadcrumbs(folderId, response.result, rootType);
         } else {
           this.items = [];
         }
@@ -495,7 +529,7 @@ export default {
       dataArray.forEach(item => {
         const type = item.type || 'file';
         const name = item.name || 'Unnamed';
-        const owner = item.createBy || '알 수 없음';
+        const owner = item.createBy || '-';
         const modified = this.formatDate(item.updateAt);
         
         items.push({
@@ -536,16 +570,20 @@ export default {
     },
 
     // 브레드크럼 업데이트
-    updateBreadcrumbs(folderId, data) {
+    updateBreadcrumbs(folderId, data, rootType) {
+      const rootName = rootType === 'WORKSPACE' ? '내 드라이브' : 
+                       rootType === 'PROJECT' ? '프로젝트 문서함' : 
+                       rootType === 'STONE' ? '스톤 문서함' : '내 드라이브';
+      
       if (!folderId || folderId === 'root') {
         this.breadcrumbs = [
-          { text: '내 드라이브', icon: 'mdi-home', disabled: false, folderId: null },
+          { text: rootName, icon: 'mdi-home', disabled: false, folderId: null },
         ];
-        this.currentFolderName = '내 드라이브';
+        this.currentFolderName = rootName;
       } else {
         // 간단한 브레드크럼 (현재 폴더만)
         this.breadcrumbs = [
-          { text: '내 드라이브', icon: 'mdi-home', disabled: false, folderId: null },
+          { text: rootName, icon: 'mdi-home', disabled: false, folderId: null },
           { text: folderId, disabled: true, folderId: folderId },
         ];
         this.currentFolderName = folderId;
@@ -570,6 +608,8 @@ export default {
     getItemIcon(item) {
       if (item.type === 'folder') return 'mdi-folder';
       if (item.type === 'document') return 'mdi-file-document-edit';
+      if (item.type === 'STONE') return 'mdi-link-variant';  // 바로가기 아이콘
+      if (item.type === 'PROJECT') return 'mdi-link-variant';  // 바로가기 아이콘
       
       const iconMap = {
         pdf: 'mdi-file-pdf-box',
@@ -587,6 +627,8 @@ export default {
     getItemIconColor(item) {
       if (item.type === 'folder') return 'amber darken-2';
       if (item.type === 'document') return 'blue darken-1';
+      if (item.type === 'STONE') return 'purple darken-1';  // 스톤 바로가기
+      if (item.type === 'PROJECT') return 'green darken-1';  // 프로젝트 바로가기
       
       const colorMap = {
         pdf: 'red darken-1',
@@ -600,13 +642,33 @@ export default {
     // 아이템 클릭
     handleItemClick(item) {
       console.log('Item clicked:', item);
+      
+      // folder: 계층 구조로 폴더 탐색
       if (item.type === 'folder') {
         console.log('Navigating to folder:', item.id);
         this.$router.push({
           name: 'driveFolder',
           params: { folderId: item.id }
         });
-      } else if (item.type === 'document') {
+      }
+      // STONE: 스톤 문서함으로 바로가기
+      else if (item.type === 'STONE') {
+        console.log('Navigating to STONE drive:', item.id);
+        this.$router.push({
+          name: 'driveRoot',
+          params: { rootType: 'STONE', rootId: item.id }
+        });
+      }
+      // PROJECT: 프로젝트 문서함으로 바로가기
+      else if (item.type === 'PROJECT') {
+        console.log('Navigating to PROJECT drive:', item.id);
+        this.$router.push({
+          name: 'driveRoot',
+          params: { rootType: 'PROJECT', rootId: item.id }
+        });
+      }
+      // document: 문서 편집
+      else if (item.type === 'document') {
         console.log('Navigating to document:', item.id);
         this.$router.push(`/document/${item.id}`);
       }
