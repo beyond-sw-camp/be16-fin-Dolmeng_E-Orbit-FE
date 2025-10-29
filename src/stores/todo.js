@@ -9,7 +9,7 @@ export const useTodoStore = defineStore("todo", {
   }),
 
   actions: {
-    /** ✅ 특정 날짜의 Todo 목록 조회 */
+    /** 특정 날짜의 Todo 목록 조회 */
     async loadTodosByDate(workspaceId, date) {
         try {
             this.loading = true;
@@ -21,7 +21,7 @@ export const useTodoStore = defineStore("todo", {
             params: { date },
             });
 
-            // 👉 백엔드에서 배열이 바로 반환될 경우
+            // 백엔드에서 배열이 바로 반환될 경우
             console.log("📅 선택 날짜 ToDo 목록:", res.data);
             this.todos = Array.isArray(res.data) ? res.data : res.data.result || [];
         } catch (err) {
@@ -32,7 +32,7 @@ export const useTodoStore = defineStore("todo", {
         }
     },
 
-    /** ✅ 모든 To-Do 조회 (북마크 전용) */
+    /** 모든 To-Do 조회 (북마크 전용) */
     async loadAllTodos(workspaceId) {
         try {
             this.loading = true;
@@ -53,7 +53,7 @@ export const useTodoStore = defineStore("todo", {
         }
     },
 
-    /** ✅ 완료 처리 */
+    /** 완료 처리 */
     async completeTodo(todoId) {
       try {
         await axios.put(`/user-service/todo/completion/${todoId}`);
@@ -63,7 +63,7 @@ export const useTodoStore = defineStore("todo", {
       }
     },
 
-    /** ✅ 미완료 처리 */
+    /** 미완료 처리 */
     async uncompleteTodo(todoId) {
       try {
         await axios.put(`/user-service/todo/incompletion/${todoId}`);
@@ -73,7 +73,7 @@ export const useTodoStore = defineStore("todo", {
       }
     },
 
-    /** ✅ Todo 등록 */
+    /** Todo 등록 */
     async addTodo({ workspaceId, name, bookmark, date }) {
         try {
             const userId = localStorage.getItem("id");
@@ -102,7 +102,7 @@ export const useTodoStore = defineStore("todo", {
     },
 
 
-    /** ✅ Todo 완료 토글 */
+    /** Todo 완료 토글 */
     async toggleTodo(todoId, done) {
       try {
         const userId = localStorage.getItem("id");
@@ -124,7 +124,7 @@ export const useTodoStore = defineStore("todo", {
       }
     },
 
-    /** ✅ Todo 삭제 (옵션) */
+    /** Todo 삭제 (옵션) */
     async deleteTodo(todoId, workspaceId) {
       try {
         const userId = localStorage.getItem("id");
