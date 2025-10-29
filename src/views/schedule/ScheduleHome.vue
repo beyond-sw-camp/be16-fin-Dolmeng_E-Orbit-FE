@@ -2,48 +2,38 @@
 import { onMounted, ref, computed } from "vue";
 import MilestoneCard from "@/components/schedule/MilestoneCard.vue";
 import TaskList from "@/components/schedule/TaskList.vue";
-import PersonalTodo from "@/components/schedule/PersonalTodo.vue";
+// import PersonalTodo from "@/components/schedule/PersonalTodo.vue";
+import Todo from "@/components/schedule/TodoCard.vue";
 import { useScheduleStore } from "@/stores/schedule";
 
 const store = useScheduleStore();
-
 const workspaceId = localStorage.getItem("workspaceId") || "";
 store.setWorkspace(workspaceId);
 
-onMounted(() => {
-  store.loadAll();
+onMounted(async () => {
+  await store.loadMilestones();
 });
 
 const today = computed(() => {
   const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}.${mm}.${dd}`;
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
 });
 
-const activeMilestoneIdx = ref(0);
-const activeMilestone = computed(
-  () => store.milestones[activeMilestoneIdx.value]
-);
+const activeIdx = ref(0);
+const activeMilestone = computed(() => store.milestones[activeIdx.value]);
 
 function nextMs() {
-  if (activeMilestoneIdx.value < store.milestones.length - 1)
-    activeMilestoneIdx.value++;
+  if (activeIdx.value < store.milestones.length - 1) activeIdx.value++;
 }
 function prevMs() {
-  if (activeMilestoneIdx.value > 0) activeMilestoneIdx.value--;
+  if (activeIdx.value > 0) activeIdx.value--;
 }
 </script>
 
 <template>
   <div class="wrap">
-    <!-- <div class="tabs">
-      <button class="tab active">일정 홈</button>
-      <button class="tab" @click="$router.push('/schedule/project')">프로젝트 캘린더</button>
-      <button class="tab" @click="$router.push('/schedule/shared')">공유 캘린더</button>
-    </div> -->
-
     <div class="today">
       <span>Today</span>
       <strong>{{ today }}</strong>
@@ -51,13 +41,14 @@ function prevMs() {
 
     <!-- ✅ 2x2 카드 레이아웃 -->
     <div class="grid">
-      <!-- 마일스톤 -->
+      <!-- 🟡 마일스톤 카드 -->
       <div class="card milestone">
         <div class="nav">
           <button @click="prevMs">◀</button>
           <div class="spacer"></div>
           <button @click="nextMs">▶</button>
         </div>
+
         <MilestoneCard
           v-if="activeMilestone"
           :name="activeMilestone.name"
@@ -69,7 +60,7 @@ function prevMs() {
 
       <!-- 개인 To-Do -->
       <div class="card todo">
-        <PersonalTodo :items="store.todos" @toggle="store.toggleTodo" />
+        <Todo :items="store.todos" @toggle="store.toggleTodo" />
       </div>
 
       <!-- Task -->
@@ -79,7 +70,7 @@ function prevMs() {
 
       <!-- 추가 기능 -->
       <div class="card summary">
-        <div class="empty">추가 기능 준비 중입니다.</div>
+        <div class="personal schedule">개인 일정</div>
       </div>
     </div>
   </div>
