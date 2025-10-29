@@ -29,16 +29,19 @@
       @close="closeStoneModal"
       @expand="expandStoneModal"
       @delete="deleteStone"
+      @stone-deleted="handleStoneDeleted"
+      @stone-completed="handleStoneCompleted"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { VueFlow } from '@vue-flow/core'
+import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import StoneDetailModal from '@Project/StoneDetailModal.vue'
+import StoneNode from '@/components/StoneNode.vue'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
@@ -60,6 +63,12 @@ const showStoneModal = ref(false)
 const selectedStoneData = ref({})
 let nodeIdCounter = 1
 
+// Vue Flow 설정
+const { addNodeType } = useVueFlow()
+
+// 커스텀 노드 타입 등록
+addNodeType('stoneNode', StoneNode)
+
 // 더미 데이터
 const dummyStones = [
   {
@@ -70,6 +79,7 @@ const dummyStones = [
     manager: '김올빗',
     participants: '비어 있음',
     documentLink: '바로가기',
+    stoneStatus: 'PROGRESS',
     tasks: [
       {
         id: 1,
@@ -186,30 +196,16 @@ const convertStonesToElements = (stones, parentId = null, level = 0) => {
     // 노드 생성
     const node = {
       id: nodeId,
-      type: level === 0 ? 'input' : 'default',
+      type: 'stoneNode',
       data: { 
         label: stone.stoneName,
         milestone: stone.milestone,
         startTime: stone.startTime,
         endTime: stone.endTime,
-        stoneId: stone.stoneId
+        stoneId: stone.stoneId,
+        isRoot: level === 0
       },
-      position: calculateNodePosition(level, index, stones.length),
-      style: {
-        background: level === 0 ? '#FFDD44' : '#FFEE93',
-        borderRadius: '50%',
-        width: 120,
-        height: 120,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        border: '3px solid #FFFFFF',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: '#1C0F0F',
-        cursor: 'pointer'
-      }
+      position: calculateNodePosition(level, index, stones.length)
     }
     
     nodes.push(node)
@@ -278,6 +274,7 @@ const onNodeClick = (event, node) => {
       manager: '김올빗',
       participants: '비어 있음',
       documentLink: '바로가기',
+      stoneStatus: 'PROGRESS',
       tasks: [
         {
           id: 1,
@@ -308,30 +305,16 @@ const addStone = () => {
   const newStoneId = `new-stone-${Date.now()}`
   const newNode = {
     id: newStoneId,
-    type: 'default',
+    type: 'stoneNode',
     data: { 
       label: '새 스톤',
-      milestone: null,
+      milestone: 0,
       startTime: null,
       endTime: null,
-      stoneId: newStoneId
+      stoneId: newStoneId,
+      isRoot: false
     },
-    position: { x: 200, y: 200 },
-    style: {
-      background: '#FFEE93',
-      borderRadius: '50%',
-      width: 120,
-      height: 120,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      border: '3px solid #FFFFFF',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-      fontSize: '12px',
-      fontWeight: '700',
-      color: '#1C0F0F',
-      cursor: 'pointer'
-    }
+    position: { x: 200, y: 200 }
   }
   
   elements.value.push(newNode)
@@ -360,6 +343,51 @@ const deleteStone = (stoneData) => {
   emit('delete-stone', stoneData)
 }
 
+// 스톤 삭제 완료 처리 (API 삭제 후 호출)
+const handleStoneDeleted = (deletedStone) => {
+  console.log('스톤 삭제 완료:', deletedStone)
+  
+  // elements 배열에서 해당 스톤 노드 제거
+  const stoneIndex = elements.value.findIndex(el => 
+    el.data.stoneId === deletedStone.stoneId || el.id === deletedStone.stoneId
+  )
+  
+  if (stoneIndex !== -1) {
+    const deletedNode = elements.value[stoneIndex]
+    
+    // 해당 노드와 연결된 모든 엣지 제거
+    elements.value = elements.value.filter(el => 
+      !(el.source === deletedNode.id || el.target === deletedNode.id)
+    )
+    
+    // 노드 자체 제거
+    elements.value.splice(stoneIndex, 1)
+    
+    console.log('스톤이 UI에서 제거되었습니다:', deletedStone.stoneName)
+  }
+  
+  // 부모 컴포넌트에 삭제 완료 알림
+  emit('delete-stone', deletedStone)
+}
+
+// 스톤 완료 처리
+const handleStoneCompleted = (completedStone) => {
+  console.log('스톤 완료:', completedStone)
+  
+  // elements 배열에서 해당 스톤 노드의 상태 업데이트
+  const stoneIndex = elements.value.findIndex(el => 
+    el.data.stoneId === completedStone.stoneId || el.id === completedStone.stoneId
+  )
+  
+  if (stoneIndex !== -1) {
+    // 노드의 상태를 완료로 업데이트
+    elements.value[stoneIndex].data.status = 'COMPLETED'
+    elements.value[stoneIndex].data.milestone = 100
+    
+    console.log('스톤이 완료 상태로 업데이트되었습니다:', completedStone.stoneName)
+  }
+}
+
 // Watchers
 watch(() => props.stones, (newStones) => {
   if (newStones && newStones.length > 0) {
@@ -369,75 +397,36 @@ watch(() => props.stones, (newStones) => {
     elements.value = [
       {
         id: '1',
-        type: 'input',
+        type: 'stoneNode',
         data: { 
           label: '오르빗 출시 D-53',
-          stoneId: 'stone-1'
+          stoneId: 'stone-1',
+          milestone: 75,
+          isRoot: true
         },
-        position: { x: 400, y: 100 },
-        style: {
-          background: '#FFDD44',
-          borderRadius: '50%',
-          width: 120,
-          height: 120,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          border: '3px solid #FFFFFF',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#1C0F0F',
-          cursor: 'pointer'
-        }
+        position: { x: 400, y: 100 }
       },
       {
         id: '2',
-        type: 'default',
+        type: 'stoneNode',
         data: { 
           label: '기획 D-4',
-          stoneId: 'stone-2'
+          stoneId: 'stone-2',
+          milestone: 50,
+          isRoot: false
         },
-        position: { x: 200, y: 300 },
-        style: {
-          background: '#FFEE93',
-          borderRadius: '50%',
-          width: 120,
-          height: 120,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          border: '3px solid #FFFFFF',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#1C0F0F',
-          cursor: 'pointer'
-        }
+        position: { x: 200, y: 300 }
       },
       {
         id: '3',
-        type: 'default',
+        type: 'stoneNode',
         data: { 
           label: '백엔드 개발 D-21',
-          stoneId: 'stone-3'
+          stoneId: 'stone-3',
+          milestone: 25,
+          isRoot: false
         },
-        position: { x: 600, y: 300 },
-        style: {
-          background: '#FFEE93',
-          borderRadius: '50%',
-          width: 120,
-          height: 120,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          border: '3px solid #FFFFFF',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#1C0F0F',
-          cursor: 'pointer'
-        }
+        position: { x: 600, y: 300 }
       },
       {
         id: 'e1-2',
@@ -463,75 +452,36 @@ onMounted(() => {
   elements.value = [
     {
       id: '1',
-      type: 'input',
+      type: 'stoneNode',
       data: { 
         label: '오르빗 출시 D-53',
-        stoneId: 'stone-1'
+        stoneId: 'stone-1',
+        milestone: 75,
+        isRoot: true
       },
-      position: { x: 400, y: 100 },
-      style: {
-        background: '#FFDD44',
-        borderRadius: '50%',
-        width: 120,
-        height: 120,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        border: '3px solid #FFFFFF',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: '#1C0F0F',
-        cursor: 'pointer'
-      }
+      position: { x: 400, y: 100 }
     },
     {
       id: '2',
-      type: 'default',
+      type: 'stoneNode',
       data: { 
         label: '기획 D-4',
-        stoneId: 'stone-2'
+        stoneId: 'stone-2',
+        milestone: 50,
+        isRoot: false
       },
-      position: { x: 200, y: 300 },
-      style: {
-        background: '#FFEE93',
-        borderRadius: '50%',
-        width: 120,
-        height: 120,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        border: '3px solid #FFFFFF',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: '#1C0F0F',
-        cursor: 'pointer'
-      }
+      position: { x: 200, y: 300 }
     },
     {
       id: '3',
-      type: 'default',
+      type: 'stoneNode',
       data: { 
         label: '백엔드 개발 D-21',
-        stoneId: 'stone-3'
+        stoneId: 'stone-3',
+        milestone: 25,
+        isRoot: false
       },
-      position: { x: 600, y: 300 },
-      style: {
-        background: '#FFEE93',
-        borderRadius: '50%',
-        width: 120,
-        height: 120,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        border: '3px solid #FFFFFF',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: '#1C0F0F',
-        cursor: 'pointer'
-      }
+      position: { x: 600, y: 300 }
     },
     {
       id: 'e1-2',

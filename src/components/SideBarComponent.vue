@@ -59,7 +59,7 @@
       </div>
       
       <!-- 문서함 -->
-      <div class="nav-item">
+      <div class="nav-item" :class="{ active: currentRoute.startsWith('/drive') }" @click="navigateToDrive">
         <img src="@/assets/icons/sidebar/document.svg" alt="문서함" class="nav-icon" />
         <div class="nav-text">문서함</div>
       </div>
@@ -188,11 +188,17 @@ export default {
     
     // 프로젝트 생성 이벤트 리스너 추가
     window.addEventListener('projectCreated', this.onProjectCreated);
+    // 프로젝트 수정 이벤트 리스너 추가
+    window.addEventListener('projectUpdated', this.onProjectUpdated);
+    // 프로젝트 삭제 이벤트 리스너 추가
+    window.addEventListener('projectDeleted', this.onProjectDeleted);
   },
   
   beforeUnmount() {
     // 이벤트 리스너 제거
     window.removeEventListener('projectCreated', this.onProjectCreated);
+    window.removeEventListener('projectUpdated', this.onProjectUpdated);
+    window.removeEventListener('projectDeleted', this.onProjectDeleted);
   },
   watch: {
     // 워크스페이스 변경 감지
@@ -292,6 +298,17 @@ export default {
     },
     navigateToAdmin() {
       this.$router.push('/admin');
+    },
+    navigateToDrive() {
+      // localStorage에서 selectedWorkspaceId 가져오기
+      const workspaceId = localStorage.getItem('selectedWorkspaceId');
+      
+      if (workspaceId) {
+        this.$router.push(`/drive/${workspaceId}`);
+      } else {
+        // 워크스페이스 ID가 없으면 기본 드라이브로
+        this.$router.push('/drive');
+      }
     },
     
     selectProject(project) {
@@ -406,6 +423,49 @@ export default {
     navigateToSchedule() {
       this.$router.push("/schedule");
     },
+
+    
+    // 프로젝트 수정 이벤트 핸들러
+    async onProjectUpdated(event) {
+      console.log('프로젝트 수정 이벤트 수신:', event.detail);
+      
+      // 프로젝트 목록에서 해당 프로젝트 정보 업데이트
+      const updatedProject = event.detail;
+      const projectIndex = this.projectList.findIndex(p => p.projectId === updatedProject.projectId);
+      
+      if (projectIndex !== -1) {
+        // 기존 프로젝트 정보 업데이트
+        this.projectList[projectIndex] = {
+          ...this.projectList[projectIndex],
+          projectName: updatedProject.projectName,
+          projectManagerName: updatedProject.manager,
+          projectStatus: updatedProject.status
+        };
+        console.log('프로젝트 정보 업데이트됨:', this.projectList[projectIndex]);
+      } else {
+        // 프로젝트를 찾을 수 없으면 전체 목록 새로고침
+        console.log('프로젝트를 찾을 수 없음 - 전체 목록 새로고침');
+        await this.loadProjectList();
+      }
+    },
+    
+    // 프로젝트 삭제 이벤트 핸들러
+    async onProjectDeleted(event) {
+      console.log('프로젝트 삭제 이벤트 수신:', event.detail);
+      
+      // 프로젝트 목록에서 해당 프로젝트 제거
+      const deletedProjectId = event.detail.projectId;
+      const projectIndex = this.projectList.findIndex(p => p.projectId === deletedProjectId);
+      
+      if (projectIndex !== -1) {
+        this.projectList.splice(projectIndex, 1);
+        console.log('프로젝트가 목록에서 제거됨:', deletedProjectId);
+      } else {
+        // 프로젝트를 찾을 수 없으면 전체 목록 새로고침
+        console.log('삭제된 프로젝트를 찾을 수 없음 - 전체 목록 새로고침');
+        await this.loadProjectList();
+      }
+    }
   }
 };
 </script>
