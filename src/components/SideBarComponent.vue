@@ -124,6 +124,7 @@ import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { workspaceWatcher } from '@/mixins/workspaceWatcher';
 import { scheduleRouter } from '../router/ScheduleRouter';
+import driveService from '@/services/driveService';
 
 export default {
   name: "SideBarComponent",
@@ -178,13 +179,9 @@ export default {
   async mounted() {
     // 스토어 초기화 (localStorage에서 데이터 로드)
     this.workspaceStore.initialize();
+    
+    // 워크스페이스 로드 (이 과정에서 setCurrentWorkspace가 호출되어 watch가 트리거됨)
     await this.loadWorkspaces();
-    
-    // 현재 워크스페이스의 스토리지 정보 로드
-    await this.loadWorkspaceStorage();
-    
-    // 프로젝트 목록 로드
-    await this.loadProjectList();
     
     // 프로젝트 생성 이벤트 리스너 추가
     window.addEventListener('projectCreated', this.onProjectCreated);
@@ -332,30 +329,34 @@ export default {
     async loadWorkspaceStorage() {
       try {
         const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
-        if (!currentWorkspace || !currentWorkspace.workspaceId) return;
+        if (!currentWorkspace || !currentWorkspace.workspaceId) {
+          console.log('워크스페이스가 선택되지 않음');
+          return;
+        }
         
-        const userId = localStorage.getItem('id') || 'user123';
-        const token = localStorage.getItem('token');
+        console.log('스토리지 사용량 조회 시작:', currentWorkspace.workspaceId);
         
-        const response = await axios.get(
-          `http://localhost:8080/workspace-service/workspace/${currentWorkspace.workspaceId}`,
-          {
-            headers: {
-              'X-User-Id': userId,
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
+        // workspaceId는 헤더(X-Workspace-Id)로 자동 전송됨
+        const response = await driveService.getStorageUsage();
+        console.log('스토리지 사용량 조회 성공:', response);
         
-        if (response.data.statusCode === 200) {
-          this.currentStorage = response.data.result.currentStorage || 0;
-          this.maxStorage = response.data.result.maxStorage || 0;
+        if (response.statusCode === 200 && response.result) {
+          // API 응답 구조에 맞게 수정 (result가 숫자 값일 것으로 예상)
+          this.currentStorage = response.result || 0;
+          // maxStorage는 워크스페이스 정보에서 가져와야 할 수도 있음
+          // 임시로 50GB 고정 (필요시 워크스페이스 API에서 가져오기)
+          this.maxStorage = 50 * 1024 * 1024 * 1024; // 50GB in bytes
+          console.log('스토리지 정보 업데이트:', { 
+            current: this.formatStorage(this.currentStorage), 
+            max: this.formatStorage(this.maxStorage) 
+          });
         }
       } catch (error) {
-        console.error('워크스페이스 스토리지 정보 로드 실패:', error);
+        console.error('스토리지 사용량 조회 실패:', error);
+        console.error('Error details:', error.response?.data || error.message);
         // 에러 발생 시 기본값 사용
         this.currentStorage = 0;
-        this.maxStorage = 0;
+        this.maxStorage = 50 * 1024 * 1024 * 1024; // 50GB in bytes
       }
     },
     
