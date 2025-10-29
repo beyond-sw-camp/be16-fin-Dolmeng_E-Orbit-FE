@@ -39,9 +39,9 @@ function prevMs() {
       <strong>{{ today }}</strong>
     </div>
 
-    <!-- ✅ 2x2 카드 레이아웃 -->
+    <!-- 2x2 카드 레이아웃 -->
     <div class="grid">
-      <!-- 🟡 마일스톤 카드 -->
+      <!-- 마일스톤 카드 -->
       <div class="card milestone">
         <div class="nav">
           <button @click="prevMs">◀</button>
@@ -119,7 +119,7 @@ function prevMs() {
   color: #000;
 }
 
-/* ✅ 2x2 고정형 카드 그리드 */
+/* 2x2 고정형 카드 그리드 */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr); /* 두 개씩 균등 배치 */
@@ -129,7 +129,7 @@ function prevMs() {
   align-items: stretch;
 }
 
-/* ✅ 카드 스타일 */
+/* 카드 스타일 */
 .card {
   background: #fff;
   border-radius: 16px;
@@ -148,13 +148,13 @@ function prevMs() {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* ✅ hover 시 살짝 뜨는 효과 */
+/* hover 시 살짝 뜨는 효과 */
 .card:hover {
   transform: translateY(-4px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 }
 
-/* ✅ 반응형 (태블릿 이하일 때 1열로 전환) */
+/* 반응형 (태블릿 이하일 때 1열로 전환) */
 @media (max-width: 1100px) {
   .grid {
     grid-template-columns: 1fr;
@@ -190,7 +190,7 @@ function prevMs() {
   cursor: pointer;
 }
 
-/* ✅ 반응형 */
+/* 반응형 */
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
