@@ -80,6 +80,11 @@ export default {
     return driveApi.delete(`/folder/${folderId}`);
   },
 
+  // 폴더 이동
+  moveFolder(folderId, data) {
+    return driveApi.put(`/folder/${folderId}/move`, data);
+  },
+
   // 폴더 하위 요소들 조회
   getFolderContents(folderId) {
     return driveApi.get(`/folder/${folderId}/contents`);

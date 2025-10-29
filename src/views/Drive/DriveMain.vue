@@ -111,7 +111,17 @@
             :items-per-page="15"
           >
             <template v-slot:item.name="{ item }">
-              <div class="d-flex align-center py-2 clickable-row" @click="handleItemClick(item)">
+              <div 
+                class="d-flex align-center py-2 clickable-row" 
+                :class="{ 'drag-over': dragOverItem && dragOverItem.id === item.id }"
+                :draggable="item.type === 'folder'"
+                @click="handleItemClick(item)"
+                @dragstart="onDragStart($event, item)"
+                @dragend="onDragEnd"
+                @dragover="onDragOver($event, item)"
+                @dragleave="onDragLeave"
+                @drop="onDrop($event, item)"
+              >
                 <v-icon :color="getItemIconColor(item)" class="mr-3">
                   {{ getItemIcon(item) }}
                 </v-icon>
@@ -287,6 +297,10 @@ export default {
       renameItem: null,
       renameName: '',
       uploadDialog: false,
+      
+      // 드래그 앤 드롭
+      draggingItem: null,
+      dragOverItem: null,
     };
   },
 
@@ -951,6 +965,65 @@ export default {
       }
     },
 
+    // 드래그 앤 드롭 - 폴더 이동
+    onDragStart(e, item) {
+      if (item.type !== 'folder') return;
+      this.draggingItem = item;
+      e.dataTransfer.effectAllowed = 'move';
+    },
+
+    onDragEnd() {
+      this.draggingItem = null;
+      this.dragOverItem = null;
+    },
+
+    onDragOver(e, item) {
+      if (!this.draggingItem || item.type !== 'folder') return;
+      if (this.draggingItem.id === item.id) return; // 자기 자신에게는 드롭 불가
+      
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.dragOverItem = item;
+    },
+
+    onDragLeave() {
+      this.dragOverItem = null;
+    },
+
+    async onDrop(e, targetFolder) {
+      e.preventDefault();
+      
+      if (!this.draggingItem || !targetFolder || targetFolder.type !== 'folder') return;
+      if (this.draggingItem.id === targetFolder.id) return; // 자기 자신에게는 드롭 불가
+      
+      // 로컬 변수로 저장 (나중에 null이 되어도 사용 가능)
+      const sourceFolder = this.draggingItem;
+      const destFolder = targetFolder;
+      
+      // 즉시 초기화
+      this.draggingItem = null;
+      this.dragOverItem = null;
+      
+      try {
+        await driveService.moveFolder(sourceFolder.id, {
+          parentId: destFolder.id
+        });
+        
+        showSnackbar(`"${sourceFolder.name}"을(를) "${destFolder.name}"(으)로 이동했습니다.`, 'success');
+        
+        // 현재 루트 정보를 유지하면서 새로고침
+        if (this.currentRootType && this.currentRootId) {
+          await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+        } else {
+          await this.loadFolderContents(this.currentFolderId);
+        }
+        await this.refreshFolderTree();
+      } catch (error) {
+        console.error('폴더 이동 실패:', error);
+        showSnackbar('폴더 이동에 실패했습니다.', 'error');
+      }
+    },
+
     // 폴더 트리 새로고침
     async refreshFolderTree() {
       this.folderCache = {};
@@ -1014,6 +1087,15 @@ export default {
 
 .clickable-row {
   cursor: pointer;
+}
+
+.clickable-row[draggable="true"] {
+  cursor: move;
+}
+
+.clickable-row.drag-over {
+  background-color: #e3f2fd !important;
+  border-left: 4px solid #1976d2;
 }
 
 .clickable-row:hover {
