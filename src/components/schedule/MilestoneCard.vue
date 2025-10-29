@@ -1,9 +1,9 @@
 <template>
   <div class="milestone-card" :class="{ completed: progress === 100 }">
-    <!-- 🟡 스톤명 -->
+    <!-- 스톤명 -->
     <div class="milestone-title">{{ name }}</div>
 
-    <!-- 🟡 겹쳐진 링 구조 -->
+    <!-- 겹쳐진 링 구조 -->
     <div class="ring-wrapper">
       <svg class="ring" viewBox="0 0 160 160">
         <!-- 회색 배경 링 -->
