@@ -36,6 +36,7 @@ import ChatRoomList from './ChatRoomList.vue';
 import StompChatPage from './StompChatPage.vue';
 import stompManager from '@/services/stompService.js';
 import axios from 'axios';
+import { decreaseChatUnreadCount } from '@/services/notificationState.js';
 
 export default {
     components: { ChatRoomList, StompChatPage },
@@ -108,6 +109,13 @@ export default {
             this.selectedRoomParticipantCount = room.participantCount || 0;
             // Clear unread badge for the selected room in summary map
             const prev = this.summariesByRoomId[room.roomId] || {};
+            // Decrease global chat unread count by this room's unread (use max of source-of-truth and incoming room data)
+            const mapUnread = Number(prev.unreadCount) || 0;
+            const incomingUnread = Number(room.unreadCount) || 0;
+            const unreadToSubtract = Math.max(mapUnread, incomingUnread);
+            if (unreadToSubtract > 0) {
+                try { decreaseChatUnreadCount(unreadToSubtract); } catch(_) {}
+            }
             this.summariesByRoomId = {
                 ...this.summariesByRoomId,
                 [room.roomId]: { ...prev, unreadCount: 0 }
