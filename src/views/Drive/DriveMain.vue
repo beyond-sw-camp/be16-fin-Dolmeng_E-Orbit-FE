@@ -53,7 +53,7 @@
           <v-toolbar flat color="white" class="px-4">
             <v-toolbar-title class="text-h6">{{ currentFolderName }}</v-toolbar-title>
             <v-spacer></v-spacer>
-            <v-btn text small @click="loadFolderContents(currentFolderId)">
+            <v-btn text small @click="loadFolderContents(currentFolderId, currentRootType, currentRootId)">
               <v-icon small left>mdi-refresh</v-icon>
               새로고침
             </v-btn>
@@ -124,7 +124,8 @@
             <template v-slot:item.owner="{ item }">
               <div class="d-flex align-center">
                 <v-avatar size="24" class="mr-2">
-                  <v-icon small>mdi-account-circle</v-icon>
+                  <v-img v-if="item.ownerImage" :src="item.ownerImage" />
+                  <v-icon v-else small>mdi-account-circle</v-icon>
                 </v-avatar>
                 {{ item.owner }}
               </div>
@@ -256,6 +257,8 @@ export default {
       loadingTree: false,
       currentFolderId: null,
       currentFolderName: '내 드라이브',
+      currentRootType: null,
+      currentRootId: null,
       
       // 폴더 트리
       folderTree: [],
@@ -300,11 +303,14 @@ export default {
   mounted() {
     const { rootType, rootId, folderId } = this.$route.params;
     
-    if (rootType && rootId) {
-      // rootType/rootId 형태로 접근한 경우
+    if (rootType && rootId && folderId) {
+      // rootType/rootId/folder/folderId 형태로 접근한 경우 (폴더 내부)
+      this.initializeDrive(folderId, rootType, rootId);
+    } else if (rootType && rootId) {
+      // rootType/rootId 형태로 접근한 경우 (루트)
       this.initializeDrive(null, rootType, rootId);
     } else if (folderId) {
-      // 기존 folderId 형태로 접근한 경우
+      // 기존 folderId 형태로 접근한 경우 (deprecated)
       this.initializeDrive(folderId);
     } else {
       // 기본 드라이브
@@ -317,9 +323,14 @@ export default {
       handler(newParams) {
         const { rootType, rootId, folderId } = newParams;
         
-        if (rootType && rootId) {
+        if (rootType && rootId && folderId) {
+          // 폴더 내부로 이동
+          this.loadFolderContents(folderId, rootType, rootId);
+        } else if (rootType && rootId) {
+          // 루트로 이동
           this.loadFolderContents(null, rootType, rootId);
         } else if (folderId) {
+          // deprecated
           this.loadFolderContents(folderId);
         }
       },
@@ -330,6 +341,22 @@ export default {
   methods: {
     // 드라이브 초기화
     async initializeDrive(folderId, rootType, rootId) {
+      // 현재 루트 정보 저장
+      if (rootType && rootId) {
+        this.currentRootType = rootType;
+        this.currentRootId = rootId;
+      }
+      
+      // folderId가 있으면 폴더 내용 로드
+      if (folderId && rootType && rootId) {
+        console.log(`${rootType} 루트의 폴더 초기화:`, rootId, folderId);
+        await Promise.all([
+          this.loadFolderTree(),
+          this.loadFolderContents(folderId, rootType, rootId)
+        ]);
+        return;
+      }
+      
       // rootType과 rootId가 있으면 루트 API 사용
       if (rootType && rootId) {
         console.log(`${rootType} 루트 초기화:`, rootId);
@@ -464,11 +491,27 @@ export default {
         const folderId = selectedIds[0];
         
         if (folderId === 'root') {
-          this.$router.push({ name: 'drive' });
+          // 루트로 이동 (현재 rootType/rootId 유지)
+          if (this.currentRootType && this.currentRootId) {
+            this.$router.push({ 
+              name: 'driveRoot',
+              params: { 
+                rootType: this.currentRootType,
+                rootId: this.currentRootId
+              }
+            });
+          } else {
+            this.$router.push({ name: 'drive' });
+          }
         } else {
+          // 폴더로 이동 (rootType/rootId 유지)
           this.$router.push({
             name: 'driveFolder',
-            params: { folderId: folderId }
+            params: { 
+              rootType: this.currentRootType || 'WORKSPACE',
+              rootId: this.currentRootId || localStorage.getItem('selectedWorkspaceId'),
+              folderId: folderId 
+            }
           });
         }
       }
@@ -483,6 +526,8 @@ export default {
         // rootType과 rootId가 있으면 루트 API 사용
         if (rootType && rootId) {
           console.log(`${rootType} 루트 로드:`, rootId);
+          this.currentRootType = rootType;
+          this.currentRootId = rootId;
           response = await driveService.getContentsByRoot(rootType, rootId);
           this.currentFolderId = null; // 루트이므로 null
         }
@@ -490,6 +535,8 @@ export default {
         else if (!folderId || this.isWorkspaceId(folderId)) {
           const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
           console.log('워크스페이스 루트 로드:', workspaceId);
+          this.currentRootType = 'WORKSPACE';
+          this.currentRootId = workspaceId;
           response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
           this.currentFolderId = null; // 루트이므로 null
         } 
@@ -498,6 +545,7 @@ export default {
           console.log('폴더 내용 로드:', folderId);
           response = await driveService.getFolderContents(folderId);
           this.currentFolderId = folderId;
+          // 폴더 내부로 들어갈 때는 rootType/rootId 유지
         }
         
         if (response.result) {
@@ -529,13 +577,21 @@ export default {
       dataArray.forEach(item => {
         const type = item.type || 'file';
         const name = item.name || 'Unnamed';
-        const owner = item.createBy || '-';
+        const owner = item.creatorName || item.createBy || '-';
         const modified = this.formatDate(item.updateAt);
+        
+        console.log('Item data:', {
+          id: item.id,
+          name: item.name,
+          creatorName: item.creatorName,
+          profileImage: item.profileImage
+        });
         
         items.push({
           id: item.id,
           name: name,
           owner: owner,
+          ownerImage: item.profileImage || null,
           modified: modified,
           size: type === 'file' ? this.formatFileSize(item.size) : '',
           type: type,
@@ -595,11 +651,27 @@ export default {
       if (item.disabled) return;
       
       if (!item.folderId) {
-        this.$router.push({ name: 'drive' });
+        // 루트로 이동
+        if (this.currentRootType && this.currentRootId) {
+          this.$router.push({ 
+            name: 'driveRoot',
+            params: { 
+              rootType: this.currentRootType,
+              rootId: this.currentRootId
+            }
+          });
+        } else {
+          this.$router.push({ name: 'drive' });
+        }
       } else {
+        // 폴더로 이동
         this.$router.push({
           name: 'driveFolder',
-          params: { folderId: item.folderId }
+          params: { 
+            rootType: this.currentRootType || 'WORKSPACE',
+            rootId: this.currentRootId || localStorage.getItem('selectedWorkspaceId'),
+            folderId: item.folderId 
+          }
         });
       }
     },
@@ -648,7 +720,11 @@ export default {
         console.log('Navigating to folder:', item.id);
         this.$router.push({
           name: 'driveFolder',
-          params: { folderId: item.id }
+          params: { 
+            rootType: this.currentRootType || 'WORKSPACE',
+            rootId: this.currentRootId || localStorage.getItem('selectedWorkspaceId'),
+            folderId: item.id 
+          }
         });
       }
       // STONE: 스톤 문서함으로 바로가기
@@ -685,19 +761,30 @@ export default {
         const workspaceId = localStorage.getItem('selectedWorkspaceId');
         const userId = localStorage.getItem('id');
         
-        await driveService.createFolder({
+        // rootId와 rootType은 현재 루트에 따라 결정
+        // WORKSPACE: rootId = workspaceId, rootType = "WORKSPACE"
+        // PROJECT: rootId = projectId, rootType = "PROJECT"
+        // STONE: rootId = stoneId, rootType = "STONE"
+        const folderData = {
           name: this.newFolderName,
           workspaceId: workspaceId,
+          rootId: this.currentRootId || workspaceId,
+          rootType: this.currentRootType || 'WORKSPACE',
           parentId: this.currentFolderId || null,
           createdBy: userId,
-        });
+        };
+        
+        await driveService.createFolder(folderData);
         
         showSnackbar('폴더가 생성되었습니다.', 'success');
         this.createFolderDialog = false;
         this.newFolderName = '';
         
+        // 현재 루트 정보를 유지하면서 새로고침
         await Promise.all([
-          this.loadFolderContents(this.currentFolderId),
+          this.currentRootType && this.currentRootId 
+            ? this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId)
+            : this.loadFolderContents(this.currentFolderId),
           this.refreshFolderTree()
         ]);
       } catch (error) {
