@@ -246,6 +246,9 @@
                   <div class="task-period">{{ formatDateRange(task.startTime, task.endTime) }}</div>
                 </div>
                   <div class="task-assignee">
+                    <div class="assignee-info">
+                      <div class="assignee-name">{{ task.assigneeName || '담당자 없음' }}</div>
+                    </div>
                     <div class="assignee-icons">
                       <div class="icon-button" @click="openTaskAssigneeEditModal(task)" title="담당자 변경">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="user-icon">
@@ -1508,7 +1511,8 @@ export default {
             startTime: task.startTime,
             endTime: task.endTime,
             assigneeId: task.taskManagerId,
-            assigneeUserId: task.taskManagerUserId
+            assigneeUserId: task.taskManagerUserId,
+            assigneeName: task.taskManagerName || '담당자 없음'
           }));
           
           console.log('변환된 태스크 목록:', this.taskList);
@@ -2220,8 +2224,27 @@ export default {
 .task-assignee {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   flex-shrink: 0;
+  gap: 12px;
+}
+
+.task-assignee .assignee-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.task-assignee .assignee-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 18px;
+  color: #374151;
+  background: #F3F4F6;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #E5E7EB;
 }
 
 .assignee-icons {
