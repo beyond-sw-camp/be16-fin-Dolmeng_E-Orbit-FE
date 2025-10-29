@@ -85,6 +85,11 @@ export default {
     return driveApi.get(`/folder/${folderId}/contents`);
   },
 
+  // 폴더 정보 조회 (ancestors 포함)
+  getFolderInfo(folderId) {
+    return driveApi.get(`/folder/${folderId}`);
+  },
+
   // 파일 업로드
   uploadFile(folderId, file) {
     const formData = new FormData();

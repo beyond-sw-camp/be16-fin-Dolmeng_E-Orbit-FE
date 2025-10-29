@@ -259,6 +259,7 @@ export default {
       currentFolderName: '내 드라이브',
       currentRootType: null,
       currentRootId: null,
+      folderPath: [],  // 폴더 경로 [{ id, name }, ...]
       
       // 폴더 트리
       folderTree: [],
@@ -523,34 +524,83 @@ export default {
         this.loading = true;
         let response;
         
-        // rootType과 rootId가 있으면 루트 API 사용
+        // rootType과 rootId 저장 (폴더 생성 시 필요)
         if (rootType && rootId) {
-          console.log(`${rootType} 루트 로드:`, rootId);
           this.currentRootType = rootType;
           this.currentRootId = rootId;
-          response = await driveService.getContentsByRoot(rootType, rootId);
-          this.currentFolderId = null; // 루트이므로 null
         }
-        // folderId가 없거나 워크스페이스 ID인 경우
+        
+        // folderId가 있으면 해당 폴더의 내용 로드
+        if (folderId && !this.isWorkspaceId(folderId)) {
+          console.log('폴더 내용 로드:', folderId);
+          response = await driveService.getFolderContents(folderId);
+          this.currentFolderId = folderId;
+        }
+        // folderId가 없고 rootType/rootId가 있으면 루트 내용 로드
+        else if (rootType && rootId) {
+          console.log(`${rootType} 루트 로드:`, rootId);
+          response = await driveService.getContentsByRoot(rootType, rootId);
+          this.currentFolderId = null;
+        }
+        // folderId가 워크스페이스 ID인 경우
         else if (!folderId || this.isWorkspaceId(folderId)) {
           const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
           console.log('워크스페이스 루트 로드:', workspaceId);
           this.currentRootType = 'WORKSPACE';
           this.currentRootId = workspaceId;
           response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
-          this.currentFolderId = null; // 루트이므로 null
-        } 
-        // 일반 폴더인 경우
-        else {
-          console.log('폴더 내용 로드:', folderId);
-          response = await driveService.getFolderContents(folderId);
-          this.currentFolderId = folderId;
-          // 폴더 내부로 들어갈 때는 rootType/rootId 유지
+          this.currentFolderId = null;
         }
         
         if (response.result) {
-          this.items = this.parseItems(response.result);
-          this.updateBreadcrumbs(folderId, response.result, rootType);
+          // items 파싱
+          const items = Array.isArray(response.result) 
+            ? response.result 
+            : response.result.items || [];
+          
+          // ancestors 추출 (하위 요소의 ancestors를 보면 현재 경로를 알 수 있음)
+          if (folderId && items.length > 0 && items[0].ancestors) {
+            // ancestors를 folderPath로 설정 (역순으로 되어있을 수 있으니 reverse)
+            const ancestorsArray = items[0].ancestors;
+            this.folderPath = ancestorsArray.slice().reverse().map(ancestor => ({
+              id: ancestor.folderId,
+              name: ancestor.folderName
+            }));
+          }
+          // 빈 폴더인 경우 폴더 정보 조회
+          else if (folderId && items.length === 0) {
+            try {
+              const folderInfo = await driveService.getFolderInfo(folderId);
+              
+              if (folderInfo.result && folderInfo.result.ancestors) {
+                const ancestorsArray = folderInfo.result.ancestors;
+                
+                // ancestors를 folderPath로 설정 (역순 처리)
+                this.folderPath = ancestorsArray.slice().reverse().map(ancestor => ({
+                  id: ancestor.folderId,
+                  name: ancestor.folderName
+                }));
+                
+                // 현재 폴더도 추가
+                this.folderPath.push({
+                  id: folderInfo.result.folderId,
+                  name: folderInfo.result.folderName
+                });
+                
+                // 빈 폴더의 경우 여기서 브레드크럼 업데이트
+                this.updateBreadcrumbs(folderId, items, rootType);
+              }
+            } catch (error) {
+              console.error('폴더 정보 조회 실패:', error);
+            }
+          }
+          
+          this.items = this.parseItems(items);
+          
+          // 하위 요소가 있는 경우에만 여기서 브레드크럼 업데이트
+          if (items.length > 0) {
+            this.updateBreadcrumbs(folderId, items, rootType);
+          }
         } else {
           this.items = [];
         }
@@ -579,13 +629,6 @@ export default {
         const name = item.name || 'Unnamed';
         const owner = item.creatorName || item.createBy || '-';
         const modified = this.formatDate(item.updateAt);
-        
-        console.log('Item data:', {
-          id: item.id,
-          name: item.name,
-          creatorName: item.creatorName,
-          profileImage: item.profileImage
-        });
         
         items.push({
           id: item.id,
@@ -632,17 +675,33 @@ export default {
                        rootType === 'STONE' ? '스톤 문서함' : '내 드라이브';
       
       if (!folderId || folderId === 'root') {
+        // 루트로 돌아왔을 때 경로 초기화
+        this.folderPath = [];
         this.breadcrumbs = [
           { text: rootName, icon: 'mdi-home', disabled: false, folderId: null },
         ];
         this.currentFolderName = rootName;
       } else {
-        // 간단한 브레드크럼 (현재 폴더만)
+        // 폴더 경로를 사용해서 브레드크럼 생성
         this.breadcrumbs = [
           { text: rootName, icon: 'mdi-home', disabled: false, folderId: null },
-          { text: folderId, disabled: true, folderId: folderId },
         ];
-        this.currentFolderName = folderId;
+        
+        // 폴더 경로의 각 폴더를 브레드크럼에 추가
+        this.folderPath.forEach((folder, index) => {
+          this.breadcrumbs.push({
+            text: folder.name,
+            disabled: index === this.folderPath.length - 1,  // 마지막 폴더는 비활성화
+            folderId: folder.id,
+          });
+        });
+        
+        // 현재 폴더 이름 설정
+        if (this.folderPath.length > 0) {
+          this.currentFolderName = this.folderPath[this.folderPath.length - 1].name;
+        } else {
+          this.currentFolderName = folderId;
+        }
       }
     },
 
@@ -664,7 +723,7 @@ export default {
           this.$router.push({ name: 'drive' });
         }
       } else {
-        // 폴더로 이동
+        // 폴더로 이동 (백엔드에서 ancestors 제공)
         this.$router.push({
           name: 'driveFolder',
           params: { 
@@ -718,6 +777,14 @@ export default {
       // folder: 계층 구조로 폴더 탐색
       if (item.type === 'folder') {
         console.log('Navigating to folder:', item.id);
+        
+        // 폴더 경로에 추가 (폴더 이름 정보가 있으므로)
+        // 백엔드에서 ancestors 오면 덮어쓰기
+        this.folderPath.push({
+          id: item.id,
+          name: item.name
+        });
+        
         this.$router.push({
           name: 'driveFolder',
           params: { 
@@ -913,11 +980,11 @@ export default {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.folder-tree >>> .v-treeview-node__root {
+.folder-tree :deep(.v-treeview-node__root) {
   min-height: 36px;
 }
 
-.folder-tree >>> .v-treeview-node__label {
+.folder-tree :deep(.v-treeview-node__label) {
   font-size: 14px;
 }
 
@@ -929,11 +996,11 @@ export default {
   color: #1976d2;
 }
 
-.drive-table >>> tbody tr {
+.drive-table :deep(tbody tr) {
   cursor: pointer;
 }
 
-.drive-table >>> tbody tr:hover {
+.drive-table :deep(tbody tr:hover) {
   background-color: #f5f5f5 !important;
 }
 
