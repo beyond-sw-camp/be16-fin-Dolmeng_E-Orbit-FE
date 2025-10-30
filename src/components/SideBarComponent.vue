@@ -56,6 +56,7 @@
       <div class="nav-item">
         <img src="@/assets/icons/sidebar/chat.svg" alt="채팅" class="nav-icon" />
         <div class="nav-text">채팅</div>
+        <div v-if="chatUnreadCount > 0" class="badge">{{ chatUnreadCount }}</div>
       </div>
       
       <!-- 문서함 -->
@@ -124,6 +125,7 @@ import axios from 'axios';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { workspaceWatcher } from '@/mixins/workspaceWatcher';
 import { scheduleRouter } from '../router/ScheduleRouter';
+import { notificationState } from '@/services/notificationState.js';
 import driveService from '@/services/driveService';
 
 export default {
@@ -140,7 +142,7 @@ export default {
   },
   setup() {
     const workspaceStore = useWorkspaceStore();
-    return { workspaceStore };
+    return { workspaceStore, notificationState };
   },
   computed: {
     workspaces() {
@@ -174,6 +176,9 @@ export default {
         currentWorkspace: this.workspaceStore.getCurrentWorkspace 
       });
       return isPersonal;
+    },
+    chatUnreadCount() {
+      return this.notificationState.chatUnreadCount || 0;
     }
   },
   async mounted() {
@@ -736,6 +741,25 @@ export default {
   align-items: center;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+
+.badge {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #FF3B30;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .nav-item:hover {
