@@ -141,6 +141,16 @@ export default {
               if (String(payload.type).toUpperCase() === 'NEW_CHAT_MESSAGE') {
                 setChatUnreadCount(title);
               }
+              // Broadcast for header notification list (fallback createdAt: now)
+              const nowIso = new Date().toISOString();
+              const notif = {
+                id: payload.id,
+                title: title || '알림',
+                content: body || '',
+                readStatus: (payload.readStatus || 'UNREAD'),
+                createdAt: payload.createdAt || nowIso,
+              };
+              window.dispatchEvent(new CustomEvent('pushNotification', { detail: notif }));
             } else {
               text = '새 알림이 도착했습니다.';
             }

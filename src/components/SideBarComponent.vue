@@ -770,7 +770,7 @@ export default {
   height: 18px;
   padding: 0 6px;
   border-radius: 9px;
-  background: #FF3B30;
+  background: #EF5350;
   color: #FFFFFF;
   font-size: 11px;
   font-weight: 700;

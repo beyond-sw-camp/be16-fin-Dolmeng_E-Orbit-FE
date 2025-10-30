@@ -43,13 +43,39 @@
       </div>
     </div>
     
-    <!-- 알림 아이콘 -->
-    <v-btn icon class="notification-btn">
-      <img src="@/assets/icons/header/bell.svg" alt="알림" class="bell-icon" />
-    </v-btn>
+    <!-- 알림 메뉴 -->
+    <v-menu v-model="notifMenu" :close-on-content-click="false" location="bottom end" offset="8" content-class="notif-overlay">
+      <template #activator="{ props }">
+        <v-btn icon class="notification-btn" v-bind="props">
+          <img src="@/assets/icons/header/bell.svg" alt="알림" class="bell-icon" />
+          <span v-if="notifCount > 0" class="notif-badge">{{ notifBadgeText }}</span>
+        </v-btn>
+      </template>
+      <v-list density="compact" class="notif-menu-list">
+        <div class="notif-menu-header">
+          <div class="notif-title">알림</div>
+          <div class="notif-count-pill">{{ notifList.length }}</div>
+        </div>
+        <v-divider class="user-menu-divider"></v-divider>
+        <div v-if="notifLoading" class="notif-loading">불러오는 중…</div>
+        <template v-else>
+          <div v-if="notifList.length === 0" class="notif-empty">알림이 없습니다</div>
+          <div v-else class="notif-list">
+            <div v-for="(n, idx) in notifList" :key="n.id" class="notif-item" :class="{ unread: (n.readStatus||'').toUpperCase()==='UNREAD' }">
+              <button class="notif-dismiss" title="닫기" @click.stop="onDismissNotif(n.id, idx)">
+                <img src="@/assets/icons/user/close.svg" alt="닫기" />
+              </button>
+              <div class="notif-item-title">{{ n.title }}</div>
+              <div class="notif-item-content">{{ n.content }}</div>
+              <div class="notif-item-time">{{ formatDateTime(n.createdAt) }}</div>
+            </div>
+          </div>
+        </template>
+      </v-list>
+    </v-menu>
     
     <!-- 사용자 메뉴 -->
-    <v-menu v-model="userMenu" :close-on-content-click="true" location="bottom end" offset="8">
+    <v-menu v-model="userMenu" :close-on-content-click="true" location="bottom end" offset="8" content-class="user-overlay">
       <template #activator="{ props }">
         <v-btn icon class="user-btn" v-bind="props">
           <img src="@/assets/icons/header/account.svg" alt="사용자" class="user-icon" />
@@ -173,13 +199,27 @@ export default {
       searchLoading: false,
       suggestTimer: null,
       userMenu: false,
+      notifMenu: false,
+      notifLoading: false,
+      notifList: [],
+      notifCount: 0,
       userInfo: { name: '', email: '', profileImageUrl: null },
     };
+  },
+  computed: {
+    notifBadgeText() {
+      const n = Number(this.notifCount) || 0;
+      return n <= 9 ? String(n) : '9+';
+    }
   },
 
   mounted() {
     // 클릭 이벤트로 자동완성 닫기
     document.addEventListener('click', this.handleClickOutside);
+    // 초기 알림 카운트 로드
+    this.loadNotifications();
+    // realtime incoming notification
+    window.addEventListener('pushNotification', this.onPushNotif);
   },
 
   beforeUnmount() {
@@ -187,6 +227,7 @@ export default {
     if (this.suggestTimer) {
       clearTimeout(this.suggestTimer);
     }
+    window.removeEventListener('pushNotification', this.onPushNotif);
   },
 
   methods: {
@@ -231,6 +272,63 @@ export default {
         this.$router.push('/landing');
         try { showSnackbar('로그아웃되었습니다.', 'info'); } catch(_) {}
       }
+    },
+    async loadNotifications() {
+      try {
+        this.notifLoading = true;
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        const { data } = await axios.get(`${baseURL}/user-service/notification/list`, { headers });
+        const list = Array.isArray(data?.result) ? data.result : [];
+        this.notifList = list;
+      } catch (_) {
+        this.notifList = [];
+      } finally {
+        this.notifLoading = false;
+      }
+      this.notifCount = this.notifList.length;
+    },
+    async onDismissNotif(id, index) {
+      // optimistic remove
+      const removed = this.notifList.splice(index, 1);
+      try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        if (id !== undefined && id !== null) {
+          await axios.delete(`${baseURL}/user-service/notification/${id}`, { headers });
+        }
+      } catch (_) {
+        // rollback on failure
+        if (removed && removed.length) this.notifList.splice(index, 0, removed[0]);
+      }
+    },
+    formatDateTime(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        const date = d.toLocaleDateString('ko-KR');
+        const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        return `${date} ${time}`;
+      } catch (_) { return iso; }
+    },
+    onPushNotif(e) {
+      try {
+        const n = e?.detail || {};
+        const createdAt = n.createdAt || new Date().toISOString();
+        const item = {
+          id: n.id,
+          title: n.title || '알림',
+          content: n.content || '',
+          readStatus: (n.readStatus || 'UNREAD'),
+          createdAt,
+        };
+        this.notifList = [item, ...(this.notifList || [])];
+        this.notifCount = this.notifList.length;
+      } catch(_) {}
     },
     // 검색창 포커스
     onSearchFocus() {
@@ -387,6 +485,9 @@ export default {
   watch: {
     userMenu(val) {
       if (val) this.loadUserInfo();
+    },
+    notifMenu(val) {
+      if (val) this.loadNotifications();
     }
   }
 };
@@ -675,6 +776,25 @@ export default {
   justify-content: center;
 }
 
+.notification-btn { position: absolute; }
+.notification-btn .notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: #EF5350;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (max-width: 1200px) {
   .notification-btn {
     right: 60px;
@@ -713,15 +833,91 @@ export default {
   min-width: 260px;
   background: #2A2828 !important;
   color: #FFFFFF !important;
-  border-radius: 10px;
-  padding: 6px 0;
+  border-radius: 0;
+  padding: 0 0 8px;
 }
+
+.notif-menu-list {
+  min-width: 380px;
+  background: #2A2828 !important;
+  color: #FFFFFF !important;
+  border-radius: 0;
+  padding: 0 0 8px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+:deep(.notif-overlay) {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.notif-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #343131;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.notif-title { font-weight: 800; font-size: 14px; }
+.notif-count-pill {
+  background: none;
+  color: #FFE364;
+  font-weight: 800;
+  font-size: 13px;
+}
+.notif-loading, .notif-empty { padding: 16px 14px; font-size: 13px; color: #CFCFCF; }
+.notif-list { max-height: 380px; overflow-y: auto; padding: 4px 8px; }
+.notif-item {
+  padding: 12px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  background: transparent;
+  position: relative;
+}
+.notif-item:hover { background: rgba(255,255,255,0.03); }
+.notif-item:last-child { border-bottom: none; }
+.notif-item.unread { border-left: none; }
+.notif-item-title { font-weight: 700; font-size: 13.5px; color: #FFFFFF; margin-bottom: 4px; line-height: 1.35; }
+.notif-item-content { font-size: 12.5px; color: #DEDEDE; margin-bottom: 6px; line-height: 1.45; }
+.notif-item-time { font-size: 11.5px; color: #BDBDBD; }
+
+.notif-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.notif-dismiss img { width: 100%; height: 100%; filter: invert(1) brightness(1.2); opacity: 0.75; }
+.notif-dismiss:hover img { opacity: 1; }
+.notif-dismiss:focus, .notif-dismiss:focus-visible { outline: none; box-shadow: none; }
 
 .user-menu-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px 8px;
+  padding: 12px 14px 10px;
+  background: #343131;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.user-menu-name { font-weight: 700; font-size: 14px; color: #FFFFFF; line-height: 1.2; }
+.user-menu-email { font-size: 12px; color: #CFCFCF; line-height: 1.2; margin-top: 2px; }
+
+:deep(.user-overlay) {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .user-menu-avatar {
   width: 44px;
@@ -770,7 +966,7 @@ export default {
 .user-menu-list :deep(.v-list-item) {
   color: #FFFFFF !important;
 }
-.user-menu-list :deep(.v-list) { background: transparent !important; }
+.user-menu-list :deep(.v-list) { background: transparent !important; padding-top: 0 !important; padding-bottom: 8px !important; }
 .user-menu-list :deep(.v-ripple__container) { display: none !important; }
 
 @media (max-width: 768px) {
