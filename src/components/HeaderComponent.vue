@@ -48,10 +48,29 @@
       <img src="@/assets/icons/header/bell.svg" alt="알림" class="bell-icon" />
     </v-btn>
     
-    <!-- 사용자 아이콘 -->
-    <v-btn icon class="user-btn">
-      <img src="@/assets/icons/header/account.svg" alt="사용자" class="user-icon" />
-    </v-btn>
+    <!-- 사용자 메뉴 -->
+    <v-menu v-model="userMenu" :close-on-content-click="true" location="bottom end" offset="8">
+      <template #activator="{ props }">
+        <v-btn icon class="user-btn" v-bind="props">
+          <img src="@/assets/icons/header/account.svg" alt="사용자" class="user-icon" />
+        </v-btn>
+      </template>
+      <v-list density="compact" class="user-menu-list">
+        <v-list-item class="user-menu-item" @click="goMyPage">
+          <template #prepend>
+            <img src="@/assets/icons/user/account-circle.svg" alt="프로필" class="menu-icon" />
+          </template>
+          <v-list-item-title>프로필</v-list-item-title>
+        </v-list-item>
+        <v-divider class="user-menu-divider"></v-divider>
+        <v-list-item class="user-menu-item" @click="logout">
+          <template #prepend>
+            <img src="@/assets/icons/user/logout.svg" alt="로그아웃" class="menu-icon" />
+          </template>
+          <v-list-item-title>로그아웃</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-menu>
 
     <!-- 검색 결과 모달 -->
     <v-dialog v-model="searchDialog" max-width="900" scrollable>
@@ -126,6 +145,7 @@
 </template>
 
 <script>
+import axios from 'axios';
 import searchService from '@/services/searchService';
 import { showSnackbar } from '@/services/snackbar';
 
@@ -141,6 +161,7 @@ export default {
       searchResults: [],
       searchLoading: false,
       suggestTimer: null,
+      userMenu: false,
     };
   },
 
@@ -165,6 +186,30 @@ export default {
     },
     goForward() {
       this.$router.forward();
+    },
+    goMyPage() {
+      this.userMenu = false;
+      this.$router.push('/my-info');
+    },
+    async logout() {
+      this.userMenu = false;
+      try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        await axios.post(`${baseURL}/user-service/user/auth/logout`, {}, { headers });
+      } catch (_) {
+        // 서버 요청 실패하더라도 클라이언트 로그아웃은 진행
+      } finally {
+        try {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('id');
+        } catch (_) {}
+        this.$router.push('/landing');
+        try { showSnackbar('로그아웃되었습니다.', 'info'); } catch(_) {}
+      }
     },
     // 검색창 포커스
     onSearchFocus() {
@@ -637,6 +682,42 @@ export default {
   align-items: center;
   justify-content: center;
 }
+
+.user-menu-list {
+  min-width: 180px;
+  background: #2A2828 !important;
+  color: #FFFFFF !important;
+  border-radius: 10px;
+  padding: 6px 0;
+}
+
+.user-menu-item {
+  color: #FFFFFF !important;
+}
+.user-menu-item:hover {
+  background: #3A3838 !important;
+}
+.user-menu-divider {
+  border-color: rgba(255,255,255,0.12) !important;
+}
+.menu-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  filter: invert(1) brightness(1.2);
+}
+.user-menu-list :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+.user-menu-list :deep(.v-list-item-title) {
+  color: #FFFFFF !important;
+  font-size: 14px;
+}
+.user-menu-list :deep(.v-list-item) {
+  color: #FFFFFF !important;
+}
+.user-menu-list :deep(.v-list) { background: transparent !important; }
+.user-menu-list :deep(.v-ripple__container) { display: none !important; }
 
 @media (max-width: 768px) {
   .user-btn {
