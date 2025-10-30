@@ -14,21 +14,18 @@ const showDeleteModal = ref(false);
 const selectedTask = ref(null);
 const loading = ref(false);
 
-// ✅ 체크박스 상태 관리 (완료 안 된 태스크만)
+// ✅ 체크박스 상태 관리
 const checkedTasks = ref({});
 
-// ✅ 체크박스 클릭 시
+// ✅ 완료 토글
 function onToggleComplete(task) {
-  // 완료된 태스크는 클릭 불가
   if (task.isDone) return;
-
-  // 체크 시 임시로 상태 반영
   checkedTasks.value[task.taskId] = true;
   selectedTask.value = task;
   showCompleteModal.value = true;
 }
 
-// ✅ 완료 처리 확정
+// ✅ 완료 확정
 async function confirmComplete() {
   try {
     loading.value = true;
@@ -42,7 +39,7 @@ async function confirmComplete() {
   }
 }
 
-// ✅ 완료 모달 취소 (체크 복원)
+// ✅ 완료 모달 취소
 function cancelCompleteModal() {
   if (selectedTask.value) {
     checkedTasks.value[selectedTask.value.taskId] = false;
@@ -76,59 +73,62 @@ async function confirmDelete() {
   <div class="task-card">
     <h3 class="title">내 태스크</h3>
 
-    <div v-if="store.loading" class="loading">불러오는 중...</div>
-    <div v-else-if="!tasks || tasks.length === 0" class="empty">
-      담당 중인 태스크가 없습니다.
-    </div>
+    <div class="content-wrapper">
+      <div v-if="store.loading" class="loading">불러오는 중...</div>
 
-    <!-- ✅ 태스크 목록 -->
-    <div v-else class="task-list-container">
-      <ul class="task-list">
-        <li
-          v-for="t in tasks"
-          :key="t.taskId"
-          class="task-item"
-          :class="{ done: t.isDone }"
-        >
-          <div class="task-left">
-            <input
-              type="checkbox"
-              class="task-checkbox"
-              :checked="t.isDone || checkedTasks[t.taskId]"
-              :disabled="t.isDone"
-              @change="onToggleComplete(t)"
-            />
-            <div class="task-info">
-              <div class="task-name" :class="{ done: t.isDone }">
-                {{ t.taskName }}
-              </div>
-              <div class="task-meta">
-                <span class="project">{{ t.projectName }}</span>
-                <span class="stone">｜{{ t.stoneName }}</span>
-                <span class="date">
-                  {{ new Date(t.startTime).toLocaleDateString() }} ~
-                  {{ new Date(t.endTime).toLocaleDateString() }}
-                </span>
+      <div v-else-if="!tasks || tasks.length === 0" class="empty">
+        담당 중인 태스크가 없습니다.
+      </div>
+
+      <!-- ✅ 태스크 목록 -->
+      <div v-else class="task-list-container">
+        <ul class="task-list">
+          <li
+            v-for="t in tasks"
+            :key="t.taskId"
+            class="task-item"
+            :class="{ done: t.isDone }"
+          >
+            <div class="task-left">
+              <input
+                type="checkbox"
+                class="task-checkbox"
+                :checked="t.isDone || checkedTasks[t.taskId]"
+                :disabled="t.isDone"
+                @change="onToggleComplete(t)"
+              />
+              <div class="task-info">
+                <div class="task-name" :class="{ done: t.isDone }">
+                  {{ t.taskName }}
+                </div>
+                <div class="task-meta">
+                  <span class="project">{{ t.projectName }}</span>
+                  <span class="stone">｜{{ t.stoneName }}</span>
+                  <span class="date">
+                    {{ new Date(t.startTime).toLocaleDateString() }} ~
+                    {{ new Date(t.endTime).toLocaleDateString() }}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="task-actions">
-            <span class="status" :class="{ complete: t.isDone }">
-              {{ t.isDone ? "완료" : "진행중" }}
-            </span>
-            <img
-              :src="TrashIcon"
-              class="trash-icon"
-              alt="삭제"
-              @click="onDelete(t)"
-            />
-          </div>
-        </li>
-      </ul>
+            <div class="task-actions">
+              <span class="status" :class="{ complete: t.isDone }">
+                {{ t.isDone ? "완료" : "진행중" }}
+              </span>
+              <img
+                :src="TrashIcon"
+                class="trash-icon"
+                alt="삭제"
+                @click="onDelete(t)"
+              />
+            </div>
+          </li>
+        </ul>
+      </div>
     </div>
 
-    <!-- ✅ 완료 처리 모달 -->
+    <!-- ✅ 완료 모달 -->
     <TaskCompleteConfirmModal
       :show="showCompleteModal"
       :taskName="selectedTask?.taskName"
@@ -149,6 +149,7 @@ async function confirmDelete() {
 </template>
 
 <style scoped>
+/* ✅ 전체 카드 */
 .task-card {
   width: 100%;
   text-align: left;
@@ -156,25 +157,33 @@ async function confirmDelete() {
   flex-direction: column;
   background: #fff;
   border-radius: 16px;
-  padding: 12px 12px; /* ✅ 좌우 유지, 상하 동일하게 여유 */
+  padding: 12px 24px;
   box-sizing: border-box;
 }
 
-/* ✅ 타이틀 */
+/* ✅ 타이틀 고정 */
 .title {
   font-weight: 700;
   font-size: 18px;
-  margin-top: 10px;
-  margin-bottom: 10px; /* 🔹 타이틀 아래 여백 늘림 */
+  margin-top: 8px;
+  margin-bottom: 16px;
   color: #333;
-  flex-shrink: 0;
 }
 
-/* ✅ 리스트 스크롤 */
+/* ✅ 내용 컨테이너 */
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* ✅ 태스크가 없을 때도 카드 크기 유지 */
 .task-list-container {
-  max-height: 250px;
+  height: 250px;
   overflow-y: auto;
-  padding: 8px 6px 12px 6px; /* 🔹 위·아래 여백 추가 (기존보다 넉넉하게) */
+  padding-top: 8px; /* 🔹 첫 번째 태스크와 타이틀 간 간격 일정 */
+  padding-bottom: 12px;
 }
 .task-list-container::-webkit-scrollbar {
   width: 6px;
@@ -184,22 +193,23 @@ async function confirmDelete() {
   border-radius: 4px;
 }
 
-/* ✅ 로딩 / 비어있을 때 */
+/* ✅ 빈 상태 메시지 */
 .loading,
 .empty {
   color: #888;
   font-size: 14px;
   text-align: center;
-  margin-top: 40px;
+  line-height: 180px; /* 🔹 빈 상태일 때도 동일한 높이 유지 */
 }
 
-/* ✅ 리스트 내부 여백 및 간격 */
+/* ✅ 리스트 내부 */
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 16px; /* 🔹 카드 간 간격 살짝 확대 */
+  gap: 16px;
   width: 100%;
-  padding: 6px 6px;
+  padding: 0 6px;
+  box-sizing: border-box;
 }
 
 /* ✅ 태스크 카드 */
@@ -223,14 +233,13 @@ async function confirmDelete() {
   text-decoration: line-through;
 }
 
-/* ✅ hover 시 */
+/* ✅ hover 효과 */
 .task-item:not(.done):hover {
   background-color: #f6d969;
   transform: translateY(-2px);
 }
 .task-item.done:hover {
   background-color: #f5f5f5;
-  transform: none;
 }
 
 /* ✅ 내부 레이아웃 */
@@ -266,7 +275,7 @@ async function confirmDelete() {
   margin-top: 4px;
 }
 
-/* ✅ 오른쪽 액션 영역 */
+/* ✅ 오른쪽 액션 */
 .task-actions {
   display: flex;
   align-items: center;
