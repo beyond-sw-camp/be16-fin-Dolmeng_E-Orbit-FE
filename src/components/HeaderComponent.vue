@@ -1,5 +1,14 @@
 <template>
   <v-app-bar class="app-header" flat density="comfortable" style="overflow: visible !important;">
+    <!-- 좌측 뒤로/앞으로 이동 버튼 -->
+    <div class="nav-buttons">
+      <v-btn class="nav-btn" variant="text" density="compact" v-ripple="false" @click="goBack">
+        <img src="@/assets/icons/header/chevron-left.svg" alt="뒤로" class="nav-icon" />
+      </v-btn>
+      <v-btn class="nav-btn" variant="text" density="compact" v-ripple="false" @click="goForward">
+        <img src="@/assets/icons/header/chevron-right.svg" alt="앞으로" class="nav-icon" />
+      </v-btn>
+    </div>
     <!-- 검색바 -->
     <div class="search-container">
       <div class="search-input">
@@ -13,7 +22,7 @@
           class="search-field" 
         />
         <img 
-          src="@/assets/icons/header/search.svg" 
+          src="@/assets/icons/header/magnify.svg" 
           alt="검색" 
           class="search-icon"
           @click="performSearch"
@@ -41,7 +50,7 @@
     
     <!-- 사용자 아이콘 -->
     <v-btn icon class="user-btn">
-      <img src="@/assets/icons/header/user.svg" alt="사용자" class="user-icon" />
+      <img src="@/assets/icons/header/account.svg" alt="사용자" class="user-icon" />
     </v-btn>
 
     <!-- 검색 결과 모달 -->
@@ -148,6 +157,15 @@ export default {
   },
 
   methods: {
+    // 앞으로/뒤로 이동
+    goBack() {
+      if (window.history.length > 1) {
+        this.$router.back();
+      }
+    },
+    goForward() {
+      this.$router.forward();
+    },
     // 검색창 포커스
     onSearchFocus() {
       console.log('Search input focused');
@@ -309,7 +327,7 @@ export default {
   top: 0;
   left: 280px;
   right: 0;
-  height: 83px;
+  height: 64px;
   z-index: 1000;
   background: #F5F5F5;
   color: #000000;
@@ -321,16 +339,68 @@ export default {
   overflow: visible !important;
 }
 
+/* 좌측 내비게이션 버튼 영역 */
+.nav-buttons {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.8;
+}
+
+/* Vuetify 내부 오버레이/리플 제거 */
+.nav-btn :deep(.v-btn__overlay),
+.nav-btn :deep(.v-btn__underlay),
+.nav-btn :deep(.v-ripple__container) {
+  display: none !important;
+}
+
+/* 화살표 버튼 포커스 링 제거 */
+.nav-btn:focus,
+.nav-btn:focus-visible,
+.nav-btn:active,
+.nav-btn:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.nav-btn *:focus,
+.nav-btn *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 .app-header :deep(.v-toolbar__content) {
   overflow: visible !important;
+  min-height: 64px !important;
 }
 
 .search-container {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: min(640px, calc(100vw - 400px));
-  max-width: 640px;
+  width: min(820px, calc(100vw - 360px));
+  max-width: 820px;
   min-width: 300px;
   height: 42px;
   display: flex;
@@ -343,14 +413,16 @@ export default {
   width: 100%;
   height: 100%;
   z-index: 9999;
+  background: #FFFFFF;
+  border-radius: 25px;
+  box-shadow: inset 0 0 0 1px #DDDDDD;
 }
 
 .search-field {
   width: 100%;
   height: 100%;
-  background: #FFFFFF;
-  border: 1px solid #DDDDDD;
-  border-radius: 25px;
+  background: transparent;
+  border: none;
   padding: 13px 17px;
   font-family: 'Pretendard', sans-serif;
   font-weight: 400;
@@ -358,11 +430,29 @@ export default {
   line-height: 17px;
   color: #757575;
   box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
 }
 
-.search-field:focus {
+.search-input:focus-within {
   outline: none;
-  border-color: #1976d2;
+  box-shadow: inset 0 0 0 1px #DDDDDD;
+}
+
+/* 헤더 내 포커스 아웃라인 제거 */
+:deep(.v-btn:focus),
+:deep(.v-btn:focus-visible),
+:deep(button:focus),
+:deep(button:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.search-field:focus,
+.search-field:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .search-field::placeholder {
@@ -374,8 +464,8 @@ export default {
   right: 20px;
   top: 50%;
   transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   opacity: 0.7;
   cursor: pointer;
 }
@@ -500,12 +590,14 @@ export default {
 
 .notification-btn {
   position: absolute;
-  right: 80px;
+  right: 70px;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  background: #F5F5F5 !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  padding: 0 !important;
+  background: #E0E0E0 !important;
   box-shadow: none !important;
   display: flex;
   align-items: center;
@@ -535,9 +627,11 @@ export default {
   right: 20px;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  background: #F5F5F5 !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  padding: 0 !important;
+  background: #E0E0E0 !important;
   box-shadow: none !important;
   display: flex;
   align-items: center;
