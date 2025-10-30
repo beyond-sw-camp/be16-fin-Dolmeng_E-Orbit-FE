@@ -10,6 +10,7 @@ import { documentRouter } from './DocumentRouter';
 import { chatBotRouter } from './ChatBotRouter';
 import driveRouter from './DriveRouter';
 import { scheduleRouter } from './ScheduleRouter';
+import { openViduRouter } from './OpenViduRouter';
 
 const routes = [
     ...homeRouter,
@@ -23,6 +24,7 @@ const routes = [
     ...chatBotRouter,
     ...driveRouter,
     ...scheduleRouter,
+    ...openViduRouter
 ];
 
 const router = createRouter({

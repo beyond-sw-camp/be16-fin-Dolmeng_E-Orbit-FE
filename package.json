@@ -45,7 +45,8 @@
     "vue": "^3.5.21",
     "vue-router": "^4.5.1",
     "vuetify": "^3.10.3",
-    "webstomp-client": "^1.2.6"
+    "webstomp-client": "^1.2.6",
+    "openvidu-browser": "^2.31.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.1",
