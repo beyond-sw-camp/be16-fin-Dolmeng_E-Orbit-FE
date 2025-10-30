@@ -156,7 +156,7 @@ async function confirmDelete() {
   flex-direction: column;
   background: #fff;
   border-radius: 16px;
-  padding: 24px 24px; /* ✅ 좌우 유지, 상하 동일하게 여유 */
+  padding: 12px 12px; /* ✅ 좌우 유지, 상하 동일하게 여유 */
   box-sizing: border-box;
 }
 
@@ -164,7 +164,7 @@ async function confirmDelete() {
 .title {
   font-weight: 700;
   font-size: 18px;
-  margin-top: 40px;
+  margin-top: 10px;
   margin-bottom: 10px; /* 🔹 타이틀 아래 여백 늘림 */
   color: #333;
   flex-shrink: 0;
@@ -172,7 +172,7 @@ async function confirmDelete() {
 
 /* ✅ 리스트 스크롤 */
 .task-list-container {
-  max-height: 300px;
+  max-height: 250px;
   overflow-y: auto;
   padding: 8px 6px 12px 6px; /* 🔹 위·아래 여백 추가 (기존보다 넉넉하게) */
 }
@@ -199,7 +199,7 @@ async function confirmDelete() {
   flex-direction: column;
   gap: 16px; /* 🔹 카드 간 간격 살짝 확대 */
   width: 100%;
-  padding: 20px 6px;
+  padding: 6px 6px;
 }
 
 /* ✅ 태스크 카드 */

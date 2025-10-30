@@ -136,7 +136,7 @@ function prevMs() {
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
-  padding: 24px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   justify-content: center;
