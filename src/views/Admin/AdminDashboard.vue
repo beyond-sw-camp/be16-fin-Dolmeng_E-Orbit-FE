@@ -41,7 +41,7 @@
 
           <!-- API에서 가져온 권한 그룹들 -->
           <div v-for="group in permissionGroups" :key="group.accessGroupId" class="permission-group-card" :class="{ 'default-group': isDefaultGroup(group.accessGroupName) }">
-            <div class="group-header" @click="viewGroupDetail(group)">
+            <div class="group-header" @click="viewPermissionGroupDetail(group)">
               <div class="group-icon">
                 <img 
                   :src="group.accessGroupName === '관리자 그룹' ? '/src/assets/icons/sidebar/admin.svg' : '/src/assets/icons/user/user_default_icon.svg'" 
@@ -124,7 +124,7 @@
             <div class="group-info">
               <div class="user-group-icon"></div>
               <div class="group-details">
-                <h3 class="group-name" @click="viewGroupDetail(group)">{{ group.name }}</h3>
+                <h3 class="group-name" @click="viewUserGroupDetail(group)">{{ group.name }}</h3>
                 <p class="group-date">생성일: {{ group.createdAt }}</p>
               </div>
             </div>
@@ -1115,36 +1115,9 @@ export default {
       }
     },
     
-    // 사용자 그룹 상세 조회
-    async viewGroupDetail(group) {
-      try {
-        const token = localStorage.getItem('token');
-        const userId = localStorage.getItem('userId') || localStorage.getItem('id');
-        
-        const response = await axios.get(
-          `http://localhost:8080/workspace-service/groups/${group.id}`,
-          {
-            headers: {
-              'X-User-Id': userId,
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
-        
-        if (response.data.statusCode === 200) {
-          const detail = response.data.result;
-          const memberList = detail.members.content.map(member => 
-            `${member.userName} (${member.userEmail})`
-          ).join('\n');
-          
-          alert(`${detail.groupName} 그룹 상세 정보:\n\n멤버 목록:\n${memberList || '멤버가 없습니다.'}`);
-        } else {
-          alert('그룹 상세 정보를 불러올 수 없습니다.');
-        }
-      } catch (error) {
-        console.error('사용자 그룹 상세 조회 실패:', error);
-        alert('그룹 상세 정보를 불러올 수 없습니다.');
-      }
+    // 사용자 그룹 상세 페이지로 이동
+    viewUserGroupDetail(group) {
+      this.$router.push(`/admin/user-group/${group.id}/detail`);
     },
     
     // 사용자 그룹 생성
@@ -1199,7 +1172,7 @@ export default {
     },
     
     // 권한 그룹 상세 조회
-    viewGroupDetail(group) {
+    viewPermissionGroupDetail(group) {
       this.$router.push(`/admin/permission-group/${group.accessGroupId}/detail`);
     },
     
@@ -1728,10 +1701,11 @@ export default {
 .group-icon {
   width: 24px;
   height: 24px;
-  margin-right: 16px;
+  margin-right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  order: 1;
 }
 
 .group-icon-img {
@@ -1747,6 +1721,7 @@ export default {
 
 .group-info {
   flex-grow: 1;
+  order: 2;
   text-align: left;
 }
 
@@ -1777,6 +1752,7 @@ export default {
 }
 
 .group-member-count {
+  order: 4;
   margin-left: 16px;
 }
 
@@ -1800,6 +1776,7 @@ export default {
 .group-actions {
   position: relative;
   margin-left: auto;
+  order: 3;
 }
 
 .action-menu {
