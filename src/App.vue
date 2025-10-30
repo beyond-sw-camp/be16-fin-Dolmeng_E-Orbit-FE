@@ -47,6 +47,8 @@ import ChatBotPage from './views/ChatBot/ChatBotPage.vue';
 import CalendarDetailModal from './components/CalendarDetailModal.vue';
 import axios from 'axios';
 import { showSnackbar } from './services/snackbar.js';
+import notificationStompManager from './services/notificationStompService.js';
+import { setChatUnreadCount } from './services/notificationState.js';
 
 export default {
   name: "App",
@@ -96,6 +98,8 @@ export default {
           this.isCalendarModalOpen = true;
         } catch(_) {}
       });
+      // Notifications STOMP subscribe
+      this.initNotificationSubscription();
     });
   },
   beforeUnmount() {
@@ -114,6 +118,41 @@ export default {
     }
   },
   methods: {
+    async initNotificationSubscription(){
+      try {
+        const id = localStorage.getItem('id');
+        if (!id) return;
+        await notificationStompManager.connect();
+        const topic = `/topic/notification/${id}`;
+        if (this._notifUnsub) { try { this._notifUnsub(); } catch(_) {} this._notifUnsub = null; }
+        this._notifUnsub = await notificationStompManager.subscribe(topic, (payload) => {
+          try {
+            console.log('[notif] incoming', payload);
+            let text = '';
+            if (typeof payload === 'string') {
+              text = payload;
+            } else if (payload && typeof payload === 'object') {
+              const title = payload.title || payload.subject || '';
+              const body = payload.content || payload.message || payload.text || '';
+              text = title ? `${title} - ${body}` : (body || JSON.stringify(payload));
+              // Update chat unread badge when NEW_CHAT_MESSAGE
+              if (String(payload.type).toUpperCase() === 'NEW_CHAT_MESSAGE') {
+                setChatUnreadCount(title);
+              }
+            } else {
+              text = '새 알림이 도착했습니다.';
+            }
+            showSnackbar(text, { color: 'info' });
+          } catch(_) {}
+        });
+        // reconnect on close
+        if (!this._notifOffClose) {
+          this._notifOffClose = notificationStompManager.on('close', async () => {
+            try { await notificationStompManager.connect(); this.initNotificationSubscription(); } catch(_) {}
+          });
+        }
+      } catch(_) {}
+    },
     onFabClick() {
       if (this.hasFabMoved) { this.hasFabMoved = false; return; }
       this.isChatBotOpen = true;
