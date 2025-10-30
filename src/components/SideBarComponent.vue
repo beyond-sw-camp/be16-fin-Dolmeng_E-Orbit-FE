@@ -324,7 +324,7 @@ export default {
       const workspaceId = localStorage.getItem('selectedWorkspaceId');
       
       if (workspaceId) {
-        this.$router.push(`/drive/${workspaceId}`);
+        this.$router.push(`/drive/WORKSPACE/${workspaceId}`);
       } else {
         // 워크스페이스 ID가 없으면 기본 드라이브로
         this.$router.push('/drive');
