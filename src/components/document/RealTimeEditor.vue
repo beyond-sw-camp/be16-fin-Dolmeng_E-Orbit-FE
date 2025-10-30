@@ -769,10 +769,49 @@ const clearFontSize = () => {
   }
 };
 
+// 페이지 visibility 변경 감지 함수
+const handleVisibilityChange = () => {
+  if (document.hidden && connectionStatus.value === 'connected' && currentSelectionIds.value.size > 0) {
+    // 페이지가 숨겨질 때 (탭 전환, 최소화 등) 모든 잠긴 라인 해제
+    const linesToRelease = [...currentSelectionIds.value];
+    
+    // 로컬에서 먼저 잠금 해제
+    linesToRelease.forEach(lineId => {
+      if (lockedLines.value.get(lineId) === user.name) {
+        lockedLines.value.delete(lineId);
+      }
+    });
+    
+    // 서버에 잠금 해제 요청 전송
+    const changesList = linesToRelease.map(lineId => ({ lineId }));
+    sendStompMessage({
+      destination: '/publish/editor/unlock-line',
+      body: {
+        messageType: 'UNLOCK_LINE',
+        documentId: props.documentId,
+        senderId: user.id,
+        changesList: changesList,
+        content: '',
+      },
+    });
+    
+    // 현재 선택 상태 초기화
+    currentSelectionIds.value = new Set();
+    lockedLines.value = new Map(lockedLines.value);
+    
+    if (editor.value) {
+      editor.value.view.dispatch(editor.value.state.tr);
+    }
+  }
+};
+
 // 라이프사이클 훅
 onMounted(async () => {
   // 온라인 사용자 목록을 먼저 가져옵니다.
   await fetchOnlineUsers();
+  
+  // Visibility API 이벤트 리스너 등록
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   // 자기 자신을 온라인 사용자 목록에 추가합니다.
   if (!onlineUsers.value.some(u => u.userId === user.id)) {
@@ -812,6 +851,42 @@ onMounted(async () => {
     content: props.initialContent || '<p></p>', // 초기 콘텐츠가 비어있을 경우를 대비
     editorProps: {
       handleDOMEvents: {
+        blur: (view, event) => {
+          // 에디터가 포커스를 잃을 때 모든 잠긴 라인 해제
+          if (connectionStatus.value === 'connected' && currentSelectionIds.value.size > 0) {
+            const linesToRelease = [...currentSelectionIds.value];
+            
+            // 로컬에서 먼저 잠금 해제 (Optimistic Unlock)
+            linesToRelease.forEach(lineId => {
+              if (lockedLines.value.get(lineId) === user.name) {
+                lockedLines.value.delete(lineId);
+              }
+            });
+            
+            // 서버에 잠금 해제 요청 전송
+            const changesList = linesToRelease.map(lineId => ({ lineId }));
+            sendStompMessage({
+              destination: '/publish/editor/unlock-line',
+              body: {
+                messageType: 'UNLOCK_LINE',
+                documentId: props.documentId,
+                senderId: user.id,
+                changesList: changesList,
+                content: '',
+              },
+            });
+            
+            // 현재 선택 상태 초기화
+            currentSelectionIds.value = new Set();
+            lockedLines.value = new Map(lockedLines.value);
+            
+            // UI 갱신
+            if (editor.value) {
+              editor.value.view.dispatch(editor.value.state.tr);
+            }
+          }
+          return false;
+        },
       },
       handleDrop: (view, event, slice, moved) => {
         // 드롭 위치 계산
@@ -1148,6 +1223,10 @@ onBeforeUnmount(() => {
     clearTimeout(typingTimer.value);
   }
   sendBatchChanges(); // 컴포넌트 파괴 전 마지막으로 변경사항 전송
+  
+  // Visibility API 이벤트 리스너 제거
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  
   // disconnectStomp(props.documentId, user.name);
   if (editor.value) {
     editor.value.destroy();
