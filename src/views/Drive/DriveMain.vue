@@ -53,7 +53,7 @@
           <v-toolbar flat color="white" class="px-4">
             <v-toolbar-title class="text-h6">{{ currentFolderName }}</v-toolbar-title>
             <v-spacer></v-spacer>
-            <v-btn text small @click="loadFolderContents(currentFolderId)">
+            <v-btn text small @click="loadFolderContents(currentFolderId, currentRootType, currentRootId)">
               <v-icon small left>mdi-refresh</v-icon>
               새로고침
             </v-btn>
@@ -111,7 +111,17 @@
             :items-per-page="15"
           >
             <template v-slot:item.name="{ item }">
-              <div class="d-flex align-center py-2 clickable-row" @click="handleItemClick(item)">
+              <div 
+                class="d-flex align-center py-2 clickable-row" 
+                :class="{ 'drag-over': dragOverItem && dragOverItem.id === item.id }"
+                :draggable="item.type === 'folder'"
+                @click="handleItemClick(item)"
+                @dragstart="onDragStart($event, item)"
+                @dragend="onDragEnd"
+                @dragover="onDragOver($event, item)"
+                @dragleave="onDragLeave"
+                @drop="onDrop($event, item)"
+              >
                 <v-icon :color="getItemIconColor(item)" class="mr-3">
                   {{ getItemIcon(item) }}
                 </v-icon>
@@ -124,36 +134,35 @@
             <template v-slot:item.owner="{ item }">
               <div class="d-flex align-center">
                 <v-avatar size="24" class="mr-2">
-                  <v-icon small>mdi-account-circle</v-icon>
+                  <v-img v-if="item.ownerImage" :src="item.ownerImage" />
+                  <v-icon v-else small>mdi-account-circle</v-icon>
                 </v-avatar>
                 {{ item.owner }}
               </div>
             </template>
 
             <template v-slot:item.actions="{ item }">
-              <v-menu offset-y @click.stop>
-                <template v-slot:activator="{ on, attrs }">
-                  <v-btn
-                    icon
-                    small
-                    v-bind="attrs"
-                    v-on="on"
-                    @click.stop
-                  >
-                    <v-icon small>mdi-dots-vertical</v-icon>
-                  </v-btn>
-                </template>
-                <v-list dense>
-                  <v-list-item v-if="item.type === 'folder'" @click="openRenameDialog(item)">
-                    <v-list-item-icon><v-icon small>mdi-pencil</v-icon></v-list-item-icon>
-                    <v-list-item-title>이름 변경</v-list-item-title>
-                  </v-list-item>
-                  <v-list-item @click="deleteItem(item)" class="error--text">
-                    <v-list-item-icon><v-icon small color="error">mdi-delete</v-icon></v-list-item-icon>
-                    <v-list-item-title>삭제</v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-menu>
+              <!-- PROJECT, STONE 타입은 액션 버튼 표시 안 함 -->
+              <div v-if="item.type !== 'PROJECT' && item.type !== 'STONE'" @click.stop class="d-flex">
+                <v-btn
+                  v-if="item.type === 'folder'"
+                  icon
+                  x-small
+                  @click.stop="openRenameDialog(item)"
+                  title="이름 변경"
+                >
+                  <v-icon small>mdi-pencil</v-icon>
+                </v-btn>
+                <v-btn
+                  icon
+                  x-small
+                  @click.stop="deleteItem(item)"
+                  color="error"
+                  title="삭제"
+                >
+                  <v-icon small>mdi-delete</v-icon>
+                </v-btn>
+              </div>
             </template>
 
             <template v-slot:no-data>
@@ -256,6 +265,9 @@ export default {
       loadingTree: false,
       currentFolderId: null,
       currentFolderName: '내 드라이브',
+      currentRootType: null,
+      currentRootId: null,
+      folderPath: [],  // 폴더 경로 [{ id, name }, ...]
       
       // 폴더 트리
       folderTree: [],
@@ -285,6 +297,10 @@ export default {
       renameItem: null,
       renameName: '',
       uploadDialog: false,
+      
+      // 드래그 앤 드롭
+      draggingItem: null,
+      dragOverItem: null,
     };
   },
 
@@ -298,35 +314,77 @@ export default {
   },
 
   mounted() {
-    const folderId = this.$route.params.folderId;
-    this.initializeDrive(folderId);
+    const { rootType, rootId, folderId } = this.$route.params;
+    
+    if (rootType && rootId && folderId) {
+      // rootType/rootId/folder/folderId 형태로 접근한 경우 (폴더 내부)
+      this.initializeDrive(folderId, rootType, rootId);
+    } else if (rootType && rootId) {
+      // rootType/rootId 형태로 접근한 경우 (루트)
+      this.initializeDrive(null, rootType, rootId);
+    } else if (folderId) {
+      // 기존 folderId 형태로 접근한 경우 (deprecated)
+      this.initializeDrive(folderId);
+    } else {
+      // 기본 드라이브
+      this.initializeDrive(null, 'WORKSPACE', localStorage.getItem('selectedWorkspaceId'));
+    }
   },
 
   watch: {
-    '$route.params.folderId'(newFolderId) {
-      this.loadFolderContents(newFolderId);
+    '$route.params': {
+      handler(newParams) {
+        const { rootType, rootId, folderId } = newParams;
+        
+        if (rootType && rootId && folderId) {
+          // 폴더 내부로 이동
+          this.initializeDrive(folderId, rootType, rootId);
+        } else if (rootType && rootId) {
+          // 루트로 이동
+          this.initializeDrive(null, rootType, rootId);
+        } else if (folderId) {
+          // deprecated
+          this.loadFolderContents(folderId);
+        }
+      },
+      deep: true
     }
   },
 
   methods: {
     // 드라이브 초기화
-    async initializeDrive(folderId) {
-      // 워크스페이스 루트인 경우 한 번만 API 호출하고 결과 공유
-      if (!folderId || this.isWorkspaceId(folderId)) {
-        const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
-        console.log('워크스페이스 루트 초기화:', workspaceId);
+    async initializeDrive(folderId, rootType, rootId) {
+      // 현재 루트 정보 저장
+      if (rootType && rootId) {
+        this.currentRootType = rootType;
+        this.currentRootId = rootId;
+      }
+      
+      // folderId가 있으면 폴더 내용 로드
+      if (folderId && rootType && rootId) {
+        console.log(`${rootType} 루트의 폴더 초기화:`, rootId, folderId);
+        await Promise.all([
+          this.loadFolderTree(),
+          this.loadFolderContents(folderId, rootType, rootId)
+        ]);
+        return;
+      }
+      
+      // rootType과 rootId가 있으면 루트 API 사용
+      if (rootType && rootId) {
+        console.log(`${rootType} 루트 초기화:`, rootId);
         
         try {
           this.loading = true;
           this.loadingTree = true;
           
-          const response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
+          const response = await driveService.getContentsByRoot(rootType, rootId);
           
           if (response.result) {
             // 메인 콘텐츠 업데이트
             this.items = this.parseItems(response.result);
             this.currentFolderId = null;
-            this.updateBreadcrumbs(folderId, response.result);
+            this.updateBreadcrumbs(null, response.result, rootType || this.currentRootType);
             
             // 폴더 트리 업데이트 (폴더만 추출)
             const folders = [];
@@ -343,9 +401,12 @@ export default {
             }
             
             this.folderCache['root'] = folders;
+            const rootName = rootType === 'WORKSPACE' ? '내 드라이브' : 
+                             rootType === 'PROJECT' ? '프로젝트 문서함' : 
+                             rootType === 'STONE' ? '스톤 문서함' : '문서함';
             const rootFolder = {
               id: 'root',
-              name: '내 드라이브',
+              name: rootName,
               children: folders,
             };
             this.folderTree = [rootFolder];
@@ -355,14 +416,32 @@ export default {
           }
         } catch (error) {
           console.error('드라이브 초기화 실패:', error);
-          this.items = [];
-          this.folderTree = [{ id: 'root', name: '내 드라이브', children: [] }];
+          
+          // 접근 권한 에러 등의 경우 이전 페이지로 이동
+          const errorMessage = error.response?.data?.statusMessage || '접근 권한이 없거나 문서함을 불러올 수 없습니다.';
+          showSnackbar(errorMessage, 'error');
+          
+          // 워크스페이스 드라이브 루트로 리디렉션
+          const workspaceId = localStorage.getItem('selectedWorkspaceId');
+          this.$router.replace({ 
+            name: 'driveRoot',
+            params: { 
+              rootType: 'WORKSPACE',
+              rootId: workspaceId
+            }
+          });
         } finally {
           this.loading = false;
           this.loadingTree = false;
         }
-      } else {
-        // 일반 폴더인 경우 기존 로직 사용
+      }
+      // 워크스페이스 루트인 경우
+      else if (!folderId || this.isWorkspaceId(folderId)) {
+        const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
+        await this.initializeDrive(null, 'WORKSPACE', workspaceId);
+      }
+      // 일반 폴더인 경우
+      else {
         await Promise.all([
           this.loadFolderTree(),
           this.loadFolderContents(folderId)
@@ -437,45 +516,138 @@ export default {
         const folderId = selectedIds[0];
         
         if (folderId === 'root') {
-          this.$router.push({ name: 'drive' });
+          // 루트로 이동 (현재 rootType/rootId 유지)
+          if (this.currentRootType && this.currentRootId) {
+            this.$router.push({ 
+              name: 'driveRoot',
+              params: { 
+                rootType: this.currentRootType,
+                rootId: this.currentRootId
+              }
+            });
+          } else {
+            this.$router.push({ name: 'drive' });
+          }
         } else {
+          // 폴더로 이동 (rootType/rootId 유지)
           this.$router.push({
             name: 'driveFolder',
-            params: { folderId: folderId }
+            params: { 
+              rootType: this.currentRootType || 'WORKSPACE',
+              rootId: this.currentRootId || localStorage.getItem('selectedWorkspaceId'),
+              folderId: folderId 
+            }
           });
         }
       }
     },
 
     // 폴더 내용 로드 (폴더, 파일, 문서 모두)
-    async loadFolderContents(folderId) {
+    async loadFolderContents(folderId, rootType, rootId) {
       try {
         this.loading = true;
         let response;
         
-        // folderId가 없거나 워크스페이스 ID인 경우
-        if (!folderId || this.isWorkspaceId(folderId)) {
-          const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
-          console.log('워크스페이스 루트 로드:', workspaceId);
-          response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
-          this.currentFolderId = null; // 루트이므로 null
-        } else {
-          // 일반 폴더인 경우
+        // rootType과 rootId 저장 (폴더 생성 시 필요)
+        if (rootType && rootId) {
+          this.currentRootType = rootType;
+          this.currentRootId = rootId;
+        }
+        
+        // folderId가 있으면 해당 폴더의 내용 로드
+        if (folderId && !this.isWorkspaceId(folderId)) {
           console.log('폴더 내용 로드:', folderId);
           response = await driveService.getFolderContents(folderId);
           this.currentFolderId = folderId;
         }
+        // folderId가 없고 rootType/rootId가 있으면 루트 내용 로드
+        else if (rootType && rootId) {
+          console.log(`${rootType} 루트 로드:`, rootId);
+          response = await driveService.getContentsByRoot(rootType, rootId);
+          this.currentFolderId = null;
+        }
+        // folderId가 워크스페이스 ID인 경우
+        else if (!folderId || this.isWorkspaceId(folderId)) {
+          const workspaceId = folderId || localStorage.getItem('selectedWorkspaceId');
+          console.log('워크스페이스 루트 로드:', workspaceId);
+          this.currentRootType = 'WORKSPACE';
+          this.currentRootId = workspaceId;
+          response = await driveService.getContentsByRoot('WORKSPACE', workspaceId);
+          this.currentFolderId = null;
+        }
         
         if (response.result) {
-          this.items = this.parseItems(response.result);
-          this.updateBreadcrumbs(folderId, response.result);
+          // items 파싱
+          const items = Array.isArray(response.result) 
+            ? response.result 
+            : response.result.items || [];
+          
+          // ancestors 추출 (하위 요소의 ancestors를 보면 현재 경로를 알 수 있음)
+          if (folderId && items.length > 0 && items[0].ancestors) {
+            // ancestors를 folderPath로 설정 (역순으로 되어있을 수 있으니 reverse)
+            const ancestorsArray = items[0].ancestors;
+            this.folderPath = ancestorsArray.slice().reverse().map(ancestor => ({
+              id: ancestor.folderId,
+              name: ancestor.folderName
+            }));
+          }
+          // 빈 폴더인 경우 폴더 정보 조회
+          else if (folderId && items.length === 0) {
+            try {
+              const folderInfo = await driveService.getFolderInfo(folderId);
+              
+              if (folderInfo.result && folderInfo.result.ancestors) {
+                const ancestorsArray = folderInfo.result.ancestors;
+                
+                // ancestors를 folderPath로 설정 (역순 처리)
+                this.folderPath = ancestorsArray.slice().reverse().map(ancestor => ({
+                  id: ancestor.folderId,
+                  name: ancestor.folderName
+                }));
+                
+                // 현재 폴더도 추가
+                this.folderPath.push({
+                  id: folderInfo.result.folderId,
+                  name: folderInfo.result.folderName
+                });
+                
+                // 빈 폴더의 경우 여기서 브레드크럼 업데이트
+                this.updateBreadcrumbs(folderId, items, rootType || this.currentRootType);
+              }
+            } catch (error) {
+              console.error('폴더 정보 조회 실패:', error);
+            }
+          }
+          
+          this.items = this.parseItems(items);
+          
+          // 하위 요소가 있는 경우에만 여기서 브레드크럼 업데이트
+          if (items.length > 0) {
+            this.updateBreadcrumbs(folderId, items, rootType || this.currentRootType);
+          }
         } else {
           this.items = [];
         }
       } catch (error) {
         console.error('폴더 내용 로드 실패:', error);
-        showSnackbar('폴더 내용을 불러오는데 실패했습니다.', 'error');
-        this.items = [];
+        
+        // 접근 권한 에러 등의 경우
+        const errorMessage = error.response?.data?.statusMessage || '폴더 내용을 불러오는데 실패했습니다.';
+        showSnackbar(errorMessage, 'error');
+        
+        // 권한 에러인 경우 워크스페이스 드라이브 루트로 리디렉션
+        if (error.response?.status === 403 || error.response?.status === 401) {
+          const workspaceId = localStorage.getItem('selectedWorkspaceId');
+          this.$router.replace({ 
+            name: 'driveRoot',
+            params: { 
+              rootType: 'WORKSPACE',
+              rootId: workspaceId
+            }
+          });
+        } else {
+          this.items = [];
+        }
       } finally {
         this.loading = false;
       }
@@ -495,13 +667,14 @@ export default {
       dataArray.forEach(item => {
         const type = item.type || 'file';
         const name = item.name || 'Unnamed';
-        const owner = item.createBy || '알 수 없음';
+        const owner = item.creatorName || item.createBy || '-';
         const modified = this.formatDate(item.updateAt);
         
         items.push({
           id: item.id,
           name: name,
           owner: owner,
+          ownerImage: item.profileImage || null,
           modified: modified,
           size: type === 'file' ? this.formatFileSize(item.size) : '',
           type: type,
@@ -536,19 +709,40 @@ export default {
     },
 
     // 브레드크럼 업데이트
-    updateBreadcrumbs(folderId, data) {
+    updateBreadcrumbs(folderId, data, rootType) {
+      console.log('updateBreadcrumbs - rootType:', rootType, 'currentRootType:', this.currentRootType);
+      const rootName = rootType === 'WORKSPACE' ? '내 드라이브' : 
+                       rootType === 'PROJECT' ? '프로젝트 문서함' : 
+                       rootType === 'STONE' ? '스톤 문서함' : '내 드라이브';
+      
       if (!folderId || folderId === 'root') {
+        // 루트로 돌아왔을 때 경로 초기화
+        this.folderPath = [];
         this.breadcrumbs = [
-          { text: '내 드라이브', icon: 'mdi-home', disabled: false, folderId: null },
+          { text: rootName, icon: 'mdi-home', disabled: false, folderId: null },
         ];
-        this.currentFolderName = '내 드라이브';
+        this.currentFolderName = rootName;
       } else {
-        // 간단한 브레드크럼 (현재 폴더만)
+        // 폴더 경로를 사용해서 브레드크럼 생성
         this.breadcrumbs = [
-          { text: '내 드라이브', icon: 'mdi-home', disabled: false, folderId: null },
-          { text: folderId, disabled: true, folderId: folderId },
+          { text: rootName, icon: 'mdi-home', disabled: false, folderId: null },
         ];
-        this.currentFolderName = folderId;
+        
+        // 폴더 경로의 각 폴더를 브레드크럼에 추가
+        this.folderPath.forEach((folder, index) => {
+          this.breadcrumbs.push({
+            text: folder.name,
+            disabled: index === this.folderPath.length - 1,  // 마지막 폴더는 비활성화
+            folderId: folder.id,
+          });
+        });
+        
+        // 현재 폴더 이름 설정
+        if (this.folderPath.length > 0) {
+          this.currentFolderName = this.folderPath[this.folderPath.length - 1].name;
+        } else {
+          this.currentFolderName = folderId;
+        }
       }
     },
 
@@ -557,11 +751,27 @@ export default {
       if (item.disabled) return;
       
       if (!item.folderId) {
-        this.$router.push({ name: 'drive' });
+        // 루트로 이동
+        if (this.currentRootType && this.currentRootId) {
+          this.$router.push({ 
+            name: 'driveRoot',
+            params: { 
+              rootType: this.currentRootType,
+              rootId: this.currentRootId
+            }
+          });
+        } else {
+          this.$router.push({ name: 'drive' });
+        }
       } else {
+        // 폴더로 이동 (백엔드에서 ancestors 제공)
         this.$router.push({
           name: 'driveFolder',
-          params: { folderId: item.folderId }
+          params: { 
+            rootType: this.currentRootType || 'WORKSPACE',
+            rootId: this.currentRootId || localStorage.getItem('selectedWorkspaceId'),
+            folderId: item.folderId 
+          }
         });
       }
     },
@@ -570,6 +780,8 @@ export default {
     getItemIcon(item) {
       if (item.type === 'folder') return 'mdi-folder';
       if (item.type === 'document') return 'mdi-file-document-edit';
+      if (item.type === 'STONE') return 'mdi-link-variant';  // 바로가기 아이콘
+      if (item.type === 'PROJECT') return 'mdi-link-variant';  // 바로가기 아이콘
       
       const iconMap = {
         pdf: 'mdi-file-pdf-box',
@@ -587,6 +799,8 @@ export default {
     getItemIconColor(item) {
       if (item.type === 'folder') return 'amber darken-2';
       if (item.type === 'document') return 'blue darken-1';
+      if (item.type === 'STONE') return 'purple darken-1';  // 스톤 바로가기
+      if (item.type === 'PROJECT') return 'green darken-1';  // 프로젝트 바로가기
       
       const colorMap = {
         pdf: 'red darken-1',
@@ -600,13 +814,45 @@ export default {
     // 아이템 클릭
     handleItemClick(item) {
       console.log('Item clicked:', item);
+      
+      // folder: 계층 구조로 폴더 탐색
       if (item.type === 'folder') {
         console.log('Navigating to folder:', item.id);
+        
+        // 폴더 경로에 추가 (폴더 이름 정보가 있으므로)
+        // 백엔드에서 ancestors 오면 덮어쓰기
+        this.folderPath.push({
+          id: item.id,
+          name: item.name
+        });
+        
         this.$router.push({
           name: 'driveFolder',
-          params: { folderId: item.id }
+          params: { 
+            rootType: this.currentRootType || 'WORKSPACE',
+            rootId: this.currentRootId || localStorage.getItem('selectedWorkspaceId'),
+            folderId: item.id 
+          }
         });
-      } else if (item.type === 'document') {
+      }
+      // STONE: 스톤 문서함으로 바로가기
+      else if (item.type === 'STONE') {
+        console.log('Navigating to STONE drive:', item.id);
+        this.$router.push({
+          name: 'driveRoot',
+          params: { rootType: 'STONE', rootId: item.id }
+        });
+      }
+      // PROJECT: 프로젝트 문서함으로 바로가기
+      else if (item.type === 'PROJECT') {
+        console.log('Navigating to PROJECT drive:', item.id);
+        this.$router.push({
+          name: 'driveRoot',
+          params: { rootType: 'PROJECT', rootId: item.id }
+        });
+      }
+      // document: 문서 편집
+      else if (item.type === 'document') {
         console.log('Navigating to document:', item.id);
         this.$router.push(`/document/${item.id}`);
       }
@@ -623,19 +869,30 @@ export default {
         const workspaceId = localStorage.getItem('selectedWorkspaceId');
         const userId = localStorage.getItem('id');
         
-        await driveService.createFolder({
+        // rootId와 rootType은 현재 루트에 따라 결정
+        // WORKSPACE: rootId = workspaceId, rootType = "WORKSPACE"
+        // PROJECT: rootId = projectId, rootType = "PROJECT"
+        // STONE: rootId = stoneId, rootType = "STONE"
+        const folderData = {
           name: this.newFolderName,
           workspaceId: workspaceId,
+          rootId: this.currentRootId || workspaceId,
+          rootType: this.currentRootType || 'WORKSPACE',
           parentId: this.currentFolderId || null,
           createdBy: userId,
-        });
+        };
         
-        showSnackbar('폴더가 생성되었습니다.', 'success');
+        const response = await driveService.createFolder(folderData);
+        
+        showSnackbar(response.statusMessage || '폴더가 생성되었습니다.', 'success');
         this.createFolderDialog = false;
         this.newFolderName = '';
         
+        // 현재 루트 정보를 유지하면서 새로고침
         await Promise.all([
-          this.loadFolderContents(this.currentFolderId),
+          this.currentRootType && this.currentRootId 
+            ? this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId)
+            : this.loadFolderContents(this.currentFolderId),
           this.refreshFolderTree()
         ]);
       } catch (error) {
@@ -659,15 +916,18 @@ export default {
       }
 
       try {
-        await driveService.updateFolderName(this.renameItem.id, {
+        const response = await driveService.updateFolderName(this.renameItem.id, {
           name: this.renameName,
         });
         
-        showSnackbar('이름이 변경되었습니다.', 'success');
+        showSnackbar(response.statusMessage || '이름이 변경되었습니다.', 'success');
         this.renameDialog = false;
         
+        // 현재 루트 정보를 유지하면서 새로고침
         await Promise.all([
-          this.loadFolderContents(this.currentFolderId),
+          this.currentRootType && this.currentRootId 
+            ? this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId)
+            : this.loadFolderContents(this.currentFolderId),
           this.refreshFolderTree()
         ]);
       } catch (error) {
@@ -681,17 +941,24 @@ export default {
       if (!confirm(`"${item.name}"을(를) 삭제하시겠습니까?`)) return;
 
       try {
+        let response;
         if (item.type === 'folder') {
-          await driveService.deleteFolder(item.id);
+          response = await driveService.deleteFolder(item.id);
           await this.refreshFolderTree();
         } else if (item.type === 'document') {
-          await driveService.deleteDocument(item.id);
+          response = await driveService.deleteDocument(item.id);
         } else {
-          await driveService.deleteFile(item.id);
+          response = await driveService.deleteFile(item.id);
         }
         
-        showSnackbar('삭제되었습니다.', 'success');
-        await this.loadFolderContents(this.currentFolderId);
+        showSnackbar(response.statusMessage || '삭제되었습니다.', 'success');
+        
+        // 현재 루트 정보를 유지하면서 새로고침
+        if (this.currentRootType && this.currentRootId) {
+          await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+        } else {
+          await this.loadFolderContents(this.currentFolderId);
+        }
       } catch (error) {
         console.error('삭제 실패:', error);
         showSnackbar('삭제에 실패했습니다.', 'error');
@@ -724,6 +991,65 @@ export default {
       } catch (error) {
         console.error('파일 업로드 실패:', error);
         showSnackbar('파일 업로드에 실패했습니다.', 'error');
+      }
+    },
+
+    // 드래그 앤 드롭 - 폴더 이동
+    onDragStart(e, item) {
+      if (item.type !== 'folder') return;
+      this.draggingItem = item;
+      e.dataTransfer.effectAllowed = 'move';
+    },
+
+    onDragEnd() {
+      this.draggingItem = null;
+      this.dragOverItem = null;
+    },
+
+    onDragOver(e, item) {
+      if (!this.draggingItem || item.type !== 'folder') return;
+      if (this.draggingItem.id === item.id) return; // 자기 자신에게는 드롭 불가
+      
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.dragOverItem = item;
+    },
+
+    onDragLeave() {
+      this.dragOverItem = null;
+    },
+
+    async onDrop(e, targetFolder) {
+      e.preventDefault();
+      
+      if (!this.draggingItem || !targetFolder || targetFolder.type !== 'folder') return;
+      if (this.draggingItem.id === targetFolder.id) return; // 자기 자신에게는 드롭 불가
+      
+      // 로컬 변수로 저장 (나중에 null이 되어도 사용 가능)
+      const sourceFolder = this.draggingItem;
+      const destFolder = targetFolder;
+      
+      // 즉시 초기화
+      this.draggingItem = null;
+      this.dragOverItem = null;
+      
+      try {
+        await driveService.moveFolder(sourceFolder.id, {
+          parentId: destFolder.id
+        });
+        
+        showSnackbar(`"${sourceFolder.name}"을(를) "${destFolder.name}"(으)로 이동했습니다.`, 'success');
+        
+        // 현재 루트 정보를 유지하면서 새로고침
+        if (this.currentRootType && this.currentRootId) {
+          await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+        } else {
+          await this.loadFolderContents(this.currentFolderId);
+        }
+        await this.refreshFolderTree();
+      } catch (error) {
+        console.error('폴더 이동 실패:', error);
+        showSnackbar('폴더 이동에 실패했습니다.', 'error');
       }
     },
 
@@ -764,11 +1090,11 @@ export default {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.folder-tree >>> .v-treeview-node__root {
+.folder-tree :deep(.v-treeview-node__root) {
   min-height: 36px;
 }
 
-.folder-tree >>> .v-treeview-node__label {
+.folder-tree :deep(.v-treeview-node__label) {
   font-size: 14px;
 }
 
@@ -780,16 +1106,25 @@ export default {
   color: #1976d2;
 }
 
-.drive-table >>> tbody tr {
+.drive-table :deep(tbody tr) {
   cursor: pointer;
 }
 
-.drive-table >>> tbody tr:hover {
+.drive-table :deep(tbody tr:hover) {
   background-color: #f5f5f5 !important;
 }
 
 .clickable-row {
   cursor: pointer;
+}
+
+.clickable-row[draggable="true"] {
+  cursor: move;
+}
+
+.clickable-row.drag-over {
+  background-color: #e3f2fd !important;
+  border-left: 4px solid #1976d2;
 }
 
 .clickable-row:hover {
