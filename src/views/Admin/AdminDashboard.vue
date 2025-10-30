@@ -55,13 +55,13 @@
                   <span v-if="isDefaultGroup(group.accessGroupName)" class="default-badge">기본 그룹</span>
                 </h3>
               </div>
-              <div class="group-member-count">
-                <span class="member-count">{{ group.groupParticipantCount }}명</span>
-              </div>
               <div class="group-actions">
                 <div class="action-menu" @click.stop="toggleActionMenu(group.accessGroupId)">
                   <span>⋯</span>
                 </div>
+              </div>
+              <div class="group-member-count">
+                <span class="member-count">{{ group.groupParticipantCount }}명</span>
               </div>
             </div>
             
@@ -1714,6 +1714,8 @@ export default {
 .group-header {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
   padding: 16px 20px;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -1744,7 +1746,7 @@ export default {
 }
 
 .group-info {
-  flex: 1;
+  flex-grow: 1;
   text-align: left;
 }
 
@@ -1775,9 +1777,7 @@ export default {
 }
 
 .group-member-count {
-  flex: 1;
-  text-align: right;
-  margin-right: 16px;
+  margin-left: 16px;
 }
 
 .member-count {
@@ -1799,7 +1799,7 @@ export default {
 
 .group-actions {
   position: relative;
-  margin-left: 16px;
+  margin-left: auto;
 }
 
 .action-menu {
