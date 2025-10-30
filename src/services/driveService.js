@@ -95,10 +95,37 @@ export default {
     return driveApi.get(`/folder/${folderId}`);
   },
 
-  // 파일 업로드
-  uploadFile(folderId, file) {
+  // 파일 업로드 (여러 파일 지원)
+  uploadFile(folderId, files, rootId, rootType) {
     const formData = new FormData();
-    formData.append('file', file);
+    
+    // 여러 파일 추가
+    if (Array.isArray(files)) {
+      files.forEach(file => {
+        formData.append('file', file);
+      });
+    } else {
+      formData.append('file', files);
+    }
+    
+    // rootId, rootType, workspaceId 추가
+    const workspaceId = localStorage.getItem('selectedWorkspaceId');
+    if (rootId) formData.append('rootId', rootId);
+    if (rootType) formData.append('rootType', rootType);
+    if (workspaceId) formData.append('workspaceId', workspaceId);
+    
+    // 디버깅: FormData 내용 확인
+    console.log('=== FormData 내용 ===');
+    console.log('folderId (URL):', folderId);
+    console.log('rootId:', rootId);
+    console.log('rootType:', rootType);
+    console.log('workspaceId:', workspaceId);
+    console.log('files count:', Array.isArray(files) ? files.length : 1);
+    
+    // FormData 내용 출력
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ':', pair[1]);
+    }
     
     return driveApi.post(`/folder/${folderId}/file`, formData, {
       headers: {
@@ -113,13 +140,8 @@ export default {
   },
 
   // 문서 생성
-  createDocument(folderId, documentTitle) {
-    const params = new URLSearchParams();
-    params.append('documentTitle', documentTitle);
-    
-    return driveApi.post(`/folder/${folderId}/document`, null, {
-      params: params,
-    });
+  createDocument(folderId, documentData) {
+    return driveApi.post(`/folder/${folderId}/document`, documentData);
   },
 
   // 문서 삭제

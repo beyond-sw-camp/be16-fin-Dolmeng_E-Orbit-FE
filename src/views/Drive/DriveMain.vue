@@ -57,14 +57,30 @@
               <v-icon small left>mdi-refresh</v-icon>
               새로고침
             </v-btn>
-            <v-btn text small @click="createFolderDialog = true">
-              <v-icon small left>mdi-folder-plus</v-icon>
-              새 폴더
-            </v-btn>
-            <v-btn color="primary" depressed small @click="uploadDialog = true">
-              <v-icon small left>mdi-upload</v-icon>
-              업로드
-            </v-btn>
+            
+            <!-- 신규 메뉴 -->
+            <v-menu v-model="isNewItemMenuOpen" :close-on-content-click="true" offset-y>
+              <template #activator="{ props }">
+                <v-btn color="primary" depressed small v-bind="props">
+                  <v-icon small left>mdi-plus</v-icon>
+                  신규
+                </v-btn>
+              </template>
+              <div class="new-item-menu">
+                <button class="menu-item" @click="openCreateFolderDialog">
+                  <v-icon small class="menu-item-icon">mdi-folder-plus</v-icon>
+                  <span>새 폴더</span>
+                </button>
+                <button class="menu-item" @click="openCreateDocumentDialog">
+                  <v-icon small class="menu-item-icon">mdi-file-document-edit</v-icon>
+                  <span>새 문서</span>
+                </button>
+                <button class="menu-item" @click="openUploadDialog">
+                  <v-icon small class="menu-item-icon">mdi-upload</v-icon>
+                  <span>새 파일</span>
+                </button>
+              </div>
+            </v-menu>
           </v-toolbar>
           <v-divider></v-divider>
 
@@ -220,6 +236,28 @@
       </v-card>
     </v-dialog>
 
+    <!-- Create Document Dialog -->
+    <v-dialog v-model="createDocumentDialog" max-width="500">
+      <v-card>
+        <v-card-title>새 문서 만들기</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="newDocumentTitle"
+            label="문서 제목"
+            outlined
+            dense
+            autofocus
+            @keyup.enter="createDocument"
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="createDocumentDialog = false">취소</v-btn>
+          <v-btn color="primary" @click="createDocument">만들기</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Upload Dialog -->
     <v-dialog v-model="uploadDialog" max-width="600">
       <v-card>
@@ -291,8 +329,11 @@ export default {
       ],
       
       // Dialogs
+      isNewItemMenuOpen: false,
       createFolderDialog: false,
       newFolderName: '',
+      createDocumentDialog: false,
+      newDocumentTitle: '',
       renameDialog: false,
       renameItem: null,
       renameName: '',
@@ -667,8 +708,9 @@ export default {
       dataArray.forEach(item => {
         const type = item.type || 'file';
         const name = item.name || 'Unnamed';
+        // creatorName이 우선, 없으면 createBy(ID) 사용
         const owner = item.creatorName || item.createBy || '-';
-        const modified = this.formatDate(item.updateAt);
+        const modified = this.formatDate(item.updateAt || item.updatedAt);
         
         items.push({
           id: item.id,
@@ -858,6 +900,23 @@ export default {
       }
     },
 
+    // 새 폴더 다이얼로그 열기
+    openCreateFolderDialog() {
+      this.newFolderName = '';
+      this.createFolderDialog = true;
+    },
+
+    // 새 문서 다이얼로그 열기
+    openCreateDocumentDialog() {
+      this.newDocumentTitle = '';
+      this.createDocumentDialog = true;
+    },
+
+    // 파일 업로드 다이얼로그 열기
+    openUploadDialog() {
+      this.uploadDialog = true;
+    },
+
     // 폴더 생성
     async createFolder() {
       if (!this.newFolderName.trim()) {
@@ -936,6 +995,60 @@ export default {
       }
     },
 
+    // 문서 생성
+    async createDocument() {
+      if (!this.newDocumentTitle.trim()) {
+        showSnackbar('문서 제목을 입력해주세요.', 'warning');
+        return;
+      }
+
+      try {
+        const workspaceId = localStorage.getItem('selectedWorkspaceId');
+        
+        // 현재 폴더 ID 결정 (루트인 경우 workspaceId 사용)
+        const folderId = this.currentFolderId || this.currentRootId || workspaceId;
+        
+        // DocumentSaveDto에 맞춰 데이터 구성
+        // rootId와 rootType은 현재 루트에 따라 결정
+        // WORKSPACE: rootId = workspaceId, rootType = "WORKSPACE"
+        // PROJECT: rootId = projectId, rootType = "PROJECT"
+        // STONE: rootId = stoneId, rootType = "STONE"
+        const documentData = {
+          name: this.newDocumentTitle,
+          folderId: this.currentFolderId || null,
+          rootId: this.currentRootId || workspaceId,
+          rootType: this.currentRootType || 'WORKSPACE',
+        };
+        
+        console.log('문서 생성 데이터:', { folderId, documentData });
+        
+        const response = await driveService.createDocument(folderId, documentData);
+        
+        showSnackbar(response.statusMessage || '문서가 생성되었습니다.', 'success');
+        this.createDocumentDialog = false;
+        this.newDocumentTitle = '';
+        
+        // 생성된 문서로 이동
+        if (response.result && response.result.id) {
+          this.$router.push(`/document/${response.result.id}`);
+        } else if (response.result) {
+          // id가 직접 반환되는 경우
+          this.$router.push(`/document/${response.result}`);
+        } else {
+          // 문서 생성은 성공했지만 ID를 받지 못한 경우 폴더를 새로고침
+          if (this.currentRootType && this.currentRootId) {
+            await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+          } else {
+            await this.loadFolderContents(this.currentFolderId);
+          }
+        }
+      } catch (error) {
+        console.error('문서 생성 실패:', error);
+        const errorMessage = error.response?.data?.statusMessage || '문서 생성에 실패했습니다.';
+        showSnackbar(errorMessage, 'error');
+      }
+    },
+
     // 삭제
     async deleteItem(item) {
       if (!confirm(`"${item.name}"을(를) 삭제하시겠습니까?`)) return;
@@ -980,17 +1093,47 @@ export default {
       if (!files || files.length === 0) return;
 
       try {
-        const uploadPromises = Array.from(files).map(file => 
-          driveService.uploadFile(this.currentFolderId || 'root', file)
-        );
-
-        await Promise.all(uploadPromises);
-        showSnackbar(`${files.length}개 파일이 업로드되었습니다.`, 'success');
+        // 현재 폴더 ID 결정
+        const folderId = this.currentFolderId || this.currentRootId || localStorage.getItem('selectedWorkspaceId');
+        
+        // rootId와 rootType 설정
+        const rootId = this.currentRootId || localStorage.getItem('selectedWorkspaceId');
+        const rootType = this.currentRootType || 'WORKSPACE';
+        
+        // 디버깅 로그
+        console.log('=== 파일 업로드 디버깅 ===');
+        console.log('currentFolderId:', this.currentFolderId);
+        console.log('currentRootId:', this.currentRootId);
+        console.log('currentRootType:', this.currentRootType);
+        console.log('folderId:', folderId);
+        console.log('rootId:', rootId);
+        console.log('rootType:', rootType);
+        console.log('workspaceId:', localStorage.getItem('selectedWorkspaceId'));
+        
+        // 파일 배열로 변환
+        const fileArray = Array.from(files);
+        
+        // 한 번에 모든 파일 업로드
+        const response = await driveService.uploadFile(folderId, fileArray, rootId, rootType);
+        
+        showSnackbar(response.statusMessage || `${files.length}개 파일이 업로드되었습니다.`, 'success');
         this.uploadDialog = false;
-        await this.loadFolderContents(this.currentFolderId);
+        
+        // 파일 입력 초기화
+        if (this.$refs.fileInput) {
+          this.$refs.fileInput.value = '';
+        }
+        
+        // 현재 폴더 새로고침
+        if (this.currentRootType && this.currentRootId) {
+          await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+        } else {
+          await this.loadFolderContents(this.currentFolderId);
+        }
       } catch (error) {
         console.error('파일 업로드 실패:', error);
-        showSnackbar('파일 업로드에 실패했습니다.', 'error');
+        const errorMessage = error.response?.data?.statusMessage || '파일 업로드에 실패했습니다.';
+        showSnackbar(errorMessage, 'error');
       }
     },
 
@@ -1063,6 +1206,41 @@ export default {
 </script>
 
 <style scoped>
+/* 신규 메뉴 스타일 */
+.new-item-menu {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 160px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.menu-item-icon {
+  margin-right: 12px;
+  color: #666;
+}
+
+.menu-item span {
+  font-size: 14px;
+  color: #333;
+}
+
 .drive-container {
   height: calc(100vh - 64px);
   background-color: #f5f5f5;
