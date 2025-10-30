@@ -12,7 +12,7 @@
         <p class="hero-subtitle">일정·소통·프로젝트·자동화를 한 번에</p>
 
         <div class="hero-cta">
-          <v-btn class="start-btn" rounded="lg" color="#FFE364" @click="$router.push('/new-user/input-email')">시작하기</v-btn>
+          <v-btn class="start-btn" rounded="lg" color="#FFE364" @click="$router.push('/login')">시작하기</v-btn>
         </div>
       </div>
     </section>
@@ -54,7 +54,7 @@
 
 <script>
 export default {
-  name: 'RandingPage',
+  name: 'LandingPage',
 };
 </script>
 

@@ -1,10 +1,10 @@
-import RandingPage from "../components/RandingPage.vue";
+import LandingPage from "../components/LandingPage.vue";
 
 export const landingRouter = [
   {
     path: "/landing",
     name: "Landing",
-    component: RandingPage,
+    component: LandingPage,
     meta: { hideLayout: true, hideChatbot: true },
   },
 ];

@@ -56,11 +56,22 @@
         </v-btn>
       </template>
       <v-list density="compact" class="user-menu-list">
+        <div class="user-menu-header">
+          <img v-if="userInfo?.profileImageUrl" :src="userInfo.profileImageUrl" alt="프로필" class="user-menu-avatar" />
+          <div v-else class="user-menu-avatar default">
+            <img src="@/assets/icons/user/account-circle.svg" alt="기본 사용자" class="user-menu-avatar-icon" />
+          </div>
+          <div class="user-menu-meta">
+            <div class="user-menu-name">{{ userInfo?.name || '이름 없음' }}</div>
+            <div class="user-menu-email">{{ userInfo?.email || '-' }}</div>
+          </div>
+        </div>
+        <v-divider class="user-menu-divider"></v-divider>
         <v-list-item class="user-menu-item" @click="goMyPage">
           <template #prepend>
             <img src="@/assets/icons/user/account-circle.svg" alt="프로필" class="menu-icon" />
           </template>
-          <v-list-item-title>프로필</v-list-item-title>
+          <v-list-item-title>마이 페이지</v-list-item-title>
         </v-list-item>
         <v-divider class="user-menu-divider"></v-divider>
         <v-list-item class="user-menu-item" @click="logout">
@@ -162,6 +173,7 @@ export default {
       searchLoading: false,
       suggestTimer: null,
       userMenu: false,
+      userInfo: { name: '', email: '', profileImageUrl: null },
     };
   },
 
@@ -183,6 +195,15 @@ export default {
       if (window.history.length > 1) {
         this.$router.back();
       }
+    },
+    async loadUserInfo() {
+      try {
+        const id = localStorage.getItem('id');
+        if (!id) return;
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const { data } = await axios.get(`${baseURL}/user-service/user/${id}`);
+        this.userInfo = data?.result || this.userInfo;
+      } catch (_) {}
     },
     goForward() {
       this.$router.forward();
@@ -363,6 +384,11 @@ export default {
       }
     },
   },
+  watch: {
+    userMenu(val) {
+      if (val) this.loadUserInfo();
+    }
+  }
 };
 </script>
 
@@ -684,12 +710,40 @@ export default {
 }
 
 .user-menu-list {
-  min-width: 180px;
+  min-width: 260px;
   background: #2A2828 !important;
   color: #FFFFFF !important;
   border-radius: 10px;
   padding: 6px 0;
 }
+
+.user-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 8px;
+}
+.user-menu-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #D9D9D9;
+}
+.user-menu-avatar.default {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-menu-avatar-icon {
+  width: 70%;
+  height: 70%;
+  filter: invert(1) brightness(1.2);
+}
+.user-menu-meta { display: flex; flex-direction: column; min-width: 0; }
+.user-menu-name { font-weight: 700; font-size: 14px; color: #FFFFFF; line-height: 1.2; }
+.user-menu-email { font-size: 12px; color: #CFCFCF; line-height: 1.2; margin-top: 2px; }
 
 .user-menu-item {
   color: #FFFFFF !important;
