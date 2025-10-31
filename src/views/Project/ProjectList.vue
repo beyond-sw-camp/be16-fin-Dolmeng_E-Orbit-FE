@@ -134,8 +134,9 @@
               :y1="connection.y1" 
               :x2="connection.x2" 
               :y2="connection.y2"
-              stroke="#8EA8A0"
-              stroke-width="2"
+              stroke="#2A2828"
+              stroke-opacity="0.4"
+              stroke-width="3"
               stroke-linecap="round"
               stroke-linejoin="round"
               :class="connection.isFromRoot ? 'root-connection-line' : 'milestone-line'"
@@ -149,63 +150,48 @@
                 'root-stone': stone.isRoot,
                 'completed-stone': stone.stoneStatus === 'COMPLETED' || stone.milestone === 100
               }" @click="onStoneClick(stone, $event)">
-                <!-- 루트 스톤 배경 그라데이션 -->
-                <defs v-if="stone.isRoot">
-                  <radialGradient id="rootStoneGradient" cx="40%" cy="40%">
-                    <stop offset="0%" style="stop-color:#5F9EA0;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#4C6B7C;stop-opacity:1" />
-                  </radialGradient>
-                  <!-- 하이라이트 그라데이션 -->
-                  <radialGradient id="rootStoneHighlight" cx="25%" cy="25%">
-                    <stop offset="0%" style="stop-color:#E8EEED;stop-opacity:0.2" />
-                    <stop offset="100%" style="stop-color:#E8EEED;stop-opacity:0" />
-                  </radialGradient>
-                </defs>
-                
-                <!-- 루트 스톤 배경 원 -->
-                <circle
-                  v-if="stone.isRoot"
-                  :cx="stone.x + 90"
-                  :cy="stone.y + 90"
-                  :r="90"
-                  fill="url(#rootStoneGradient)"
-                  class="root-stone-bg"
-                />
-                
-                <!-- 루트 스톤 하이라이트 -->
-                <circle
-                  v-if="stone.isRoot"
-                  :cx="stone.x + 90"
-                  :cy="stone.y + 90"
-                  :r="60"
-                  fill="url(#rootStoneHighlight)"
-                  class="root-stone-highlight"
-                />
-                
-                <!-- 하위 스톤 배경 (루트가 아닌 경우) -->
-                <circle
-                  v-if="!stone.isRoot"
-                  :cx="stone.x + 75"
-                  :cy="stone.y + 75"
-                  :r="75"
-                  fill="#2A2828"
-                  class="child-stone-bg"
-                />
-                
-                <!-- 하위 스톤 내부 그라데이션 -->
-                <defs v-if="!stone.isRoot">
-                  <radialGradient id="childStoneGradient" cx="30%" cy="30%">
-                    <stop offset="0%" style="stop-color:#3A3838;stop-opacity:1" />
+                <!-- 스톤 배경 (모든 스톤 동일한 디자인) -->
+                <defs>
+                  <!-- 볼록한 질감을 위한 그라데이션 -->
+                  <radialGradient :id="`stoneGradient_${stone.id}`" cx="35%" cy="35%">
+                    <stop offset="0%" style="stop-color:#4A4848;stop-opacity:1" />
+                    <stop offset="40%" style="stop-color:#3A3838;stop-opacity:1" />
+                    <stop offset="70%" style="stop-color:#2F2D2D;stop-opacity:1" />
                     <stop offset="100%" style="stop-color:#2A2828;stop-opacity:1" />
                   </radialGradient>
+                  <!-- 하이라이트 효과 -->
+                  <radialGradient :id="`stoneHighlight_${stone.id}`" cx="30%" cy="30%">
+                    <stop offset="0%" style="stop-color:#555555;stop-opacity:0.4" />
+                    <stop offset="50%" style="stop-color:#3A3838;stop-opacity:0.2" />
+                    <stop offset="100%" style="stop-color:#2A2828;stop-opacity:0" />
+                  </radialGradient>
                 </defs>
+                
+                <!-- 스톤 배경 원 -->
                 <circle
-                  v-if="!stone.isRoot"
-                  :cx="stone.x + 75"
-                  :cy="stone.y + 75"
-                  :r="65"
-                  fill="url(#childStoneGradient)"
-                  class="child-stone-inner"
+                  :cx="stone.x + (stone.isRoot ? 90 : 75)"
+                  :cy="stone.y + (stone.isRoot ? 90 : 75)"
+                  :r="stone.isRoot ? 90 : 75"
+                  fill="#2A2828"
+                  :class="stone.isRoot ? 'root-stone-bg' : 'child-stone-bg'"
+                />
+                
+                <!-- 스톤 내부 그라데이션 -->
+                <circle
+                  :cx="stone.x + (stone.isRoot ? 90 : 75)"
+                  :cy="stone.y + (stone.isRoot ? 90 : 75)"
+                  :r="stone.isRoot ? 80 : 65"
+                  :fill="`url(#stoneGradient_${stone.id})`"
+                  :class="stone.isRoot ? 'root-stone-inner' : 'child-stone-inner'"
+                />
+                
+                <!-- 볼록한 질감을 위한 하이라이트 -->
+                <circle
+                  :cx="stone.x + (stone.isRoot ? 90 : 75)"
+                  :cy="stone.y + (stone.isRoot ? 90 : 75)"
+                  :r="stone.isRoot ? 80 : 65"
+                  :fill="`url(#stoneHighlight_${stone.id})`"
+                  class="stone-highlight"
                 />
                 
                 <!-- 외곽 원형 테두리 -->
@@ -214,52 +200,68 @@
                   :cy="stone.y + (stone.isRoot ? 90 : 75)"
                   :r="stone.isRoot ? 90 : 75"
                   fill="none"
-                  :stroke="stone.isRoot ? '#AEC3B0' : '#B6A28E'"
+                  stroke="#666666"
+                  :class="{ 'root-donut-bg': stone.isRoot, 'child-donut-bg': !stone.isRoot }"
                   :stroke-width="stone.isRoot ? 16 : 4"
                   class="donut-background"
                 />
                 
+                <!-- 진척도 progress ring 배경 (게이지가 차지 않은 부분) -->
+                <circle
+                  :cx="stone.x + (stone.isRoot ? 90 : 75)"
+                  :cy="stone.y + (stone.isRoot ? 90 : 75)"
+                  :r="stone.isRoot ? (90 - 20/2) : (75 - 16/2)"
+                  fill="none"
+                  stroke="#666666"
+                  :stroke-width="stone.isRoot ? 20 : 16"
+                  stroke-linecap="round"
+                  :stroke-dasharray="2 * Math.PI * (stone.isRoot ? (90 - 20/2) : (75 - 16/2))"
+                  stroke-dashoffset="0"
+                  class="donut-progress-bg"
+                  transform="rotate(-90)"
+                  :transform-origin="`${stone.x + (stone.isRoot ? 90 : 75)}px ${stone.y + (stone.isRoot ? 90 : 75)}px`"
+                />
                 <!-- 진척도 progress ring -->
                 <circle
                   :cx="stone.x + (stone.isRoot ? 90 : 75)"
                   :cy="stone.y + (stone.isRoot ? 90 : 75)"
-                  :r="stone.isRoot ? 90 : 75"
+                  :r="stone.isRoot ? (90 - 20/2) : (75 - 16/2)"
                   fill="none"
-                  stroke="url(#progressGradient)"
-                  :stroke-width="stone.isRoot ? 16 : 12"
+                  :stroke="(stone.stoneStatus === 'COMPLETED' || stone.milestone === 100) ? 'url(#completedProgressGradient)' : 'url(#progressGradient)'"
+                  :stroke-width="stone.isRoot ? 20 : 16"
                   stroke-linecap="round"
-                  :stroke-dasharray="2 * Math.PI * (stone.isRoot ? 90 : 75)"
-                  :stroke-dashoffset="gaugeAnimationReady ? 2 * Math.PI * (stone.isRoot ? 90 : 75) * (1 - (stone.milestone || 0) / 100) : 2 * Math.PI * (stone.isRoot ? 90 : 75)"
+                  :stroke-dasharray="2 * Math.PI * (stone.isRoot ? (90 - 20/2) : (75 - 16/2))"
+                  :stroke-dashoffset="gaugeAnimationReady ? 2 * Math.PI * (stone.isRoot ? (90 - 20/2) : (75 - 16/2)) * (1 - (stone.milestone || 0) / 100) : 2 * Math.PI * (stone.isRoot ? (90 - 20/2) : (75 - 16/2))"
                   class="donut-progress"
                   transform="rotate(-90)"
                   :transform-origin="`${stone.x + (stone.isRoot ? 90 : 75)}px ${stone.y + (stone.isRoot ? 90 : 75)}px`"
                 />
                 
-                <!-- 스톤명 텍스트 -->
-                <text
-                  :x="stone.x + (stone.isRoot ? 90 : 75)"
-                  :y="stone.y + (stone.isRoot ? 90 : 75) - 5"
-                  text-anchor="middle"
-                  :class="stone.isRoot ? 'root-stone-name' : 'stone-name'"
-                >
-                  {{ stone.name }}
-                </text>
-                
                 <!-- 마일스톤 진행률 텍스트 -->
                 <text
                   :x="stone.x + (stone.isRoot ? 90 : 75)"
-                  :y="stone.y + (stone.isRoot ? 90 : 75) + 15"
+                  :y="stone.y + (stone.isRoot ? 90 : 75) - 25"
                   text-anchor="middle"
                   :class="stone.isRoot ? 'root-stone-milestone' : 'stone-milestone'"
                 >
                   {{ (stone.milestone || 0) }}%
                 </text>
                 
+                <!-- 스톤명 텍스트 -->
+                <text
+                  :x="stone.x + (stone.isRoot ? 90 : 75)"
+                  :y="stone.y + (stone.isRoot ? 90 : 75)"
+                  text-anchor="middle"
+                  :class="stone.isRoot ? 'root-stone-name' : 'stone-name'"
+                >
+                  {{ stone.name }}
+                </text>
+                
                 <!-- D-Day 텍스트 -->
                 <text
                   v-if="stone.dDay"
                   :x="stone.x + (stone.isRoot ? 90 : 75)"
-                  :y="stone.y + (stone.isRoot ? 90 : 75) + 30"
+                  :y="stone.y + (stone.isRoot ? 90 : 75) + 40"
                   text-anchor="middle"
                   :class="stone.isRoot ? 'root-stone-dday' : 'stone-dday'"
                 >
@@ -297,11 +299,11 @@
                 class="focus-stone-text" 
                 @click="focusOnStone(stone, $event)"
               >
-                <!-- 클릭 영역을 넓히기 위한 투명한 원 -->
+                <!-- 클릭 영역을 넓히기 위한 투명한 원 (스톤 추가 버튼과 겹치지 않도록 작게) -->
                 <circle
                   :cx="calculateFocusPosition(stone).x"
                   :cy="calculateFocusPosition(stone).y"
-                  r="50"
+                  r="35"
                   fill="transparent"
                   class="focus-stone-click-area"
                 />
@@ -320,8 +322,16 @@
           <!-- 그라데이션 정의 -->
           <defs>
             <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#F9A825;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#FFB300;stop-opacity:1" />
+              <stop offset="0%" style="stop-color:#FFF176;stop-opacity:1" />
+              <stop offset="30%" style="stop-color:#FFE364;stop-opacity:1" />
+              <stop offset="70%" style="stop-color:#F4CE53;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#D4A743;stop-opacity:1" />
+            </linearGradient>
+            <!-- 완료된 스톤용 초록색 그라데이션 -->
+            <linearGradient id="completedProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#86EFAC;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#4ADE80;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#22C55E;stop-opacity:1" />
             </linearGradient>
             <!-- 연결선 그라데이션 -->
             <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -1837,7 +1847,7 @@ export default {
     // 이 스톤부터 보기 버튼 위치 계산 (스톤 추가 버튼 아래)
     calculateFocusPosition(stone) {
       const rightTextPos = this.calculateTextPosition(stone);
-      // 스톤 추가 버튼 아래로 20px 떨어진 위치
+      // 스톤 추가 버튼 아래로 40px 떨어진 위치 (충분한 간격 확보)
       return {
         x: rightTextPos.x,
         y: rightTextPos.y + 25
@@ -4097,26 +4107,30 @@ export default {
 }
 
 .milestone-line {
-  stroke-width: 2;
+  stroke-width: 3;
+  stroke-opacity: 0.4;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: all 0.2s ease;
 }
 
 .milestone-line:hover {
-  stroke-width: 2.5;
+  stroke-width: 3.5;
+  stroke-opacity: 0.6;
 }
 
 /* 루트 연결선 스타일 */
 .root-connection-line {
-  stroke-width: 2;
+  stroke-width: 3;
+  stroke-opacity: 0.4;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: all 0.2s ease;
 }
 
 .root-connection-line:hover {
-  stroke-width: 2.5;
+  stroke-width: 3.5;
+  stroke-opacity: 0.6;
 }
 
 /* 도넛형 스톤 스타일 */
@@ -4152,8 +4166,8 @@ export default {
 }
 
 .root-stone:hover {
-  filter: drop-shadow(0 0 15px rgba(78, 110, 129, 0.4)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
-  transform: scale(1.02);
+  filter: drop-shadow(0 0 10px rgba(78, 110, 129, 0.28)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
+  transform: scale(1.002);
 }
 
 .root-stone-bg {
@@ -4165,6 +4179,17 @@ export default {
 }
 
 /* 하위 스톤 스타일 */
+.donut-stone:not(.root-stone),
+.stone-group:not(.root-stone) {
+  transition: all 0.3s ease;
+}
+
+.donut-stone:not(.root-stone):hover,
+.stone-group:not(.root-stone):hover {
+  filter: drop-shadow(0 0 10px rgba(78, 110, 129, 0.28)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
+  transform: scale(1.002);
+}
+
 .child-stone-bg {
   transition: all 0.2s ease;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
@@ -4186,48 +4211,57 @@ export default {
 }
 
 /* 하위 스톤 테두리 */
+.child-donut-bg {
+  stroke: #888888 !important;
+}
+
+.root-donut-bg {
+  stroke: #AEC3B0 !important;
+}
+
+.stone-group:not(.root-stone) .donut-background,
+.donut-stone:not(.root-stone) .donut-background,
 .child-stone-bg + .child-stone-inner + .donut-background {
-  stroke: #8EA8A0;
+  stroke: #888888 !important;
   stroke-width: 2;
 }
 
 /* 완료된 스톤 스타일 */
 .completed-stone {
-  opacity: 0.8;
-  filter: grayscale(0.3) drop-shadow(0 0 8px rgba(34, 197, 94, 0.3));
+  opacity: 1;
 }
 
 .completed-stone .root-stone-bg,
 .completed-stone .child-stone-bg {
-  fill: #DCFCE7;
+  fill: #2A2828;
 }
 
-.completed-stone .root-stone-highlight,
-.completed-stone .child-stone-inner {
-  fill: #BBF7D0;
-}
 
 .completed-stone .donut-background {
-  stroke: #22C55E;
-  stroke-width: 3;
+  stroke: #666666;
+  stroke-width: 2;
 }
 
 .completed-stone .donut-progress {
-  stroke: #16A34A;
+  stroke: url(#completedProgressGradient);
 }
 
 .completed-stone .stone-name,
 .completed-stone .root-stone-name {
-  color: #15803D;
-  font-weight: 800;
+  fill: #FFFFFF;
+  font-weight: 700;
 }
 
 .completed-stone .stone-milestone,
 .completed-stone .root-stone-milestone {
-  color: #16A34A;
-  font-weight: 800;
+  fill: #22C55E;
+  font-weight: 700;
 }
 
+
+.donut-progress-bg {
+  opacity: 0.5;
+}
 
 .donut-progress {
   transition: stroke-dashoffset 2s ease-out;
@@ -4269,12 +4303,13 @@ export default {
   text-anchor: middle;
   pointer-events: all;
   letter-spacing: 0.5px;
-  transition: none !important;
+  transition: all 0.2s ease !important;
   cursor: pointer !important;
 }
 
 .create-stone-text:hover .create-stone-text-content {
-  fill: #6B8E89;
+  fill: #4A7D77;
+  font-size: 12px;
 }
 
 /* 완료된 스톤의 스톤 생성 텍스트 비활성화 */
@@ -4328,19 +4363,20 @@ export default {
   text-anchor: middle;
   pointer-events: all;
   letter-spacing: 0.5px;
-  transition: none !important;
+  transition: all 0.2s ease !important;
   cursor: pointer !important;
 }
 
 .focus-stone-text:hover .focus-stone-text-content {
-  fill: #5A7D78;
+  fill: #4A7D77;
+  font-size: 12px;
 }
 
 /* SVG 텍스트 스타일 */
 .stone-name {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   fill: #FFFFFF;
   pointer-events: none;
   text-anchor: middle;
@@ -4369,8 +4405,8 @@ export default {
 .root-stone-name {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 16px;
-  fill: #F8F8F2;
+  font-size: 18px;
+  fill: #FFFFFF;
   pointer-events: none;
   text-anchor: middle;
   line-height: 1.2;
@@ -4380,7 +4416,7 @@ export default {
   font-family: 'Pretendard', sans-serif;
   font-weight: 600;
   font-size: 13px;
-  fill: #F8F8F2;
+  fill: #FFFFFF;
   pointer-events: none;
   text-anchor: middle;
 }
@@ -4389,7 +4425,7 @@ export default {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
   font-size: 13px;
-  fill: #4A90E2;
+  fill: #FFFFFF;
   pointer-events: none;
   text-anchor: middle;
 }
