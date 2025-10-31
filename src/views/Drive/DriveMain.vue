@@ -128,16 +128,16 @@
             :hide-default-header="false"
           >
             <template v-slot:header.name>
-              <span class="text-subtitle-2 font-weight-bold">이름</span>
+              <span class="table-header-text">이름</span>
             </template>
             <template v-slot:header.owner>
-              <span class="text-subtitle-2 font-weight-bold">생성자</span>
+              <span class="table-header-text">생성자</span>
             </template>
             <template v-slot:header.modified>
-              <span class="text-subtitle-2 font-weight-bold">수정일</span>
+              <span class="table-header-text">수정일</span>
             </template>
             <template v-slot:header.size>
-              <span class="text-subtitle-2 font-weight-bold">크기</span>
+              <span class="table-header-text">크기</span>
             </template>
 
             <template v-slot:item.name="{ item }">
@@ -1352,6 +1352,37 @@ export default {
 
 .clickable-row:hover .item-name {
   color: #1976d2;
+}
+
+/* 테이블 헤더 스타일 */
+.table-header-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5f6368;
+  letter-spacing: 0.3px;
+}
+
+.drive-table :deep(thead) {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.drive-table :deep(thead th) {
+  font-weight: 600;
+  color: #5f6368;
+  padding: 12px 16px;
+  border-bottom: 2px solid #e0e0e0;
+  text-transform: none;
+}
+
+.drive-table :deep(thead th:first-child) {
+  padding-left: 24px;
+}
+
+.drive-table :deep(tbody td) {
+  padding: 12px 16px;
+  color: #202124;
+  font-size: 14px;
 }
 
 .breadcrumb-item {
