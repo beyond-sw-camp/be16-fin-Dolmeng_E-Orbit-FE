@@ -289,7 +289,7 @@
                     </v-btn>
                   </template>
                   <div class="new-item-menu action-menu-list">
-                    <button class="menu-item" @click="openRenameFromMenu" :disabled="!canRename(actionTarget)">
+                    <button v-if="canRename(actionTarget)" class="menu-item" @click="openRenameFromMenu">
                       <v-icon small class="menu-item-icon">mdi-pencil</v-icon>
                       <span>이름 변경</span>
                     </button>
@@ -338,23 +338,40 @@
     </v-dialog>
 
     <!-- Rename Dialog -->
-    <v-dialog v-model="renameDialog" max-width="500" scroll-strategy="block">
-      <v-card>
-        <v-card-title>이름 변경</v-card-title>
-        <v-card-text>
+    <v-dialog v-model="renameDialog" max-width="520" scroll-strategy="block">
+      <v-card class="rename-dialog-card">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" :color="getItemIconColor(renameItem || {})">{{ getItemIcon(renameItem || {}) }}</v-icon>
+          <div>
+            <div class="text-subtitle-1 font-weight-600">이름 변경</div>
+            <div class="text-caption grey--text text--darken-1 text-truncate" style="max-width: 360px;">
+              {{ renameItem?.name || '' }}
+            </div>
+          </div>
+        </v-card-title>
+        <v-card-text class="pt-2">
           <v-text-field
             v-model="renameName"
             label="새 이름"
             outlined
             dense
+            clearable
+            counter="80"
+            :maxlength="80"
+            hide-details="auto"
             autofocus
+            :prepend-inner-icon="'mdi-rename-box'"
+            hint="공백과 특수문자 사용을 최소화해주세요."
+            persistent-hint
             @keyup.enter="confirmRename"
           ></v-text-field>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="px-4 pb-4">
           <v-spacer></v-spacer>
           <v-btn text @click="renameDialog = false">취소</v-btn>
-          <v-btn color="primary" @click="confirmRename">변경</v-btn>
+          <v-btn color="primary" depressed @click="confirmRename">
+            <v-icon small left>mdi-check</v-icon>변경
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -1366,9 +1383,12 @@ export default {
       }
 
       try {
-        const response = await driveService.updateFolderName(this.renameItem.id, {
-          name: this.renameName,
-        });
+        let response;
+        if (this.renameItem.type === 'document') {
+          response = await driveService.updateDocumentTitle(this.renameItem.id, { title: this.renameName });
+        } else {
+          response = await driveService.updateFolderName(this.renameItem.id, { name: this.renameName });
+        }
         
         showSnackbar(response.statusMessage || '이름이 변경되었습니다.', 'success');
         this.renameDialog = false;
@@ -1382,7 +1402,8 @@ export default {
         ]);
       } catch (error) {
         console.error('이름 변경 실패:', error);
-        showSnackbar('이름 변경에 실패했습니다.', 'error');
+        const errorMessage = error.response?.data?.message || error.response?.data?.statusMessage || error.response?.data?.error || '이름 변경에 실패했습니다.';
+        showSnackbar(errorMessage, 'error');
       }
     },
 
@@ -1727,7 +1748,8 @@ export default {
     // 메뉴 액션들 (per-row menu가 열려 있을 때 호출)
     canRename(item) {
       if (!item) return false;
-      return item.type === 'folder' || item.type === 'document' || item.type === 'file';
+      // 파일은 이름 변경 불가
+      return item.type === 'folder' || item.type === 'document';
     },
 
     canDelete(item) {
