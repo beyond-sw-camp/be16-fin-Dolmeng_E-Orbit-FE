@@ -1,8 +1,11 @@
 <template>
   <v-container fluid class="drive-container pa-0">
-    <v-row no-gutters class="fill-height">
+    <div class="drive-layout">
       <!-- Left Sidebar - Folder Tree -->
-      <v-col cols="12" md="3" class="sidebar-col">
+      <div 
+        class="sidebar-col"
+        :style="{ width: sidebarWidth + 'px', minWidth: '200px', maxWidth: '50%' }"
+      >
         <v-card class="folder-tree-card" elevation="0" tile>
           <div class="sidebar-header pa-4">
             <h3 class="text-h6 font-weight-bold">내 드라이브</h3>
@@ -44,10 +47,17 @@
             <div class="text-caption mt-2 grey--text">폴더 로딩 중...</div>
           </div>
         </v-card>
-      </v-col>
+      </div>
+
+      <!-- Resizer -->
+      <div 
+        class="resizer"
+        @mousedown="onResizerMouseDown"
+        @touchstart="onResizerMouseDown"
+      ></div>
 
       <!-- Main Content Area -->
-      <v-col cols="12" md="9" class="main-content-col">
+      <div class="main-content-col">
         <v-card class="main-content-card" elevation="0" tile>
           <!-- Toolbar -->
           <v-toolbar flat color="white" class="px-4">
@@ -312,8 +322,8 @@
             </div>
           </div>
         </v-card>
-      </v-col>
-    </v-row>
+      </div>
+    </div>
 
     <!-- Create Folder Dialog -->
     <v-dialog v-model="createFolderDialog" max-width="500" scroll-strategy="block">
@@ -591,6 +601,12 @@ export default {
 
       // 보기 모드
       viewMode: 'list', // 'list' | 'grid'
+
+      // 사이드바 너비 (픽셀)
+      sidebarWidth: parseInt(localStorage.getItem('driveSidebarWidth') || '300', 10),
+      isResizing: false,
+      resizeStartX: 0,
+      resizeStartWidth: 0,
     };
   },
 
@@ -763,6 +779,12 @@ export default {
     // 테이블 높이 계산
     this.updateTableHeight();
     window.addEventListener('resize', this.updateTableHeight);
+    
+    // 리사이저 이벤트 리스너
+    window.addEventListener('mousemove', this.onResizerMouseMove);
+    window.addEventListener('mouseup', this.onResizerMouseUp);
+    window.addEventListener('touchmove', this.onResizerMouseMove);
+    window.addEventListener('touchend', this.onResizerMouseUp);
   },
 
   beforeDestroy() {
@@ -770,6 +792,11 @@ export default {
     this.stopAutoScroll();
     // resize 이벤트 리스너 제거
     window.removeEventListener('resize', this.updateTableHeight);
+    // 리사이저 이벤트 리스너 제거
+    window.removeEventListener('mousemove', this.onResizerMouseMove);
+    window.removeEventListener('mouseup', this.onResizerMouseUp);
+    window.removeEventListener('touchmove', this.onResizerMouseMove);
+    window.removeEventListener('touchend', this.onResizerMouseUp);
   },
 
   watch: {
@@ -1988,6 +2015,45 @@ export default {
       const target = this.actionTarget;
       this.deleteItem(target);
     },
+
+    // 리사이저 관련 메서드
+    onResizerMouseDown(e) {
+      e.preventDefault();
+      this.isResizing = true;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      this.resizeStartX = clientX;
+      this.resizeStartWidth = this.sidebarWidth;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+
+    onResizerMouseMove(e) {
+      if (!this.isResizing) return;
+      
+      e.preventDefault();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const deltaX = clientX - this.resizeStartX;
+      const newWidth = this.resizeStartWidth + deltaX;
+      
+      // 최소 너비와 최대 너비 제한
+      const containerWidth = this.$el?.querySelector('.drive-layout')?.clientWidth || window.innerWidth;
+      const minWidth = 200;
+      const maxWidth = containerWidth * 0.5; // 최대 50%
+      
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      this.sidebarWidth = clampedWidth;
+      
+      // 로컬스토리지에 저장
+      localStorage.setItem('driveSidebarWidth', clampedWidth.toString());
+    },
+
+    onResizerMouseUp() {
+      if (this.isResizing) {
+        this.isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    },
   },
 };
 </script>
@@ -2033,11 +2099,33 @@ export default {
   background-color: #f5f5f5;
 }
 
+.drive-layout {
+  display: flex;
+  height: calc(100vh - 64px);
+  width: 100%;
+}
+
 .sidebar-col {
   background-color: white;
   border-right: 1px solid #e0e0e0;
   max-height: calc(100vh - 64px);
   overflow-y: auto;
+  flex-shrink: 0;
+  transition: width 0.1s ease;
+}
+
+.resizer {
+  width: 1px;
+  background-color: #e0e0e0;
+  cursor: col-resize;
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+  transition: background-color 0.2s;
+}
+
+.resizer:hover {
+  background-color: #1976d2;
 }
 
 .main-content-col {
@@ -2045,6 +2133,9 @@ export default {
   background-color: white;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .folder-tree-card,
@@ -2432,6 +2523,12 @@ export default {
 @media (max-width: 960px) {
   .sidebar-col {
     display: none;
+  }
+  .resizer {
+    display: none;
+  }
+  .main-content-col {
+    width: 100% !important;
   }
 }
 
