@@ -876,7 +876,12 @@ const redo = () => { try { if (editor.value) editor.value.chain().focus().redo()
 const canUndo = () => { try { return !!editor.value && editor.value.can().undo(); } catch(_) { return false; } };
 const canRedo = () => { try { return !!editor.value && editor.value.can().redo(); } catch(_) { return false; } };
 
-defineExpose({ undo, redo, canUndo, canRedo });
+// 현재 문서를 HTML로 내보내기
+const getHtml = () => {
+  try { return editor.value ? editor.value.getHTML() : ''; } catch (_) { return ''; }
+};
+
+defineExpose({ undo, redo, canUndo, canRedo, getHtml });
 
 // 라이프사이클 훅
 onMounted(async () => {

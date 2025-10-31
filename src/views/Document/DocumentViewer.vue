@@ -31,6 +31,9 @@
           <v-btn icon size="small" variant="text" class="action-btn" :disabled="!canRedo" title="다시 실행" @click="onRedo">
             <v-icon>mdi-redo</v-icon>
           </v-btn>
+          <v-btn icon size="small" variant="text" class="action-btn" title="DOCX로 내보내기" @click="exportDocx">
+            <v-icon>mdi-file-word-outline</v-icon>
+          </v-btn>
           <v-btn icon size="small" variant="text" class="action-btn" title="인쇄" @click="printDocument">
             <v-icon>mdi-printer</v-icon>
           </v-btn>
@@ -260,6 +263,165 @@ const canRedo = computed(() => {
 });
 const onUndo = () => { try { editorRef.value?.undo?.(); } catch(_) {} };
 const onRedo = () => { try { editorRef.value?.redo?.(); } catch(_) {} };
+
+// DOCX 내보내기
+const exportDocx = async () => {
+  try {
+    const html = editorRef.value?.getHtml?.() || '';
+    if (!html) return showSnackbar('내보낼 내용이 없습니다.', 'info');
+    
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+    const { saveAs } = await import('file-saver');
+    
+    // Helper function to parse text nodes with formatting
+    const parseTextRun = (node) => {
+      const textRuns = [];
+      if (node.nodeType === 3) { // Text node
+        const text = node.textContent || '';
+        if (text.trim()) {
+          textRuns.push(new TextRun(text));
+        }
+        return textRuns;
+      }
+      
+      if (node.nodeType === 1) { // Element node
+        const tagName = node.tagName?.toLowerCase();
+        let options = { text: '' };
+        
+        // Get text content
+        const text = node.textContent || '';
+        
+        // Apply formatting based on tag
+        if (tagName === 'strong' || tagName === 'b') {
+          options.bold = true;
+        }
+        if (tagName === 'em' || tagName === 'i') {
+          options.italic = true;
+        }
+        if (tagName === 'u') {
+          options.underline = {};
+        }
+      
+      // Handle nested nodes
+      if (node.childNodes.length > 0) {
+        node.childNodes.forEach(child => {
+          const childRuns = parseTextRun(child);
+          textRuns.push(...childRuns);
+        });
+      } else if (text.trim()) {
+        textRuns.push(new TextRun({ ...options, text }));
+      }
+    }
+    
+    return textRuns;
+  };
+  
+  const parseParagraph = (node) => {
+    const children = [];
+    let alignment = undefined;
+    
+    // Check alignment
+    const align = node.style?.textAlign || node.getAttribute('style')?.match(/text-align:\s*(\w+)/)?.[1];
+    if (align === 'center') alignment = AlignmentType.CENTER;
+    else if (align === 'right') alignment = AlignmentType.RIGHT;
+    else if (align === 'justify') alignment = AlignmentType.JUSTIFIED;
+    
+    // Parse child nodes
+    if (node.childNodes) {
+      node.childNodes.forEach(child => {
+        const runs = parseTextRun(child);
+        children.push(...runs);
+      });
+    }
+    
+    // If no children, add empty text run
+    if (children.length === 0) {
+      children.push(new TextRun(''));
+    }
+    
+    return new Paragraph({
+      children,
+      alignment,
+      spacing: { after: 200 }
+    });
+  };
+  
+  const htmlToDocx = (htmlString) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, 'text/html');
+    const body = doc.body;
+    const paragraphs = [];
+    
+    // Process all block elements
+    const blockElements = body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div, li');
+    
+    if (blockElements.length === 0) {
+      // No block elements, process text content directly
+      const textContent = body.textContent || '';
+      if (textContent.trim()) {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun(textContent)]
+        }));
+      }
+    } else {
+      blockElements.forEach(element => {
+        const tagName = element.tagName?.toLowerCase();
+        let paragraph;
+        
+        if (tagName.startsWith('h')) {
+          const level = parseInt(tagName.charAt(1)) || 1;
+          const headingLevels = [
+            HeadingLevel.HEADING_1,
+            HeadingLevel.HEADING_2,
+            HeadingLevel.HEADING_3,
+            HeadingLevel.HEADING_4,
+            HeadingLevel.HEADING_5,
+            HeadingLevel.HEADING_6
+          ];
+          paragraph = new Paragraph({
+            children: parseTextRun(element),
+            heading: headingLevels[Math.min(level - 1, 5)],
+            spacing: { after: 200, before: level === 1 ? 240 : 120 }
+          });
+        } else {
+          paragraph = parseParagraph(element);
+        }
+        
+        paragraphs.push(paragraph);
+      });
+    }
+    
+    return paragraphs;
+    };
+    
+    // Convert HTML to docx paragraphs
+    const paragraphs = htmlToDocx(html);
+    
+    if (paragraphs.length === 0) {
+      paragraphs.push(new Paragraph({
+        children: [new TextRun('')]
+      }));
+    }
+    
+    // Create document
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: paragraphs
+      }]
+    });
+    
+    // Generate blob and download
+    const blob = await Packer.toBlob(doc);
+    const fileName = `${(documentTitle.value || 'document').replace(/[/\\?%*:|"<>]/g, '_')}.docx`;
+    saveAs(blob, fileName);
+    
+    showSnackbar('DOCX 파일이 다운로드되었습니다.', 'success');
+  } catch (e) {
+    console.error('DOCX 내보내기 실패:', e);
+    showSnackbar('DOCX 내보내기에 실패했습니다.', 'error');
+  }
+};
 
 const printDocument = () => {
   try {
