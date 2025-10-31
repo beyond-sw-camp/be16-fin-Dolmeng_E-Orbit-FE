@@ -3,13 +3,14 @@
     <!-- 프로젝트 헤더 (바디 안의 헤더) -->
     <div class="project-header">
       <div class="title-wrapper">
+        <img class="project-title-icon" src="@/assets/icons/project/stones_1.svg" alt="Project Icon" />
         <h1 class="project-title">{{ projectName }}</h1>
         <div class="action-icons">
-          <svg class="edit-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" @click="openEditModal">
+          <svg class="edit-icon" width="20" height="20" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" @click="openEditModal">
             <path d="M10.5 1.5L12.5 3.5L11 5L9 3L10.5 1.5Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M9 3L11 5L4.5 11.5L1 13L2.5 9.5L9 3Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <svg class="delete-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" @click="openDeleteModal">
+          <svg class="delete-icon" width="20" height="20" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" @click="openDeleteModal">
             <path d="M11.6667 3.5H2.33333M5.83333 6.41667V9.33333M8.16667 6.41667V9.33333M2.33333 3.5V11.6667C2.33333 12.1269 2.70643 12.5 3.16667 12.5H10.8333C11.2936 12.5 11.6667 12.1269 11.6667 11.6667V3.5M4.66667 3.5V2.33333C4.66667 1.8731 5.03976 1.5 5.5 1.5H8.5C8.96024 1.5 9.33333 1.8731 9.33333 2.33333V3.5" stroke="#FF3E41" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
@@ -17,19 +18,11 @@
       <!-- 프로젝트 정보 (제목 오른쪽) -->
       <div class="project-info">
         <div class="date-info">
-          <svg class="calendar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12.6667 2.66667H3.33333C2.59695 2.66667 2 3.26362 2 4V13.3333C2 14.0697 2.59695 14.6667 3.33333 14.6667H12.6667C13.403 14.6667 14 14.0697 14 13.3333V4C14 3.26362 13.403 2.66667 12.6667 2.66667Z" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M10.6667 1.33333V4" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M5.33333 1.33333V4" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 6.66667H14" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <span class="calendar-icon" aria-hidden="true"></span>
           <span class="date-range">{{ formatDateRange(projectDetail.startTime, projectDetail.endTime) }}</span>
         </div>
         <div class="project-owner">
-          <svg class="user-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 8C10.2091 8 12 6.20914 12 4C12 1.79086 10.2091 0 8 0C5.79086 0 4 1.79086 4 4C4 6.20914 5.79086 8 8 8Z" fill="#666666"/>
-            <path d="M8 10C3.58172 10 0 13.5817 0 18H16C16 13.5817 12.4183 10 8 10Z" fill="#666666"/>
-          </svg>
+          <span class="user-icon" aria-hidden="true"></span>
           <span class="owner-name">{{ projectDetail.manager }}</span>
         </div>
       </div>
@@ -3080,7 +3073,7 @@ export default {
 /* 프로젝트 헤더 (바디 안의 헤더) */
 .project-header {
   background: #F5F5F5;
-  padding: 20px 50px 10px 50px;
+  padding: 10px 30px 2px 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3090,6 +3083,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
 }
 
 .action-icons {
@@ -3121,10 +3115,19 @@ export default {
 .project-title {
   font-family: 'Pretendard', sans-serif;
   font-weight: 800;
-  font-size: 28px;
-  line-height: 33px;
+  font-size: 24px;
+  line-height: 29px;
   color: #1C0F0F;
   margin: 0;
+  padding-left: 40px;
+}
+
+.project-title-icon {
+  width: 30px;
+  height: 30px;
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 .edit-icon {
@@ -3140,13 +3143,13 @@ export default {
 /* 프로젝트 설명 섹션 */
 .project-description-section {
   background: #F5F5F5;
-  padding: 0 50px 20px 50px;
+  padding: 0 50px 32px 50px;
 }
 
 .project-description-text {
   font-family: 'Pretendard', sans-serif;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 19px;
   color: #666666;
   margin: 0;
@@ -3350,8 +3353,10 @@ export default {
 /* 프로젝트 정보 (제목 오른쪽) */
 .project-info {
   display: flex;
-  align-items: center;
-  gap: 24px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  transform: translateY(16px);
 }
 
 
@@ -3385,7 +3390,26 @@ export default {
 
 .calendar-icon,
 .user-icon {
-  opacity: 0.6;
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  background-color: #F4CE53;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.calendar-icon {
+  -webkit-mask-image: url('/src/assets/icons/project/calendar_1.svg');
+  mask-image: url('/src/assets/icons/project/calendar_1.svg');
+}
+
+.user-icon {
+  -webkit-mask-image: url('/src/assets/icons/user/account-circle.svg');
+  mask-image: url('/src/assets/icons/user/account-circle.svg');
 }
 
 /* 마일스톤 캔버스 스타일 */
