@@ -2,7 +2,7 @@
   <div class="project-container">
     <!-- 프로젝트 헤더 (바디 안의 헤더) -->
     <div class="project-header">
-      <div class="title-wrapper">
+      <div class="title-wrapper" ref="titleWrapper">
         <img class="project-title-icon" src="@/assets/icons/project/stones_1.svg" alt="Project Icon" />
         <h1 class="project-title">{{ projectName }}</h1>
         <div class="action-icons">
@@ -16,7 +16,7 @@
         </div>
       </div>
       <!-- 프로젝트 정보 (제목 오른쪽) -->
-      <div class="project-info">
+      <div class="project-info" ref="projectInfo">
         <div class="date-info">
           <span class="calendar-icon" aria-hidden="true"></span>
           <span class="date-range">{{ formatDateRange(projectDetail.startTime, projectDetail.endTime) }}</span>
@@ -34,7 +34,8 @@
     </div>
     
     <!-- 탭 메뉴 -->
-    <div class="tab-section">
+    <div class="tab-section" ref="tabSection">
+      <div class="tab-rail" :style="{ left: tabRailLeft + 'px', width: tabRailWidth + 'px' }"></div>
       <div class="tab-menu">
         <div class="tab-item" :class="{ active: activeTab === 'milestone' }" @click="activeTab = 'milestone'">
           마일스톤
@@ -270,7 +271,9 @@
     
     <!-- 다른 탭들 -->
     <div v-else class="other-tabs">
-      <p v-if="activeTab === 'dashboard'" class="placeholder-text">대시보드 컨텐츠</p>
+      <div v-if="activeTab === 'dashboard'" class="dashboard-placeholder">
+        <div class="dashboard-box">대시보드 임시 화면</div>
+      </div>
       <p v-if="activeTab === 'gantt'" class="placeholder-text">간트차트 컨텐츠</p>
       <p v-if="activeTab === 'documents'" class="placeholder-text">문서함 컨텐츠</p>
     </div>
@@ -859,7 +862,13 @@ export default {
         { id: 4, name: '최디자인', email: 'design@orbit.com', group: '디자인팀' },
         { id: 5, name: '정기획', email: 'plan@orbit.com', group: '기획팀' }
       ],
-      filteredUserList: []
+      filteredUserList: [],
+      // 탭 구분선 정렬용 상태
+      tabRailLeft: -10,
+      tabRailWidth: 0,
+      tabRailOffset: 100,
+      tabRailRightTrim: 0,
+      tabRailRightExtend: 12
     };
   },
   computed: {
@@ -894,10 +903,12 @@ export default {
     // 캔버스 크기 업데이트
     this.$nextTick(() => {
       this.updateCanvasSize();
+      this.updateTabRailPosition();
     });
     
     // 윈도우 리사이즈 이벤트 리스너 추가
     window.addEventListener('resize', this.updateCanvasSize);
+    window.addEventListener('resize', this.updateTabRailPosition);
     
     // 스톤 수정 이벤트 리스너 추가
     window.addEventListener('stoneUpdated', this.onStoneUpdated);
@@ -910,6 +921,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.updateCanvasSize);
+    window.removeEventListener('resize', this.updateTabRailPosition);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('stoneUpdated', this.onStoneUpdated);
@@ -945,6 +957,32 @@ export default {
     }
   },
   methods: {
+    updateTabRailPosition() {
+      this.$nextTick(() => {
+        const tabSection = this.$refs.tabSection;
+        const title = this.$refs.titleWrapper;
+        const info = this.$refs.projectInfo;
+        if (!tabSection || !title || !info) return;
+        const tabRect = tabSection.getBoundingClientRect();
+        const leftRect = title.getBoundingClientRect();
+        const rightRect = info.getBoundingClientRect();
+        const styles = window.getComputedStyle(tabSection);
+        const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+        const paddingRight = parseFloat(styles.paddingRight) || 0;
+
+        // 좌측 시작 위치 (아이콘 기준, 추가 오프셋 적용)
+        const rawLeft = leftRect.left - tabRect.left;
+        const leftEdge = Math.max(0, rawLeft - this.tabRailOffset);
+        this.tabRailLeft = leftEdge;
+
+        // 우측 끝 위치 (날짜 텍스트 끝 기준, 트림/확장 적용)
+        const rawRight = rightRect.right - tabRect.left;
+        const rightEdge = rawRight - this.tabRailRightTrim + this.tabRailRightExtend;
+
+        // 클램프 제거: 확장 값이 즉시 반영되도록 직접 사용
+        this.tabRailWidth = Math.max(0, rightEdge - leftEdge);
+      });
+    },
     // 날짜 범위 포맷팅 메서드
     formatDateRange(startDate, endDate) {
       if (!startDate || !endDate) return '날짜 미설정'
@@ -3159,41 +3197,53 @@ export default {
 .tab-section {
   background: #F5F5F5;
   padding: 0 50px;
-  border-bottom: 1px solid rgba(42, 40, 40, 0.5);
+  border-bottom: none;
+  position: relative;
 }
 
 .tab-menu {
-  display: flex;
-  gap: 0;
+  display: inline-flex;
+  gap: 94px;
   padding-bottom: 6px;
-  width: 100%;
-  border-bottom: 1px solid rgba(42, 40, 40, 0.2);
+  width: auto;
+  justify-content: flex-start;
+  border-bottom: none;
+  align-self: flex-start;
+  margin-right: 32px;
+}
+
+.tab-rail {
+  position: absolute;
+  bottom: 0;
+  height: 1px;
+  background: rgba(42, 40, 40, 0.2);
+  pointer-events: none;
 }
 
 .tab-item {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 20px;
   color: #1C0F0F;
   cursor: pointer;
   transition: color 0.2s;
-  flex: 1;
-  text-align: center;
+  flex: 0 0 auto;
+  text-align: left;
   padding-bottom: 4px;
   position: relative;
 }
 
 .tab-item.active {
-  color: #FFDD44;
+  color: #1C0F0F;
 }
 
 .tab-item.active::after {
   content: '';
   position: absolute;
   bottom: -7px;
-  left: 0;
-  right: 0;
+  left: -30px;
+  right: -30px;
   height: 4px;
   background: #FFDD44;
   border-radius: 2px 2px 0 0;
@@ -3743,17 +3793,34 @@ export default {
 
 /* 다른 탭들 */
 .other-tabs {
-  position: fixed;
-  top: 83px;
-  left: 280px;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  height: auto;
+  padding: 20px 50px;
   background: #F5F5F5;
+}
+
+.dashboard-placeholder {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 40px 50px;
+  box-sizing: border-box;
+}
+
+.dashboard-box {
+  width: 100%;
+  max-width: 960px;
+  min-height: 360px;
+  background: #FFFFFF;
+  border: 1px solid rgba(42, 40, 40, 0.2);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: #7C7C7C;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 /* 기존 스타일들은 새로운 SVG 기반 디자인으로 대체됨 */
