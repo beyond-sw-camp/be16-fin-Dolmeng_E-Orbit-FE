@@ -62,6 +62,11 @@
           'pan-mode': interactionMode === 'pan',
           'click-mode': interactionMode === 'click'
         }"
+        :style="{
+          left: (milestoneLeft != null ? milestoneLeft + 'px' : undefined),
+          right: 'auto',
+          width: (tabRailWidth ? (tabRailWidth + 'px') : undefined)
+        }"
         ref="milestoneCanvas"
       >
         <div v-if="loading" class="loading-container">
@@ -79,6 +84,14 @@
           @mouseup="onMouseUp"
           @mouseleave="onMouseUp"
         >
+          <!-- 배경 패턴 정의 -->
+          <defs>
+            <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle cx="12" cy="12" r="1" fill="rgba(0, 0, 0, 0.1)" />
+            </pattern>
+          </defs>
+          <!-- 배경 -->
+          <rect width="100%" height="100%" fill="url(#dotPattern)" />
           <!-- 확대/축소 그룹 -->
           <g :transform="`translate(${translate.x}, ${translate.y}) scale(${scale})`">
         <!-- 연결선들 -->
@@ -280,8 +293,15 @@
     
     <!-- 확대/축소 컨트롤 (ProjectList에 직접 추가) -->
     <div class="zoom-controls">
-      <button class="zoom-btn zoom-in" @click="zoomIn" :disabled="zoomLevel >= zoomMax">+</button>
-      <button class="zoom-btn zoom-out" @click="zoomOut" :disabled="zoomLevel <= zoomMin">-</button>
+      <button class="zoom-btn">
+        <span class="zoom-icon zoom-in" @click="zoomIn" :class="{ disabled: zoomLevel >= zoomMax }">
+          <img src="@/assets/icons/project/plus.svg" alt="zoom in" />
+        </span>
+        <span class="zoom-separator"></span>
+        <span class="zoom-icon zoom-out" @click="zoomOut" :class="{ disabled: zoomLevel <= zoomMin }">
+          <img src="@/assets/icons/project/minus.svg" alt="zoom out" />
+        </span>
+      </button>
     </div>
     
     <!-- 모드 전환 버튼 -->
@@ -292,8 +312,18 @@
         @click="toggleInteractionMode"
         :title="interactionMode === 'click' ? '클릭 모드' : '팬 모드'"
       >
-        <span v-if="interactionMode === 'click'" class="mode-icon">🔘</span>
-        <span v-else class="mode-icon">🖐️</span>
+        <img 
+          v-if="interactionMode === 'click'" 
+          src="@/assets/icons/project/cursor_2.svg" 
+          alt="click mode" 
+          class="mode-icon"
+        />
+        <img 
+          v-else 
+          src="@/assets/icons/project/hand_2.svg" 
+          alt="pan mode" 
+          class="mode-icon"
+        />
       </button>
     </div>
     
@@ -868,7 +898,9 @@ export default {
       tabRailWidth: 0,
       tabRailOffset: 100,
       tabRailRightTrim: 0,
-      tabRailRightExtend: 12
+      tabRailRightExtend: 12,
+      milestoneLeft: null,
+      milestoneRight: null
     };
   },
   computed: {
@@ -981,6 +1013,10 @@ export default {
 
         // 클램프 제거: 확장 값이 즉시 반영되도록 직접 사용
         this.tabRailWidth = Math.max(0, rightEdge - leftEdge);
+
+        // 마일스톤 캔버스 좌우 기준(뷰포트 기준 px)
+        this.milestoneLeft = Math.max(0, tabRect.left + leftEdge);
+        this.milestoneRight = Math.max(this.milestoneLeft, tabRect.left + rightEdge);
       });
     },
     // 날짜 범위 포맷팅 메서드
@@ -1302,12 +1338,16 @@ export default {
     calculateGraphCenter() {
       this.$nextTick(() => {
         const svgElement = this.$refs.milestoneCanvas?.querySelector('.milestone-svg');
-        if (!svgElement) return;
+        const canvasElement = this.$refs.milestoneCanvas;
+        if (!svgElement || !canvasElement) return;
         
         const gElement = svgElement.querySelector('g');
         if (!gElement) return;
         
         try {
+          // 실제 보이는 컨테이너의 크기 가져오기
+          const canvasRect = canvasElement.getBoundingClientRect();
+          
           // D3를 사용하여 bounding box 계산
           const bbox = d3.select(gElement).node().getBBox();
           
@@ -1315,9 +1355,9 @@ export default {
           const graphCenterX = bbox.x + bbox.width / 2;
           const graphCenterY = bbox.y + bbox.height / 2;
           
-          // SVG 중심점
-          const svgCenterX = this.canvasWidth / 2;
-          const svgCenterY = this.canvasHeight / 2;
+          // 실제 보이는 화면의 중심점 (컨테이너 기준)
+          const svgCenterX = canvasRect.width / 2;
+          const svgCenterY = canvasRect.height / 2;
           
           // 그래프를 SVG 중앙에 위치시키기 위한 translate 계산
           this.translate.x = svgCenterX - graphCenterX;
@@ -1325,15 +1365,17 @@ export default {
           
           console.log('그래프 중심점 계산:', {
             bbox: { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height },
+            canvasRect: { width: canvasRect.width, height: canvasRect.height },
             graphCenter: { x: graphCenterX, y: graphCenterY },
             svgCenter: { x: svgCenterX, y: svgCenterY },
             translate: { x: this.translate.x, y: this.translate.y }
           });
         } catch (error) {
           console.warn('Bounding box 계산 실패, 기본 중심점 사용:', error);
-          // fallback: SVG 중심점 사용
-          this.translate.x = this.canvasWidth / 2;
-          this.translate.y = this.canvasHeight / 2;
+          // fallback: 컨테이너 중심점 사용
+          const canvasRect = canvasElement.getBoundingClientRect();
+          this.translate.x = canvasRect.width / 2;
+          this.translate.y = canvasRect.height / 2;
         }
       });
     },
@@ -1694,7 +1736,7 @@ export default {
       });
       
       // 여유 공간 추가 (패딩)
-      const padding = 100;
+      const padding = 400;
       const requiredWidth = Math.max(maxX + padding, this.canvasWidth);
       const requiredHeight = Math.max(maxY + padding, this.canvasHeight);
       
@@ -3316,8 +3358,6 @@ export default {
   bottom: 20px;
   left: 320px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
   z-index: 1000;
 }
 
@@ -3343,6 +3383,7 @@ export default {
   justify-content: center;
   transition: all 0.2s ease;
   font-size: 20px;
+  outline: none;
 }
 
 .mode-btn:hover {
@@ -3351,53 +3392,86 @@ export default {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.mode-btn:active {
+  outline: none;
+}
+
+.mode-btn:focus {
+  outline: none;
+}
+
 .mode-btn.active {
   background: rgba(255, 212, 79, 0.9);
   box-shadow: 0 0 0 2px rgba(255, 179, 0, 0.3);
 }
 
 .mode-icon {
-  font-size: 18px;
-  line-height: 1;
+  width: 24px;
+  height: 24px;
+  filter: brightness(0);
 }
 
 .zoom-btn {
   width: 44px;
-  height: 44px;
-  border: 2px solid #E0E0E0;
+  height: 88px;
+  border: 1px solid #E0E0E0;
   border-radius: 8px;
-  background: rgba(255, 247, 204, 0.8);
-  color: #A67600;
+  background: #FFFFFF;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(166, 118, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
+  padding: 0;
+  gap: 0;
+  outline: none;
 }
 
 .zoom-btn:hover {
-  background: rgba(255, 247, 204, 0.95);
-  color: #8B5A00;
-  border-color: #D4AF37;
-  box-shadow: 0 4px 12px rgba(166, 118, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
 }
 
 .zoom-btn:active {
   transform: translateY(0px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.zoom-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.zoom-btn:focus {
+  outline: none;
+}
+
+.zoom-icon {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zoom-icon img {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0);
+}
+
+.zoom-icon:hover:not(.disabled) {
   background: #F5F5F5;
-  color: #999999;
-  border-color: #E5E5E5;
+}
+
+.zoom-icon.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.zoom-separator {
+  width: 28px;
+  height: 1px;
+  background: #E0E0E0;
 }
 
 /* 프로젝트 정보 (제목 오른쪽) */
@@ -3465,18 +3539,17 @@ export default {
 /* 마일스톤 캔버스 스타일 */
 .milestone-canvas {
   position: fixed;
-  top: 300px;
+  top: 240px;
   left: 280px;
   right: 0;
   bottom: 0;
   width: auto;
   height: auto;
-  background-color: #F7F8F8;
-  background-image:
-    radial-gradient(rgba(120, 130, 130, 0.1) 1.5px, transparent 1.5px),
-    radial-gradient(rgba(120, 130, 130, 0.1) 1.5px, transparent 1.5px);
+  background-color: #FFFFFF;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
   background-size: 24px 24px;
-  background-position: 0 0, 12px 12px;
+  background-position: 0 0;
+  border-radius: 16px;
   overflow: auto; /* 스크롤 허용 */
 }
 
