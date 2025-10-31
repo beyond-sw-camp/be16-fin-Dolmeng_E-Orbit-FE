@@ -1,14 +1,13 @@
 <template>
   <v-container fluid class="openvidu-container">
 
-    <!-- 포커스(단독) 뷰 -->
-    <v-row v-if="focusedStreamManager" class="main-video-row no-gutters">
+    <!-- 포커스(단독) 뷰 또는 1인 접속 시 단독 뷰 -->
+    <v-row v-if="focusedStreamManager || isAlone" class="main-video-row no-gutters">
       <v-col cols="12" md="12" class="main-video-area pa-0">
-        <div id="main-video-container" :class="{ speaking: isSpeaking(focusedStreamManager) }"
-          @click="toggleFocus(focusedStreamManager)">
-          <video-stream :stream-manager="focusedStreamManager" />
+        <div id="main-video-container" :class="{ speaking: isSpeaking(singleViewStream) }" @click="onSingleViewClick">
+          <video-stream :stream-manager="singleViewStream" />
           <div class="nickname">
-            {{ displayName(focusedStreamManager, focusedStreamManager === publisher) }}
+            {{ displayName(singleViewStream, singleViewStream === publisher) }}
           </div>
         </div>
       </v-col>
@@ -21,32 +20,28 @@
 
           <!-- (왼쪽 그룹) 토글 버튼들 -->
           <div class="left-controls d-flex justify-center align-center">
-            <v-btn fab rounded="circle" width="60" height="60" :color="isRecordEnabled ? 'red' : 'black'" class="mx-1"
-              @click="toggleRecord">
-              <img :src="isRecordEnabled ? recordEnd : recordStart"
-                style="width:30px;height:30px;filter:invert(100%);" />
+
+            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleRecord" plain
+              elevation="0">
+              <img :src="isRecordEnabled ? recordEnd : recordStart" style="width:50px;height:50px;" />
             </v-btn>
 
-            <v-btn fab rounded="circle" width="60" height="60" :color="isAudioEnabled ? 'black' : 'red'" class="mx-1"
-              @click="toggleAudio">
-              <img :src="isAudioEnabled ? audioIconOn : audioIconOff"
-                style="width:30px;height:30px;filter:invert(100%);" />
+            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleAudio" plain elevation="0">
+              <img :src="isAudioEnabled ? audioIconOn : audioIconOff" style="width:50px;height:50px;" />
             </v-btn>
 
-            <v-btn fab rounded="circle" width="60" height="60" :color="isVideoEnabled ? 'green' : 'red'" class="mx-1"
-              @click="toggleVideo">
-              <img :src="isVideoEnabled ? videoIconOn : videoIconOff"
-                style="width:30px;height:30px;filter:invert(100%);" />
+            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleVideo" plain elevation="0">
+              <img :src="isVideoEnabled ? videoIconOn : videoIconOff" style="width:50px;height:50px;" />
             </v-btn>
 
-            <v-btn fab rounded="circle" width="60" height="60"
-              :color="isScreenShareEnabled ? 'green darken-2' : 'black'" class="mx-1" @click="toggleScreenShare">
-              <img :src="isScreenShareIconOn ? screenShareIconOn : screenShareIconOff"
-                style="width:30px;height:30px;filter:invert(100%);" />
+            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleScreenShare" plain
+              elevation="0">
+              <img :src="screenShareIcon" style="width:50px;height:50px;" />
             </v-btn>
 
-            <v-btn fab rounded="circle" width="60" height="60" color="red darken-1" class="mx-1" @click="leaveSession">
-              <img :src="shutdownIcon" style="width:30px;height:30px;filter:invert(100%);" />
+            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="leaveSession" plain
+              elevation="0">
+              <img :src="shutdownIcon" style="width:50px;height:50px;" />
             </v-btn>
           </div>
 
@@ -63,14 +58,9 @@
     </div>
 
     <!-- 그리드(체스판) 레이아웃 -->
-    <div v-if="!focusedStreamManager" class="grid-container" :style="gridStyle">
-      <div
-        class="video-item"
-        v-for="sm in gridParticipants"
-        :key="sm.stream.connection.connectionId"
-        :class="{ speaking: isSpeaking(sm) }"
-        @click="toggleFocus(sm)"
-      >
+    <div v-if="!focusedStreamManager && !isAlone" class="grid-container" :style="gridStyle">
+      <div class="video-item" v-for="sm in gridParticipants" :key="sm.stream.connection.connectionId"
+        :class="{ speaking: isSpeaking(sm) }" @click="toggleFocus(sm)">
         <video-stream :stream-manager="sm" />
         <div class="nickname">{{ displayName(sm, sm === publisher) }}</div>
       </div>
@@ -90,8 +80,7 @@ import micFill from '@/assets/icons/OpenVidu/mic-fill.svg';
 import micOffFill from '@/assets/icons/OpenVidu/mic-off-fill.svg';
 import vidOnFill from '@/assets/icons/OpenVidu/video-on-fill.svg';
 import vidOffFill from '@/assets/icons/OpenVidu/video-off-fill.svg';
-import shareScreenOff from '@/assets/icons/OpenVidu/share-box-fill.svg';
-import shareScreenOn from '@/assets/icons/OpenVidu/share-box-off.svg';
+import shareScreenFill from '@/assets/icons/OpenVidu/share-box-fill.svg';
 import shutDownLine from '@/assets/icons/OpenVidu/shut-down-line.svg';
 import fullScreeenIn from '@/assets/icons/OpenVidu/fullscreen-line.svg';
 import fullScreeenOut from '@/assets/icons/OpenVidu/fullscreen-exit-line.svg';
@@ -105,11 +94,11 @@ export default {
       session: undefined,
       publisher: undefined,
       subscribers: [],
-  mainStreamManager: null,
+      mainStreamManager: null,
       mySessionId: null,
       myUserName: '',
-  // 포커스(단독 표시) 대상. null이면 그리드 모드
-  focusedStreamManager: null,
+      // 포커스(단독 표시) 대상. null이면 그리드 모드
+      focusedStreamManager: null,
       // 말하기 상태: connectionId -> boolean
       speakingMap: {},
 
@@ -139,8 +128,8 @@ export default {
       videoIconOn: vidOnFill, // 비디오 켜짐 아이콘
       videoIconOff: vidOffFill, // 비디오 꺼짐 아이콘
 
-      screenShareIconOff: shareScreenOff, // 화면 공유 켜기 아이콘
-      screenShareIconOn: shareScreenOn, // 화면 공유 끄기 아이콘
+      // 화면 공유 아이콘(단일 아이콘으로 토글)
+      screenShareIcon: shareScreenFill,
 
       fullScreenIconIn: fullScreeenIn, // 전체화면 진입 아이콘
       fullScreenIconOut: fullScreeenOut, // 전체화면 종료 아이콘
@@ -179,6 +168,14 @@ export default {
   },
 
   computed: {
+    // 1명만 접속해 있는가?
+    isAlone() {
+      return this.gridParticipants.length <= 1;
+    },
+    // 단독 뷰에 사용할 StreamManager (포커스가 있으면 포커스, 없으면 내 화면)
+    singleViewStream() {
+      return this.focusedStreamManager || this.publisher;
+    },
     // Zoom과 유사한 그리드용 참가자 목록 (내 화면 + 중복 제거된 원격)
     gridParticipants() {
       const parts = [];
@@ -252,6 +249,12 @@ export default {
   },
 
   methods: {
+    // 단독 뷰에서의 클릭 처리: 포커스 상태일 때만 토글 동작, 혼자일 때는 무시
+    onSingleViewClick() {
+      if (this.focusedStreamManager) {
+        this.toggleFocus(this.focusedStreamManager);
+      }
+    },
     // 포커스 토글: 그리드 <-> 단독 뷰 전환
     toggleFocus(streamManager) {
       if (this.focusedStreamManager === streamManager) {
@@ -330,6 +333,10 @@ export default {
           if (cid && this.speakingMap[cid] !== undefined) {
             delete this.speakingMap[cid];
           }
+          // ✅ 포커스 대상이 나간 경우, 포커스 해제하여 그리드로 복귀
+          if (this.focusedStreamManager === stream.streamManager) {
+            this.focusedStreamManager = null;
+          }
         });
 
         this.session.on('connectionDestroyed', ({ connection }) => {
@@ -346,6 +353,10 @@ export default {
           const cid = connection?.connectionId;
           if (cid && this.speakingMap[cid] !== undefined) {
             delete this.speakingMap[cid];
+          }
+          // ✅ 포커스 대상이 나간 경우 처리 (보조 안전장치)
+          if (streamManager && this.focusedStreamManager === streamManager) {
+            this.focusedStreamManager = null;
           }
         });
 
@@ -935,7 +946,8 @@ body,
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
   width: 100%;
-  padding: 12px 16px 96px; /* 하단 컨트롤 바와 겹치지 않게 여백 */
+  padding: 12px 16px 96px;
+  /* 하단 컨트롤 바와 겹치지 않게 여백 */
   box-sizing: border-box;
   align-content: start;
 }

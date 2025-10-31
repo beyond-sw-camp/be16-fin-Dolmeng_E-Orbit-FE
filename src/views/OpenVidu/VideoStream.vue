@@ -44,25 +44,23 @@ export default {
         if (!this.streamManager || !container) {
           return;
         }
-
-        // 스트림 미디어가 준비되었는지 확인
-        if (!this.streamManager.stream || typeof this.streamManager.stream.getMediaStream !== 'function') {
-           setTimeout(attach, 200);
-           return;
+        // OpenVidu 권장 방식: StreamManager가 비디오 요소를 관리하도록 위임
+        if (!this.streamManager.stream || typeof this.streamManager.addVideoElement !== 'function') {
+          setTimeout(attach, 200);
+          return;
         }
         
         try {
-          // **핵심 수정: 수동으로 video 요소를 생성하고 OpenVidu 스트림 연결**
+          // **핵심 수정: OpenVidu StreamManager에 비디오 요소를 등록(addVideoElement)**
           if (container.querySelector('video')) {
             // 이미 비디오 요소가 있으면 재시도 중단
             return;
           }
 
           const video = document.createElement('video');
-          
-          // MediaStream 객체를 srcObject에 할당
-          video.srcObject = this.streamManager.stream.getMediaStream();
-          
+          // StreamManager가 내부에서 MediaStream을 연결
+          this.streamManager.addVideoElement(video);
+
           // 비디오 속성 설정
           video.autoplay = true;
           video.playsinline = true; 
