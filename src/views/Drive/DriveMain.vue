@@ -100,14 +100,6 @@
             </v-breadcrumbs>
           </div>
 
-          <!-- File info summary -->
-          <div class="px-4 py-2">
-            <div class="text-body-2 grey--text">
-              {{ folderCount }}개 폴더, {{ fileCount }}개 파일
-            </div>
-          </div>
-          <v-divider></v-divider>
-
           <!-- Loading -->
           <div v-if="loading" class="text-center py-12">
             <v-progress-circular
@@ -118,15 +110,25 @@
             <div class="mt-4 text-body-1">로딩 중...</div>
           </div>
 
-          <!-- Data Table -->
-          <v-data-table
-            v-else
-            :headers="headers"
-            :items="sortedItems"
-            class="elevation-0 drive-table"
-            :items-per-page="15"
-            :hide-default-header="false"
+          <!-- Table Wrapper -->
+          <div 
+            v-else 
+            class="table-wrapper"
+            @dragover="onTableDragOver"
+            @dragleave="onTableDragLeave"
           >
+            <div class="table-container" ref="tableContainer">
+              <v-data-table
+                ref="dataTable"
+                :headers="headers"
+                :items="sortedItems"
+                class="elevation-0 drive-table"
+                :items-per-page="-1"
+                :hide-default-header="false"
+                :hide-default-footer="true"
+                fixed-header
+                :height="tableHeight"
+              >
             <template v-slot:header.name>
               <div class="d-flex align-center clickable-header" @click="handleSort('name')">
                 <span class="table-header-text">이름</span>
@@ -224,7 +226,9 @@
                 <div class="text-h6 mt-4 grey--text">폴더가 비어있습니다</div>
               </div>
             </template>
-          </v-data-table>
+              </v-data-table>
+            </div>
+          </div>
         </v-card>
       </v-col>
     </v-row>
@@ -379,10 +383,19 @@ export default {
       // 드래그 앤 드롭
       draggingItem: null,
       dragOverItem: null,
+      dragScrollInterval: null,
+      scrollSpeed: 0,
       
       // 정렬
       sortBy: null,
       sortOrder: 'asc', // 'asc' or 'desc'
+      
+      // 페이지네이션
+      itemsPerPage: 15,
+      currentPage: 1,
+      
+      // 테이블 높이
+      tableHeight: 600, // 기본값, mounted에서 계산
     };
   },
 
@@ -435,6 +448,56 @@ export default {
       
       return sorted;
     },
+    paginatedItems() {
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.sortedItems.slice(start, end);
+    },
+    paginationInfo() {
+      const itemsLength = this.sortedItems.length;
+      const start = itemsLength === 0 ? 0 : (this.currentPage - 1) * this.itemsPerPage + 1;
+      const end = Math.min(this.currentPage * this.itemsPerPage, itemsLength);
+      return `${start}-${end} / ${itemsLength}`;
+    },
+    totalPages() {
+      return Math.ceil(this.sortedItems.length / this.itemsPerPage);
+    },
+    visiblePages() {
+      const currentPage = this.currentPage;
+      const totalPages = this.totalPages;
+      const pages = [];
+      
+      if (totalPages <= 7) {
+        // 페이지가 7개 이하면 모두 표시
+        for (let i = 1; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // 첫 페이지
+        pages.push(1);
+        
+        if (currentPage > 3) {
+          pages.push('...');
+        }
+        
+        // 현재 페이지 주변 페이지들
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        
+        for (let i = start; i <= end; i++) {
+          pages.push(i);
+        }
+        
+        if (currentPage < totalPages - 2) {
+          pages.push('...');
+        }
+        
+        // 마지막 페이지
+        pages.push(totalPages);
+      }
+      
+      return pages;
+    },
   },
 
   mounted() {
@@ -453,6 +516,17 @@ export default {
       // 기본 드라이브
       this.initializeDrive(null, 'WORKSPACE', localStorage.getItem('selectedWorkspaceId'));
     }
+    
+    // 테이블 높이 계산
+    this.updateTableHeight();
+    window.addEventListener('resize', this.updateTableHeight);
+  },
+
+  beforeDestroy() {
+    // 컴포넌트 언마운트 시 자동 스크롤 정리
+    this.stopAutoScroll();
+    // resize 이벤트 리스너 제거
+    window.removeEventListener('resize', this.updateTableHeight);
   },
 
   watch: {
@@ -472,10 +546,38 @@ export default {
         }
       },
       deep: true
+    },
+    itemsPerPage() {
+      this.currentPage = 1;
+    },
+    sortedItems() {
+      // 정렬이 변경되면 첫 페이지로 이동
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = this.totalPages;
+      } else if (this.totalPages === 0) {
+        this.currentPage = 1;
+      }
+    },
+    loading(newVal) {
+      // 로딩이 완료되면 테이블 높이 재계산
+      if (!newVal) {
+        this.$nextTick(() => {
+          this.updateTableHeight();
+        });
+      }
     }
   },
 
   methods: {
+    // 테이블 높이 업데이트
+    updateTableHeight() {
+      this.$nextTick(() => {
+        if (this.$refs.tableContainer) {
+          this.tableHeight = this.$refs.tableContainer.clientHeight;
+        }
+      });
+    },
+    
     // 드라이브 초기화
     async initializeDrive(folderId, rootType, rootId) {
       // 현재 루트 정보 저장
@@ -1230,6 +1332,77 @@ export default {
     onDragEnd() {
       this.draggingItem = null;
       this.dragOverItem = null;
+      this.stopAutoScroll();
+    },
+    
+    // 테이블 드래그 오버 - 자동 스크롤 트리거
+    onTableDragOver(e) {
+      if (!this.draggingItem) return;
+      
+      const container = e.currentTarget;
+      const rect = container.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const scrollThreshold = 100; // 스크롤 시작 거리 (픽셀)
+      const maxSpeed = 15; // 최대 스크롤 속도
+      
+      // 상단 경계 근처
+      if (y < scrollThreshold) {
+        const distance = y;
+        this.scrollSpeed = -maxSpeed * (1 - distance / scrollThreshold);
+        this.startAutoScroll(container);
+      }
+      // 하단 경계 근처
+      else if (y > rect.height - scrollThreshold) {
+        const distance = rect.height - y;
+        this.scrollSpeed = maxSpeed * (1 - distance / scrollThreshold);
+        this.startAutoScroll(container);
+      }
+      // 중간 영역
+      else {
+        this.stopAutoScroll();
+      }
+    },
+    
+    // 테이블 드래그 리브 - 스크롤 멈춤
+    onTableDragLeave(e) {
+      // 테이블 컨테이너를 벗어났을 때만 멈춤
+      const container = e.currentTarget;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX;
+      const y = e.clientY;
+      
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        this.stopAutoScroll();
+      }
+    },
+    
+    // 자동 스크롤 시작
+    startAutoScroll(container) {
+      if (this.dragScrollInterval) return;
+      
+      this.dragScrollInterval = setInterval(() => {
+        // v-data-table__wrapper가 스크롤 컨테이너
+        const wrapper = container.querySelector('.v-data-table__wrapper');
+        if (wrapper && this.scrollSpeed !== 0) {
+          wrapper.scrollTop += this.scrollSpeed;
+          
+          // 스크롤이 끝에 도달하면 멈춤
+          if (wrapper.scrollTop <= 0 && this.scrollSpeed < 0) {
+            this.stopAutoScroll();
+          } else if (wrapper.scrollTop >= wrapper.scrollHeight - wrapper.clientHeight && this.scrollSpeed > 0) {
+            this.stopAutoScroll();
+          }
+        }
+      }, 16); // 약 60fps
+    },
+    
+    // 자동 스크롤 멈춤
+    stopAutoScroll() {
+      if (this.dragScrollInterval) {
+        clearInterval(this.dragScrollInterval);
+        this.dragScrollInterval = null;
+        this.scrollSpeed = 0;
+      }
     },
 
     onDragOver(e, item) {
@@ -1406,13 +1579,17 @@ export default {
 
 .main-content-col {
   max-height: calc(100vh - 64px);
-  overflow-y: auto;
   background-color: white;
+  display: flex;
+  flex-direction: column;
 }
 
 .folder-tree-card,
 .main-content-card {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -1508,6 +1685,134 @@ export default {
   padding: 12px 16px;
   color: #202124;
   font-size: 14px;
+}
+
+/* 테이블 래퍼 및 컨테이너 */
+.table-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+
+.table-container {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+/* v-data-table 전체 높이 설정 */
+.table-container :deep(.v-data-table) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Vuetify fixed-header가 스크롤을 자동으로 처리 */
+
+/* Vuetify fixed-header가 자동으로 처리하므로 추가 CSS 불필요 */
+
+/* 테이블 스크롤바 스타일 - v-data-table__wrapper에 적용 */
+.table-container :deep(.v-data-table__wrapper)::-webkit-scrollbar {
+  width: 8px;
+}
+
+.table-container :deep(.v-data-table__wrapper)::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.table-container :deep(.v-data-table__wrapper)::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.table-container :deep(.v-data-table__wrapper)::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 페이지네이션 푸터 */
+.pagination-footer {
+  border-top: 1px solid #e0e0e0;
+  background-color: #fafafa;
+  flex-shrink: 0;
+}
+
+.items-per-page-select {
+  max-width: 80px;
+}
+
+.items-per-page-select :deep(.v-input__control) {
+  min-height: 32px !important;
+}
+
+.items-per-page-select :deep(.v-select__selection) {
+  font-size: 13px;
+  color: #5f6368;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #5f6368;
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.pagination-controls {
+  gap: 4px;
+}
+
+.pagination-btn {
+  color: #5f6368 !important;
+  min-width: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.pagination-btn:hover:not(.v-btn--disabled) {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.pagination-btn.v-btn--disabled {
+  opacity: 0.3;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 4px;
+}
+
+.page-btn {
+  min-width: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  color: #5f6368 !important;
+  font-size: 13px !important;
+  font-weight: 500;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.page-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.page-btn-active {
+  background-color: #1976d2 !important;
+  color: white !important;
+}
+
+.page-btn-active:hover {
+  background-color: #1565c0 !important;
+}
+
+.page-ellipsis {
+  padding: 0 8px;
+  color: #9aa0a6;
+  font-size: 13px;
+  line-height: 32px;
 }
 
 .breadcrumb-item {
