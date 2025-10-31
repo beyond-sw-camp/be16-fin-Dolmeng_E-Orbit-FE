@@ -405,8 +405,8 @@
           <span>파일 업로드</span>
           <div class="d-flex align-center">
             <v-btn small text class="mr-2" @click="clearSelectedFiles" :disabled="selectedFiles.length === 0 || isUploading">비우기</v-btn>
-            <v-btn small color="primary" depressed @click="uploadSelectedFiles" :disabled="selectedFiles.length === 0 || isUploading" :loading="isUploading">
-              <v-icon small left>mdi-upload</v-icon> 모두 업로드
+            <v-btn small color="primary" depressed @click="uploadSelectedFiles" :disabled="selectedFiles.length === 0 || isUploading || uploadStatus.hasErrors" :loading="isUploading">
+              <v-icon small left>mdi-upload</v-icon> 업로드
             </v-btn>
           </div>
         </v-card-title>
@@ -420,6 +420,14 @@
             ></v-progress-linear>
             <div class="text-center mt-2 text-body-2 grey--text">
               {{ selectedFiles.length }}개 파일 업로드 중...
+            </div>
+          </div>
+
+          <!-- Upload Limits Info -->
+          <div class="upload-limits-info mb-3">
+            <div class="text-caption grey--text text--darken-1">
+              <v-icon x-small class="mr-1">mdi-information-outline</v-icon>
+              업로드 제한: 파일당 최대 50MB, 총 용량 최대 200MB, 최대 10개 파일
             </div>
           </div>
 
@@ -444,6 +452,20 @@
             >
           </div>
 
+          <!-- Upload Status/Warnings -->
+          <div v-if="selectedFiles.length > 0" class="mt-3" :class="uploadStatus.hasErrors ? 'upload-status upload-status-error' : 'upload-status'">
+            <div class="d-flex justify-space-between align-center">
+              <div class="text-body-2">
+                <span class="font-weight-600">{{ selectedFiles.length }}</span>개 파일 
+                <span class="grey--text">({{ formatFileSize(totalSelectedSize) }})</span>
+              </div>
+              <div v-if="uploadStatus.hasErrors" class="text-caption error--text">
+                <v-icon x-small class="mr-1">mdi-alert-circle</v-icon>
+                {{ uploadStatus.message }}
+              </div>
+            </div>
+          </div>
+
           <!-- Preview List -->
           <div v-if="selectedFiles.length && !isUploading" class="mt-4">
             <v-row dense>
@@ -452,17 +474,17 @@
                 :key="f.key"
                 cols="12" sm="6" md="4"
               >
-                <v-card class="preview-card" outlined>
-                  <v-card-text class="py-3 d-flex">
-                    <div class="preview-thumb mr-3">
+                <v-card class="preview-card position-relative" outlined>
+                  <v-card-text class="py-3 d-flex align-center">
+                    <div class="preview-thumb mr-3 flex-shrink-0">
                       <v-img v-if="f.previewUrl" :src="f.previewUrl" cover width="56" height="56" class="rounded"></v-img>
                       <v-icon v-else size="56">{{ getPreviewIcon(f) }}</v-icon>
                     </div>
-                    <div class="flex-grow-1 min-w-0">
+                    <div class="preview-text-content">
                       <div class="text-truncate font-weight-500">{{ f.file.name }}</div>
                       <div class="text-caption grey--text text--darken-1">{{ formatFileSize(f.file.size) }}</div>
                     </div>
-                    <v-btn icon size="small" color="grey" variant="text" @click="removeSelectedFile(idx)">
+                    <v-btn icon size="small" color="grey" variant="text" class="remove-btn-abs" @click="removeSelectedFile(idx)">
                       <v-icon small>mdi-close</v-icon>
                     </v-btn>
                   </v-card-text>
@@ -482,9 +504,6 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn text @click="uploadDialog = false" :disabled="isUploading">닫기</v-btn>
-          <v-btn color="primary" depressed @click="uploadSelectedFiles" :disabled="selectedFiles.length === 0 || isUploading" :loading="isUploading">
-            업로드
-          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -680,6 +699,47 @@ export default {
       }
       
       return pages;
+    },
+    // 선택된 파일들의 총 크기
+    totalSelectedSize() {
+      return this.selectedFiles.reduce((sum, item) => sum + (item.file?.size || 0), 0);
+    },
+    // 업로드 상태 검증
+    uploadStatus() {
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+      const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB
+      const MAX_FILE_COUNT = 10;
+
+      if (this.selectedFiles.length === 0) {
+        return { hasErrors: false, message: '' };
+      }
+
+      // 파일 개수 체크
+      if (this.selectedFiles.length > MAX_FILE_COUNT) {
+        return {
+          hasErrors: true,
+          message: `최대 ${MAX_FILE_COUNT}개 파일까지 업로드 가능합니다.`
+        };
+      }
+
+      // 총 용량 체크
+      if (this.totalSelectedSize > MAX_TOTAL_SIZE) {
+        return {
+          hasErrors: true,
+          message: `총 용량이 200MB를 초과합니다. (${this.formatFileSize(this.totalSelectedSize)})`
+        };
+      }
+
+      // 개별 파일 크기 체크
+      const oversizedFiles = this.selectedFiles.filter(item => (item.file?.size || 0) > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        return {
+          hasErrors: true,
+          message: `${oversizedFiles.length}개 파일이 50MB를 초과합니다.`
+        };
+      }
+
+      return { hasErrors: false, message: '' };
     },
   },
 
@@ -1570,11 +1630,49 @@ export default {
     addSelectedFiles(files) {
       if (!files || files.length === 0) return;
       const array = Array.from(files);
-      array.forEach((file) => {
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+      const MAX_FILE_COUNT = 10;
+
+      // 현재 선택된 파일 + 새로 추가할 파일의 총 개수 체크
+      if (this.selectedFiles.length + array.length > MAX_FILE_COUNT) {
+        const canAdd = MAX_FILE_COUNT - this.selectedFiles.length;
+        if (canAdd <= 0) {
+          showSnackbar(`최대 ${MAX_FILE_COUNT}개 파일까지 업로드 가능합니다.`, 'warning');
+          return;
+        }
+        array.splice(canAdd); // 초과분 제거
+        showSnackbar(`최대 ${MAX_FILE_COUNT}개 파일만 선택 가능합니다. ${canAdd}개 파일만 추가되었습니다.`, 'warning');
+      }
+
+      // 파일 크기 및 총 용량 체크
+      const validFiles = [];
+      const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB
+      let currentTotal = this.totalSelectedSize;
+
+      for (const file of array) {
+        // 개별 파일 크기 체크
+        if (file.size > MAX_FILE_SIZE) {
+          showSnackbar(`"${file.name}" 파일이 50MB를 초과합니다.`, 'warning');
+          continue;
+        }
+
+        // 총 용량 체크
+        if (currentTotal + file.size > MAX_TOTAL_SIZE) {
+          showSnackbar(`총 용량이 200MB를 초과합니다. 나머지 파일은 추가되지 않았습니다.`, 'warning');
+          break;
+        }
+
+        validFiles.push(file);
+        currentTotal += file.size;
+      }
+
+      // 유효한 파일들만 추가
+      validFiles.forEach((file) => {
         const isImage = /^image\//.test(file.type);
         const previewUrl = isImage ? URL.createObjectURL(file) : null;
         this.selectedFiles.push({ key: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}` , file, previewUrl });
       });
+
       // reset input so same file can be chosen again
       if (this.$refs.fileInput) this.$refs.fileInput.value = '';
     },
@@ -1606,6 +1704,13 @@ export default {
 
     async uploadSelectedFiles() {
       if (this.selectedFiles.length === 0) return;
+
+      // 최종 검증
+      if (this.uploadStatus.hasErrors) {
+        showSnackbar(this.uploadStatus.message, 'error');
+        return;
+      }
+
       this.isUploading = true;
       const files = this.selectedFiles.map(it => it.file);
       try {
@@ -2268,6 +2373,29 @@ export default {
   pointer-events: none;
 }
 
+.upload-limits-info {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  border-left: 3px solid #2196f3;
+}
+
+.upload-status {
+  padding: 8px 12px;
+  background: #e8f5e9;
+  border-radius: 6px;
+  border-left: 3px solid #4caf50;
+}
+
+.upload-status-error {
+  background: #fff3cd !important;
+  border-left-color: #ffc107 !important;
+}
+
+.upload-status-error .error--text {
+  color: #d32f2f !important;
+}
+
 .upload-progress {
   padding: 12px;
   background: #f5f5f5;
@@ -2280,6 +2408,25 @@ export default {
 .preview-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.08); }
 
 .preview-thumb .rounded { border-radius: 6px; }
+
+/* Ensure remove button is always visible on preview cards */
+.position-relative { position: relative; }
+.preview-text-content {
+  flex: 1;
+  min-width: 0;
+  max-width: calc(100% - 80px); /* 썸네일(56px) + 마진(24px) = 80px, X버튼 공간 확보 */
+  padding-right: 36px; /* X 버튼 공간 확보 */
+}
+
+.remove-btn-abs {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: rgba(255,255,255,0.95) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  border-radius: 50% !important;
+}
 
 /* Responsive */
 @media (max-width: 960px) {
