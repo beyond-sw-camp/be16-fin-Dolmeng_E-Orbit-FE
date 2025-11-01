@@ -62,7 +62,8 @@ export default {
       showCreateModal: false,
       showProjectModal: false,
       isCalendarModalOpen: false,
-      calendarModalDetails: null
+      calendarModalDetails: null,
+      reconnectTimer: null
     };
   },
   mounted() {
@@ -84,6 +85,22 @@ export default {
       this.initNotificationSubscription();
     });
   },
+  beforeUnmount() {
+    // 재연결 타이머 정리
+    if (this.reconnectTimer) {
+      clearInterval(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    // STOMP 리스너 정리
+    if (this._notifOffClose) {
+      try { this._notifOffClose(); } catch(_) {}
+      this._notifOffClose = null;
+    }
+    if (this._notifUnsub) {
+      try { this._notifUnsub(); } catch(_) {}
+      this._notifUnsub = null;
+    }
+  },
   computed: {
     hideLayout() {
       return this.$route.meta?.hideLayout === true;
@@ -98,6 +115,14 @@ export default {
         const id = localStorage.getItem('id');
         if (!id) return;
         await notificationStompManager.connect();
+        
+        // 연결 성공 시 재연결 타이머 정리
+        if (this.reconnectTimer) {
+          clearInterval(this.reconnectTimer);
+          this.reconnectTimer = null;
+          console.log('[notif] 재연결 성공, 타이머 정리');
+        }
+        
         const topic = `/topic/notification/${id}`;
         if (this._notifUnsub) { try { this._notifUnsub(); } catch(_) {} this._notifUnsub = null; }
         this._notifUnsub = await notificationStompManager.subscribe(topic, (payload) => {
@@ -113,30 +138,47 @@ export default {
               // Update chat unread badge when NEW_CHAT_MESSAGE
               if (String(payload.type).toUpperCase() === 'NEW_CHAT_MESSAGE') {
                 setChatUnreadCount(title);
+              } else {
+                // Broadcast for header notification list (fallback createdAt: now)
+                // NEW_CHAT_MESSAGE는 종 모양 알림에 표시하지 않음
+                const nowIso = new Date().toISOString();
+                const notif = {
+                  id: payload.id,
+                  title: title || '알림',
+                  content: body || '',
+                  readStatus: (payload.readStatus || 'UNREAD'),
+                  createdAt: payload.createdAt || nowIso,
+                };
+                window.dispatchEvent(new CustomEvent('pushNotification', { detail: notif }));
               }
-              // Broadcast for header notification list (fallback createdAt: now)
-              const nowIso = new Date().toISOString();
-              const notif = {
-                id: payload.id,
-                title: title || '알림',
-                content: body || '',
-                readStatus: (payload.readStatus || 'UNREAD'),
-                createdAt: payload.createdAt || nowIso,
-              };
-              window.dispatchEvent(new CustomEvent('pushNotification', { detail: notif }));
             } else {
               text = '새 알림이 도착했습니다.';
             }
             showSnackbar(text, { color: 'info' });
           } catch(_) {}
         });
-        // reconnect on close
+        // reconnect on close (10초마다 재연결 시도)
         if (!this._notifOffClose) {
-          this._notifOffClose = notificationStompManager.on('close', async () => {
-            try { await notificationStompManager.connect(); this.initNotificationSubscription(); } catch(_) {}
+          this._notifOffClose = notificationStompManager.on('close', () => {
+            console.log('[notif] STOMP 연결 끊김, 10초마다 재연결 시도');
+            // 기존 타이머가 있으면 정리
+            if (this.reconnectTimer) {
+              clearInterval(this.reconnectTimer);
+            }
+            // 10초마다 재연결 시도
+            this.reconnectTimer = setInterval(async () => {
+              try {
+                console.log('[notif] 재연결 시도 중...');
+                await this.initNotificationSubscription();
+              } catch(err) {
+                console.warn('[notif] 재연결 실패:', err);
+              }
+            }, 10000);
           });
         }
-      } catch(_) {}
+      } catch(err) {
+        console.warn('[notif] 초기 연결 실패:', err);
+      }
     },
     closeCreateModal() {
       this.showCreateModal = false;
