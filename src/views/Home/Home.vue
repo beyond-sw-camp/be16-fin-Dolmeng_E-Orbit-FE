@@ -125,43 +125,53 @@
           </div>
         </div>
 
-        <!-- 세 번째 열: 채팅 알림 (40% 비중) -->
+        <!-- 세 번째 열: 채팅 알림 -->
         <div class="right-column">
           <div class="chat-notifications-section">
-            <div class="notifications-header">
-              <h2 class="section-title">채팅 알림</h2>
-              <div class="notification-badge">8</div>
-            </div>
-            <div class="notifications-list">
-              <div class="notification-item" v-for="notification in chatNotifications" :key="notification.id">
-                <div class="notification-avatar"></div>
-                <div class="notification-content">
-                  <div class="notification-header">
-                    <span class="sender-name">{{ notification.sender }}</span>
-                    <span class="notification-time">{{ notification.time }}</span>
-                  </div>
-                  <div class="notification-message">{{ notification.message }}</div>
-                </div>
-                <div class="notification-menu">
-                  <div class="menu-dot"></div>
-                </div>
-              </div>
-            </div>
+            <ChatRoomList 
+              embedded 
+              @select-room="handleChatRoomSelect"
+              @preview-summary="handlePreviewSummary"
+              :summaries-by-room-id="summariesByRoomId"
+              :selected-room-id="null"
+            />
           </div>
         </div>
       </div>
     </div>
   </div>
+  
+  <!-- 요약 미리보기 다이얼로그 -->
+  <v-dialog v-model="isSummaryDialogOpen" max-width="520px">
+    <v-card class="summary-card">
+      <v-card-title class="text-h6 summary-title">요약 미리보기</v-card-title>
+      <v-card-text class="summary-body">
+        <div v-if="summaryDialogLoading" class="d-flex align-center justify-center" style="min-height:120px">
+          <v-progress-circular indeterminate :size="42" :width="4" color="#FFE364" />
+        </div>
+        <div v-else v-html="formatMultiline(summaryDialogText)" style="white-space: normal; line-height: 1.5;"></div>
+      </v-card-text>
+      <v-card-actions class="justify-end summary-actions">
+        <v-btn class="summary-btn" variant="flat" @click="isSummaryDialogOpen = false">닫기</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script>
 import { workspaceWatcher } from '@/mixins/workspaceWatcher';
 import { getMyTasks, getMyProjects } from '@/api/task.js';
 import { useWorkspaceStore } from '@/stores/workspace.js';
+import ChatRoomList from '@/views/Chat/ChatRoomList.vue';
+import stompManager from '@/services/stompService.js';
+import axios from 'axios';
 
 export default {
   name: "Home",
   mixins: [workspaceWatcher],
+  components: {
+    ChatRoomList
+  },
   
   data() {
     return {
@@ -201,27 +211,12 @@ export default {
           ]
         }
       ],
-      chatNotifications: [
-        {
-          id: 1,
-          sender: '조민형',
-          message: '어제 미팅자료 잘 정리해놓으세요~~',
-          time: '15분 전'
-        },
-        {
-          id: 2,
-          sender: '조민형 외 2명',
-          message: '어제 미팅자료 잘 정리해놓으세요~~',
-          time: '어제'
-        },
-        {
-          id: 3,
-          sender: '김현지 외 4명',
-          message: '어제 미팅자료 잘 정리하시고 각자 맡은 업...',
-          time: '2025-09-23'
-        }
-      ],
-      loading: false
+      loading: false,
+      summariesByRoomId: {},
+      summaryUnsub: null,
+      isSummaryDialogOpen: false,
+      summaryDialogLoading: false,
+      summaryDialogText: ''
     };
   },
   
@@ -237,10 +232,19 @@ export default {
     
     // 프로젝트 생성 후 목록 새로고침
     window.addEventListener('projectCreated', this.onProjectCreated);
+    
+    // 채팅 요약 STOMP 구독
+    this.initChatSummarySubscription();
   },
   
   beforeUnmount() {
     window.removeEventListener('projectCreated', this.onProjectCreated);
+    
+    // 채팅 요약 구독 해제
+    if (this.summaryUnsub) {
+      try { this.summaryUnsub(); } catch (_) {}
+      this.summaryUnsub = null;
+    }
   },
   
   computed: {
@@ -615,6 +619,73 @@ export default {
     goToProject(project) {
       console.log('프로젝트로 이동:', project);
       this.$router.push({ path: '/project', query: { id: project.id } });
+    },
+    
+    // 채팅 요약 STOMP 구독 초기화
+    async initChatSummarySubscription() {
+      try {
+        const id = localStorage.getItem('id');
+        if (!id) return;
+        
+        await stompManager.connect();
+        const topic = `/topic/summary/${id}`;
+        
+        this.summaryUnsub = await stompManager.subscribe(topic, (summary) => {
+          try {
+            console.log('[Home][summary] incoming', summary);
+            if (summary && summary.roomId != null) {
+              this.summariesByRoomId = {
+                ...this.summariesByRoomId,
+                [summary.roomId]: {
+                  ...(this.summariesByRoomId[summary.roomId] || {}),
+                  ...summary,
+                },
+              };
+            }
+          } catch(_) {}
+        });
+      } catch (error) {
+        console.warn('[Home] 채팅 요약 구독 실패:', error);
+      }
+    },
+    
+    // 채팅방 선택 시 채팅 페이지로 이동
+    handleChatRoomSelect(room) {
+      console.log('채팅방 선택:', room);
+      // 채팅방 ID를 localStorage에 저장
+      if (room && room.roomId) {
+        localStorage.setItem('selectedChatRoomId', room.roomId);
+      }
+      this.$router.push({ path: '/chat/main' });
+    },
+    
+    // 채팅 요약 미리보기
+    async handlePreviewSummary(room) {
+      this.isSummaryDialogOpen = true;
+      this.summaryDialogLoading = true;
+      this.summaryDialogText = '';
+      
+      try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        console.log('[summary] request roomId=', room?.roomId);
+        const { data } = await axios.get(`${baseURL}/workspace-service/chatbot/message/chat-room/${room.roomId}`);
+        console.log('[summary] response data=', data);
+        const text = (data && data.result && typeof data.result === 'object') 
+          ? (data.result.text || '') 
+          : (typeof data?.result === 'string' ? data.result : '');
+        this.summaryDialogText = String(text || '');
+      } catch (e) {
+        console.error('[summary] request failed', e);
+        this.summaryDialogText = '요약을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+      } finally {
+        this.summaryDialogLoading = false;
+      }
+    },
+    
+    // 멀티라인 텍스트 포맷팅
+    formatMultiline(text) {
+      if (!text) return '';
+      return String(text).replace(/\n/g, '<br/>');
     }
   }
 };
@@ -1235,9 +1306,9 @@ export default {
 .chat-notifications-section {
   background: #FFFFFF;
   border-radius: 16px;
-  padding: 18px;
+  padding: 0;
   height: 100%;
-  overflow-y: hidden;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -1249,130 +1320,77 @@ export default {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-.notifications-header {
+/* ChatRoomList 컴포넌트 임베드 스타일 조정 */
+.chat-notifications-section :deep(.chatlist-wrapper) {
+  padding: 0;
+  min-height: 100%;
+  height: 100%;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
 }
 
-.notification-badge {
-  background: #FF1717;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 12px;
-  color: #FFFFFF;
-}
-
-.notifications-list {
+.chat-notifications-section :deep(.chatlist-card) {
+  border: none;
+  border-radius: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
-  gap: 0;
+}
+
+.chat-notifications-section :deep(.chatlist-banner) {
+  border-radius: 16px 16px 0 0;
+  flex-shrink: 0;
+}
+
+.chat-notifications-section :deep(.chatlist-body) {
   flex: 1;
   overflow-y: auto;
 }
 
-.notification-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-  background: #FAFAFA;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+.chat-notifications-section :deep(.v-container) {
+  padding: 0;
+  height: 100%;
 }
 
-.notification-item:last-child {
-  margin-bottom: 0;
+.chat-notifications-section :deep(.v-row) {
+  margin: 0;
+  height: 100%;
 }
 
-.notification-item:hover {
-  background: #F0F0F0;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+.chat-notifications-section :deep(.v-col) {
+  padding: 0;
+  height: 100%;
 }
 
-.notification-avatar {
-  width: 32px;
-  height: 32px;
-  background: #2A2828;
-  border-radius: 50%;
-  flex-shrink: 0;
+/* Summary dialog styling */
+.summary-card { 
+  --v-card-border-radius: 15px; 
+  border-radius: 15px !important; 
+  overflow: hidden; 
 }
 
-.notification-content {
-  flex: 1;
+.summary-title { 
+  background: #FFE364; 
+  color: #1C0F0F; 
+  font-weight: 700; 
 }
 
-.notification-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
+.summary-body { 
+  padding-top: 16px; 
 }
 
-.sender-name {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 12px;
-  color: #000000;
+.summary-actions { 
+  padding: 12px 16px; 
 }
 
-.notification-time {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 12px;
-  color: #484646;
+.summary-btn { 
+  background: #FFE364 !important; 
+  color: #2A2828 !important; 
+  font-weight: 600; 
 }
 
-.notification-message {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 10px;
-  line-height: 12px;
-  color: #484646;
-}
-
-.notification-menu {
-  position: relative;
-  cursor: pointer;
-}
-
-.menu-dot {
-  width: 4px;
-  height: 4px;
-  background: #2A2828;
-  border-radius: 50%;
-}
-
-.menu-dot::before,
-.menu-dot::after {
-  content: '';
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: #2A2828;
-  border-radius: 50%;
-}
-
-.menu-dot::before {
-  top: -6px;
-}
-
-.menu-dot::after {
-  top: 6px;
-}
 
 /* 반응형 레이아웃 */
 @media (max-width: 1400px) {

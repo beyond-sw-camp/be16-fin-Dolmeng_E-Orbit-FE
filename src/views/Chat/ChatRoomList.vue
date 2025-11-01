@@ -205,7 +205,8 @@ import userDefault from '@/assets/icons/chat/user_defualt.svg';
             },
             async loadChatRooms() {
                 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-                const response = await axios.get(`${baseURL}/chat-service/chat/room/list/ws_1`);
+                const workspaceId = localStorage.getItem('selectedWorkspaceId') || 'ws_1';
+                const response = await axios.get(`${baseURL}/chat-service/chat/room/list/${workspaceId}`);
                 this.chatRoomList = response.data.result;
             }
         }
