@@ -2002,7 +2002,6 @@ export default {
 }
 
 .edit-stone-btn,
-.delete-stone-btn,
 .complete-stone-btn {
   padding: 6px 12px;
   border: 1px solid #D1D5DB;
@@ -2035,23 +2034,6 @@ export default {
 .edit-stone-btn:active {
   transform: translateY(0);
   background: #E5E7EB;
-}
-
-.delete-stone-btn {
-  background: #FEF2F2;
-  color: #DC2626;
-  border-color: #FECACA;
-}
-
-.delete-stone-btn:hover {
-  background: #FEE2E2;
-  border-color: #FCA5A5;
-  transform: translateY(-1px);
-}
-
-.delete-stone-btn:active {
-  transform: translateY(0);
-  background: #FECACA;
 }
 
 .complete-stone-btn {
@@ -2150,9 +2132,9 @@ export default {
 
 .stone-title {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 800;
-  font-size: 28px;
-  line-height: 33px;
+  font-weight: 710;
+  font-size: 24px;
+  line-height: 26px;
   color: #1C0F0F;
   flex: 1;
   text-align: left;
@@ -2529,8 +2511,8 @@ export default {
   }
   
   .stone-title {
-    font-size: 24px;
-    line-height: 28px;
+    font-size: 22px;
+    line-height: 24px;
   }
   
   .info-label,
