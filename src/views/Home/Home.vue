@@ -107,9 +107,6 @@
                   <h4 class="task-group-title">🔄 진행중인 Task ({{ pendingTasks.length }})</h4>
                   <div class="task-list">
                     <div class="task-item" v-for="task in pendingTasks" :key="task.id">
-                      <div class="task-progress-bar">
-                        <div class="progress-fill" :style="{ width: task.progress + '%', background: task.color }"></div>
-                      </div>
                       <div class="task-content">
                         <div class="task-info">
                           <span class="task-name">{{ task.name }}</span>
@@ -473,9 +470,7 @@ export default {
               startTime: task.startTime,
               endTime: task.endTime,
               isDone: isDone,
-              deadline: isDone ? '완료' : this.calculateDeadline(task.endTime),
-              progress: isDone ? 100 : this.calculateProgress(task.startTime, task.endTime),
-              color: isDone ? 'linear-gradient(135deg, #4CAF50 0%, #45A049 100%)' : this.getTaskColor(task.endTime)
+              deadline: isDone ? '완료' : this.calculateDeadline(task.endTime)
             };
           });
         }
@@ -500,43 +495,6 @@ export default {
         return 'D-Day';
       } else {
         return `D-${diffDays}`;
-      }
-    },
-    
-    // 진행률 계산 (시작일과 종료일 기준)
-    calculateProgress(startTime, endTime) {
-      const now = new Date();
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-      
-      if (now < start) {
-        return 0;
-      } else if (now > end) {
-        return 100;
-      } else {
-        const totalDuration = end - start;
-        const elapsed = now - start;
-        return Math.round((elapsed / totalDuration) * 100);
-      }
-    },
-    
-    // Task 색상 결정
-    getTaskColor(endTime) {
-      const now = new Date();
-      const end = new Date(endTime);
-      const diffTime = end - now;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays < 0) {
-        return 'linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%)'; // 기한 초과
-      } else if (diffDays <= 1) {
-        return 'linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%)'; // 긴급
-      } else if (diffDays <= 3) {
-        return 'linear-gradient(135deg, #FFA726 0%, #FF9800 100%)'; // 주의
-      } else if (diffDays <= 7) {
-        return 'linear-gradient(135deg, #42A5F5 0%, #2196F3 100%)'; // 보통
-      } else {
-        return 'linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)'; // 여유
       }
     },
     
@@ -1120,9 +1078,10 @@ export default {
 .task-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 0;
-  padding: 8px;
+  padding: 12px;
   border-radius: 8px;
   background: #FFFFFF;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -1135,56 +1094,53 @@ export default {
   cursor: pointer;
 }
 
-.task-progress-bar {
-  width: 200px;
-  height: 8px;
-  background: #E2E8F0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
 .task-content {
   display: flex;
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  min-width: 0;
 }
 
 .task-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .task-name {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 10px;
-  line-height: 12px;
+  font-size: 13px;
+  line-height: 16px;
   color: #1C0F0F;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-project {
   font-family: 'Pretendard', sans-serif;
   font-weight: 400;
-  font-size: 8px;
-  line-height: 10px;
+  font-size: 11px;
+  line-height: 13px;
   color: #666666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-deadline {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 9px;
-  line-height: 11px;
+  font-size: 12px;
+  line-height: 14px;
   color: #FF6B6B;
   text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .loading-message,
