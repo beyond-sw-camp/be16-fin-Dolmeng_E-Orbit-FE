@@ -1467,34 +1467,40 @@ export default {
 
 .admin-header {
   background: #F5F5F5;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 20px 30px;
+  border-bottom: none;
+  padding: 0 50px;
   flex-shrink: 0;
   overflow-x: auto;
   z-index: 200;
+  position: relative;
 }
 
 .admin-nav-tabs {
   display: flex;
-  gap: 0;
-  flex-wrap: nowrap;
+  gap: 94px;
+  padding-bottom: 0;
   width: 100%;
-  justify-content: space-between;
+  justify-content: flex-start;
+  border-bottom: 1px solid #e5e5e5;
+  align-self: flex-start;
+  margin-right: 0;
+  position: relative;
 }
 
 .nav-tab {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 20px;
   color: #1C0F0F;
   cursor: pointer;
-  padding: 10px 8px;
-  border-bottom: 4px solid transparent;
-  transition: all 0.2s;
+  padding: 12px 0;
+  border-bottom: none;
+  transition: color 0.2s;
   white-space: nowrap;
-  flex: 1;
-  text-align: center;
+  flex: 0 0 auto;
+  text-align: left;
+  position: relative;
 }
 
 .nav-tab:hover {
@@ -1503,7 +1509,17 @@ export default {
 
 .nav-tab.active {
   color: #1C0F0F;
-  border-bottom-color: #FFDD44;
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: -12px;
+  right: -12px;
+  height: 3px;
+  background: #FFD700;
+  z-index: 1;
 }
 
 .admin-content {
@@ -1591,9 +1607,9 @@ export default {
   }
   
   .nav-tab {
-    font-size: 18px;
-    line-height: 22px;
-    padding: 8px 6px;
+    font-size: 16px;
+    line-height: 20px;
+    padding: 12px 0;
   }
   
   .admin-cards {
@@ -1618,7 +1634,7 @@ export default {
   .nav-tab {
     font-size: 16px;
     line-height: 20px;
-    padding: 8px 12px;
+    padding: 12px 0;
     flex: none;
     text-align: left;
   }
