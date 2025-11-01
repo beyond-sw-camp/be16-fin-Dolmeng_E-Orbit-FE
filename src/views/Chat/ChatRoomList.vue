@@ -6,7 +6,7 @@
                         <div class="chatlist-wrapper">
                         <v-card class="chatlist-card">
                         <div class="chatlist-banner">
-                            <span class="chatlist-banner-title">내 채팅 목록</span>
+                            <span class="chatlist-banner-title">스톤 채팅방 목록</span>
                         </div>
                         <v-card-text class="chatlist-body">
                             <v-table>
