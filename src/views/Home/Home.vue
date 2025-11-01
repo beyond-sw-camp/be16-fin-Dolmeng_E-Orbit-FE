@@ -5,14 +5,13 @@
       <!-- 상단 헤더 -->
       <div class="content-header">
         <div class="date-section">
-          <h1 class="main-title">오늘의 일정</h1>
           <p class="today-date">{{ todayDate }}</p>
         </div>
       </div>
 
       <!-- 컨텐츠 그리드 -->
       <div class="content-grid">
-        <!-- 첫 번째 열: 프로젝트 + Task -->
+        <!-- 첫 번째 열: 프로젝트 + 문서함 -->
         <div class="left-column">
           <!-- 프로젝트 목록 섹션 -->
           <div class="project-section">
@@ -47,7 +46,27 @@
             </div>
           </div>
 
-          <!-- 나의 Task 섹션 -->
+          <!-- 나의 스톤 문서함 섹션 -->
+          <div class="stone-documents-section">
+            <h2 class="section-title">나의 스톤 문서함</h2>
+            <div class="document-list">
+              <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
+                <div class="folder-header" :style="{ backgroundColor: folder.color }">
+                  <span class="folder-name">📁 {{ folder.name }}</span>
+                </div>
+                <div class="folder-content">
+                  <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
+                    <span class="doc-icon">📄</span>
+                    <span class="doc-name">{{ doc.name }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 두 번째 열: 나의 Task (넓은 공간) -->
+        <div class="middle-column">
           <div class="urgent-tasks-section">
             <div class="section-header">
               <h2 class="section-title">📋 나의 Task</h2>
@@ -95,26 +114,6 @@
                         <span class="task-deadline">{{ task.deadline }}</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 두 번째 열: 문서함 (60% 비중) -->
-        <div class="middle-column">
-          <div class="stone-documents-section">
-            <h2 class="section-title">나의 스톤 문서함</h2>
-            <div class="document-list">
-              <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
-                <div class="folder-header" :style="{ backgroundColor: folder.color }">
-                  <span class="folder-name">📁 {{ folder.name }}</span>
-                </div>
-                <div class="folder-content">
-                  <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
-                    <span class="doc-icon">📄</span>
-                    <span class="doc-name">{{ doc.name }}</span>
                   </div>
                 </div>
               </div>
@@ -577,20 +576,20 @@ export default {
 <style scoped>
 .home-container {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 64px);
   background: #F5F5F5;
   overflow: hidden;
 }
 
 .main-content {
-  padding: 20px 0 0 0;
-  height: 100vh;
+  padding: 10px 0 0 0;
+  height: 100%;
   overflow-y: auto;
   width: 100%;
 }
 
 .content-header {
-  margin-bottom: 30px;
+  margin-bottom: 10px;
   padding: 0 20px;
 }
 
@@ -615,16 +614,16 @@ export default {
 .content-grid {
   display: grid;
   grid-template-columns: 1fr 1.2fr 0.8fr;
-  gap: 20px;
-  margin-bottom: 20px;
-  height: calc(100vh - 120px);
-  padding: 0 20px;
+  gap: 15px;
+  margin-bottom: 0;
+  height: calc(100% - 50px);
+  padding: 0 20px 10px 20px;
 }
 
 .left-column {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
   height: 100%;
 }
 
@@ -644,23 +643,26 @@ export default {
 .project-section {
   background: #FFFFFF;
   border-radius: 15px;
-  padding: 20px;
+  padding: 18px;
   flex: 1;
-  min-height: 280px;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .section-title {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
-  font-size: 20px;
-  line-height: 24px;
+  font-size: 18px;
+  line-height: 22px;
   color: #1C0F0F;
   margin: 0;
 }
@@ -680,14 +682,17 @@ export default {
 
 /* 간트 차트 */
 .gantt-chart {
-  height: 200px;
+  flex: 1;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .gantt-header {
   position: relative;
-  height: 40px;
-  margin-bottom: 20px;
+  height: 30px;
+  margin-bottom: 10px;
 }
 
 .month-labels {
@@ -727,7 +732,8 @@ export default {
 
 .gantt-bars {
   position: relative;
-  height: 120px;
+  flex: 1;
+  min-height: 80px;
 }
 
 .gantt-bar {
@@ -794,26 +800,27 @@ export default {
 .urgent-tasks-section {
   background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
   border-radius: 15px;
-  padding: 20px;
-  flex: 1;
-  min-height: 280px;
-  overflow-y: auto;
+  padding: 18px;
+  height: 100%;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .task-stats {
   display: flex;
-  gap: 15px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: #F8F9FA;
   border-radius: 8px;
-  min-width: 60px;
+  min-width: 55px;
 }
 
 .stat-item.completed {
@@ -845,12 +852,21 @@ export default {
   margin-top: 2px;
 }
 
+.progress-section {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .task-sections {
-  margin-top: 20px;
+  margin-top: 15px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .task-group {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .task-group:last-child {
@@ -863,8 +879,8 @@ export default {
   font-size: 12px;
   line-height: 14px;
   color: #1C0F0F;
-  margin: 0 0 10px 0;
-  padding-bottom: 5px;
+  margin: 0 0 8px 0;
+  padding-bottom: 4px;
   border-bottom: 1px solid #E9ECEF;
 }
 
@@ -880,17 +896,13 @@ export default {
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .task-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
-}
-
-.task-item:last-child {
   margin-bottom: 0;
 }
 
@@ -962,15 +974,20 @@ export default {
 .stone-documents-section {
   background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
   border-radius: 15px;
-  padding: 20px;
-  height: 100%;
-  overflow-y: auto;
+  padding: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .document-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .document-folder {
@@ -1020,16 +1037,18 @@ export default {
 .chat-notifications-section {
   background: #FFFFFF;
   border-radius: 20px;
-  padding: 20px;
+  padding: 18px;
   height: 100%;
-  overflow-y: auto;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .notifications-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .notification-badge {
@@ -1050,7 +1069,9 @@ export default {
 .notifications-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .notification-item {
