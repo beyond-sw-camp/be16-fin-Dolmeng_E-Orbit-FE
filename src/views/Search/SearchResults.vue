@@ -128,7 +128,7 @@
                   {{ getDocTypeLabel(result.docType) }}
                 </div>
               </div>
-              <div v-if="result.searchContent" class="result-snippet" v-html="highlightKeyword(result.searchContent)"></div>
+              <div v-if="result.searchContent" class="result-snippet" v-html="formatSearchContent(result.searchContent)"></div>
               <div class="result-footer">
                 <div class="result-creator">
                   <v-avatar size="20">
@@ -288,6 +288,13 @@ export default {
       const keyword = this.searchKeyword.trim();
       const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
       return text.replace(regex, '<mark class="highlight-match">$1</mark>');
+    },
+
+    // 검색 콘텐츠 포맷 (em 태그 처리)
+    formatSearchContent(content) {
+      if (!content) return '';
+      // em 태그가 이미 포함되어 있는 경우 스타일 적용
+      return content.replace(/<em>/g, '<mark class="highlight-match">').replace(/<\/em>/g, '</mark>');
     },
 
     // 문서 타입 아이콘
