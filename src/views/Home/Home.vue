@@ -82,47 +82,38 @@
         <!-- 나의 Task -->
         <section class="task-section">
           <div class="section-header">
-            <h2 class="section-title">📋 나의 Task</h2>
-            <div class="task-stats">
-              <div class="stat-item">
-                <span class="stat-number">{{ taskStats.total }}</span>
-                <span class="stat-label">총 Task</span>
-              </div>
-              <div class="stat-item completed">
-                <span class="stat-number">{{ taskStats.completed }}</span>
-                <span class="stat-label">완료</span>
-              </div>
-              <div class="stat-item pending">
-                <span class="stat-number">{{ taskStats.pending }}</span>
-                <span class="stat-label">진행중</span>
-              </div>
-              <div class="stat-item rate">
-                <span class="stat-number">{{ taskStats.completionRate }}%</span>
-                <span class="stat-label">완료율</span>
-              </div>
-            </div>
+            <h2 class="section-title">나의 Task</h2>
           </div>
           
-          <div class="progress-section">
+          <div class="task-timeline-wrapper">
             <div v-if="loading" class="loading-message">
               로딩 중...
             </div>
             <div v-else-if="myTasks.length === 0" class="no-tasks-message">
               할당된 Task가 없습니다.
             </div>
-            <div v-else class="task-sections">
-              <!-- 미완료 태스크 -->
-              <div v-if="pendingTasks.length > 0" class="task-group">
-                <h4 class="task-group-title">🔄 진행중인 Task ({{ pendingTasks.length }})</h4>
-                <div class="task-list">
-                  <div class="task-item" v-for="task in pendingTasks" :key="task.id">
-                    <div class="task-content">
-                      <div class="task-info">
-                        <span class="task-name">{{ task.name }}</span>
-                        <span class="task-project">{{ task.projectName }} - {{ task.stoneName }}</span>
-                      </div>
-                      <span class="task-deadline">{{ task.deadline }}</span>
+            <div v-else class="task-timeline-chart">
+              <!-- 타임라인 헤더 -->
+              <div class="task-timeline-header">
+                <div class="task-timeline-labels">
+                  <span v-for="(label, index) in taskTimelineLabels" :key="index" class="task-label">
+                    {{ label.label }}
+                  </span>
+                </div>
+                <div v-if="showTaskTodayLine" class="task-today-line" :style="{ left: taskTodayLinePosition }"></div>
+              </div>
+              
+              <!-- Task 바들 -->
+              <div class="task-timeline-bars">
+                <div class="task-bar-wrapper" v-for="task in myTasks" :key="task.id">
+                  <div class="task-bar" :style="calculateTaskBarStyle(task)" @click="goToTask(task)">
+                    <div class="task-bar-content">
+                      <div class="task-bar-name">{{ task.name }}</div>
+                      <div class="task-bar-deadline">{{ task.deadline }}</div>
                     </div>
+                  </div>
+                  <div class="task-bar-period" :style="{ left: calculateTaskBarStyle(task).left }">
+                    {{ formatTaskPeriod(task.startTime, task.endTime) }}
                   </div>
                 </div>
               </div>
@@ -157,6 +148,7 @@ import { useWorkspaceStore } from '@/stores/workspace.js';
 import ChatRoomList from '@/views/Chat/ChatRoomList.vue';
 import stompManager from '@/services/stompService.js';
 import axios from 'axios';
+import * as d3 from 'd3';
 
 export default {
   name: "Home",
@@ -212,7 +204,7 @@ export default {
     };
   },
   
-  async mounted() {
+    async mounted() {
     // store 초기화
     const workspaceStore = useWorkspaceStore();
     workspaceStore.initialize();
@@ -337,6 +329,80 @@ export default {
     // 미완료 태스크 목록
     pendingTasks() {
       return this.myTasks.filter(task => !task.isDone);
+    },
+    
+    // Task 타임라인 라벨 (Task 전체 기간 기준 MM/DD)
+    taskTimelineLabels() {
+      if (this.myTasks.length === 0) return [];
+      
+      // 모든 Task의 시작일과 종료일 찾기
+      const allDates = [];
+      this.myTasks.forEach(task => {
+        allDates.push(new Date(task.startTime));
+        allDates.push(new Date(task.endTime));
+      });
+      
+      const minDate = new Date(Math.min(...allDates));
+      const maxDate = new Date(Math.max(...allDates));
+      
+      // 4개의 날짜 라벨 생성 (첫 날짜 + 2개 중간 + 마지막 날짜)
+      const labels = [];
+      const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+      const interval = totalDays / 3; // 3등분
+      
+      // 첫 번째 날짜
+      labels.push({
+        date: new Date(minDate),
+        label: `${minDate.getMonth() + 1}/${minDate.getDate()}`
+      });
+      
+      // 중간 날짜 2개
+      for (let i = 1; i <= 2; i++) {
+        const intermediateDate = new Date(minDate);
+        intermediateDate.setDate(minDate.getDate() + Math.round(interval * i));
+        labels.push({
+          date: new Date(intermediateDate),
+          label: `${intermediateDate.getMonth() + 1}/${intermediateDate.getDate()}`
+        });
+      }
+      
+      // 마지막 날짜
+      labels.push({
+        date: new Date(maxDate),
+        label: `${maxDate.getMonth() + 1}/${maxDate.getDate()}`
+      });
+      
+      return labels;
+    },
+    
+    // Task Today 라인 위치
+    taskTodayLinePosition() {
+      if (this.myTasks.length === 0) return '0%';
+      
+      const today = new Date();
+      const range = this.getTaskDateRange();
+      
+      // Task 기간 내에 오늘이 있는지 확인
+      if (today < range.start || today > range.end) {
+        return '0%'; // Task 기간 밖이면 표시하지 않음
+      }
+      
+      // Task 기간 내에서의 오늘의 위치 계산
+      const totalDays = Math.ceil((range.end - range.start) / (1000 * 60 * 60 * 24));
+      const daysFromStart = Math.ceil((today - range.start) / (1000 * 60 * 60 * 24));
+      
+      const position = (daysFromStart / totalDays) * 100;
+      return `${Math.max(0, Math.min(100, position))}%`;
+    },
+    
+    // Task Today 라인 표시 여부
+    showTaskTodayLine() {
+      if (this.myTasks.length === 0) return false;
+      
+      const today = new Date();
+      const range = this.getTaskDateRange();
+      
+      return today >= range.start && today <= range.end;
     }
   },
   
@@ -448,10 +514,7 @@ export default {
         this.loading = true;
         
         // Pinia store에서 워크스페이스 ID 가져오기
-        const workspaceStore = useWorkspaceStore();
-        const workspaceId = workspaceStore.getCurrentWorkspaceId || 'ws_2';
-        
-        const response = await getMyTasks(workspaceId);
+        const response = await getMyTasks();
         
         if (response.statusCode === 200) {
           this.myTasks = response.result.map(task => {
@@ -465,7 +528,8 @@ export default {
               startTime: task.startTime,
               endTime: task.endTime,
               isDone: isDone,
-              deadline: isDone ? '완료' : this.calculateDeadline(task.endTime)
+              deadline: isDone ? '완료' : this.calculateDeadline(task.endTime),
+              stoneMilestone: task.stoneMilestone || 0
             };
           });
         }
@@ -639,6 +703,74 @@ export default {
     formatMultiline(text) {
       if (!text) return '';
       return String(text).replace(/\n/g, '<br/>');
+    },
+    
+    // Task 기간 범위 계산
+    getTaskDateRange() {
+      if (this.myTasks.length === 0) {
+        return { start: new Date(), end: new Date() };
+      }
+      
+      const allDates = [];
+      this.myTasks.forEach(task => {
+        allDates.push(new Date(task.startTime));
+        allDates.push(new Date(task.endTime));
+      });
+      
+      const minDate = new Date(Math.min(...allDates));
+      const maxDate = new Date(Math.max(...allDates));
+      
+      return {
+        start: minDate,
+        end: maxDate
+      };
+    },
+    
+    // Task 바 스타일 계산 (startTime ~ endTime 기준)
+    calculateTaskBarStyle(task) {
+      const range = this.getTaskDateRange();
+      
+      if (range.start.getTime() === range.end.getTime()) {
+        return {
+          left: '0%',
+          width: '100%'
+        };
+      }
+      
+      const startDate = new Date(task.startTime);
+      const endDate = new Date(task.endTime);
+      
+      // 전체 Task 기간에서의 위치 계산
+      const totalRangeDays = Math.ceil((range.end - range.start) / (1000 * 60 * 60 * 24));
+      const taskStartOffset = Math.ceil((startDate - range.start) / (1000 * 60 * 60 * 24));
+      const taskDuration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+      
+      const leftPercent = (taskStartOffset / totalRangeDays) * 100;
+      const widthPercent = (taskDuration / totalRangeDays) * 100;
+      
+      return {
+        left: `${Math.max(0, leftPercent)}%`,
+        width: `${Math.min(100, widthPercent)}%`
+      };
+    },
+    
+    // Task 기간 포맷팅
+    formatTaskPeriod(startTime, endTime) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      
+      const startMonth = start.getMonth() + 1;
+      const startDay = start.getDate();
+      const endMonth = end.getMonth() + 1;
+      const endDay = end.getDate();
+      
+      return `${startMonth}/${startDay} - ${endMonth}/${endDay}`;
+    },
+    
+    // Task 페이지로 이동
+    goToTask(task) {
+      console.log('Task로 이동:', task);
+      // TODO: Task 상세 페이지로 이동
     }
   }
 };
@@ -723,9 +855,15 @@ export default {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
   font-size: 18px;
-  line-height: 22px;
+  line-height: 28px;
   color: #1C0F0F;
   margin: 0;
+  padding: 8px 0;
+  min-height: 44px;
+}
+
+.task-section .section-header {
+  margin-bottom: 20px;
 }
 
 .add-button {
@@ -986,12 +1124,192 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-y: hidden;
+  overflow: visible;
   transition: box-shadow 0.3s ease;
 }
 
 .task-section:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Task 타임라인 스타일 */
+.task-timeline-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.task-timeline-chart {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Task 타임라인 헤더 */
+.task-timeline-header {
+  position: relative;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.task-timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 14px;
+  color: #666666;
+}
+
+.task-label {
+  position: relative;
+}
+
+.task-label::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 8px;
+  background: #E0E0E0;
+}
+
+.task-today-line {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  height: calc(100% + 100%);
+  background: transparent;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.task-today-line::before {
+  content: 'Today';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 12px;
+  color: #FF4444;
+  background: #FFFFFF;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 11;
+  pointer-events: auto;
+}
+
+.task-today-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: calc(100% + 240px);
+  border-left: 2px dashed rgba(255, 68, 68, 0.6);
+}
+
+/* Task 바들 영역 */
+.task-timeline-bars {
+  position: relative;
+  flex: 1;
+  min-height: 230px;
+  z-index: 1;
+}
+
+.task-bar-wrapper {
+  position: absolute;
+  width: 100%;
+}
+
+.task-bar-wrapper:nth-child(1) {
+  top: 0px;
+}
+
+.task-bar-wrapper:nth-child(2) {
+  top: 60px;
+}
+
+.task-bar-wrapper:nth-child(3) {
+  top: 120px;
+}
+
+.task-bar-wrapper:nth-child(4) {
+  top: 180px;
+}
+
+.task-bar {
+  position: absolute;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 2;
+  background: #E9ECEF;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 60px;
+}
+
+.task-bar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.task-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.task-bar-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 16px;
+  color: #2A2828;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-bar-deadline {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 16px;
+  color: #000000;
+  flex-shrink: 0;
+}
+
+.task-bar-period {
+  position: absolute;
+  top: 32px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 12px;
+  color: #666666;
+  white-space: nowrap;
 }
 
 .task-stats {
@@ -1048,15 +1366,19 @@ export default {
 
 .progress-section {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   display: flex;
   flex-direction: column;
+  min-height: 450px;
 }
 
-.task-sections {
-  margin-top: 15px;
-  flex: 1;
-  overflow-y: auto;
+.matrix-chart-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
 }
 
 .task-group {
@@ -1334,7 +1656,7 @@ export default {
 @media (max-width: 1400px) {
   .dashboard-layout {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto auto auto;
     height: auto;
   }
   
@@ -1345,7 +1667,7 @@ export default {
   
   .chat-section {
     grid-column: 2 / 3;
-    grid-row: 2 / 4;
+    grid-row: 2 / 5;
   }
   
   .docs-section {
@@ -1372,7 +1694,7 @@ export default {
 @media (max-width: 1000px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto auto auto auto;
     height: auto;
   }
   
