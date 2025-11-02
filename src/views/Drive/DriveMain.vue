@@ -193,7 +193,7 @@
                   class="breadcrumb-item"
                 >
                   <v-icon v-if="item.icon" small class="mr-1">{{ item.icon }}</v-icon>
-                  {{ item.text }}
+                  <span class="breadcrumb-text">{{ item.text }}</span>
                 </v-breadcrumbs-item>
               </template>
             </v-breadcrumbs>
@@ -3495,6 +3495,29 @@ export default {
 
 .breadcrumb-item {
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.breadcrumb-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+  display: inline-block;
+}
+
+/* 브레드크럼 컨테이너 overflow 처리 */
+.px-4 :deep(.v-breadcrumbs) {
+  overflow: hidden;
+}
+
+.px-4 :deep(.v-breadcrumbs__item) {
+  min-width: 0;
+  overflow: hidden;
+  max-width: 200px;
 }
 
 .upload-zone {
