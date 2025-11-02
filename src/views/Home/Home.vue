@@ -148,7 +148,6 @@ import { useWorkspaceStore } from '@/stores/workspace.js';
 import ChatRoomList from '@/views/Chat/ChatRoomList.vue';
 import stompManager from '@/services/stompService.js';
 import axios from 'axios';
-import * as d3 from 'd3';
 
 export default {
   name: "Home",
@@ -525,6 +524,7 @@ export default {
               name: task.taskName,
               projectName: task.projectName,
               stoneName: task.stoneName,
+              stoneId: task.stoneId,
               startTime: task.startTime,
               endTime: task.endTime,
               isDone: isDone,
@@ -767,10 +767,25 @@ export default {
       return `${startMonth}/${startDay} - ${endMonth}/${endDay}`;
     },
     
-    // Task 페이지로 이동
+    // Task 페이지로 이동 (stone 모달 열기)
     goToTask(task) {
       console.log('Task로 이동:', task);
-      // TODO: Task 상세 페이지로 이동
+      
+      // 프로젝트 이름으로 myProjects에서 projectId 찾기
+      const project = this.myProjects.find(p => p.name === task.projectName);
+      
+      if (project && task.stoneId) {
+        // 프로젝트 페이지로 이동하면서 stoneId 쿼리 파라미터로 전달
+        this.$router.push({ 
+          path: '/project', 
+          query: { 
+            id: project.id,
+            stoneId: task.stoneId
+          } 
+        });
+      } else {
+        console.error('프로젝트 또는 stoneId를 찾을 수 없음:', { project, task });
+      }
     }
   }
 };
