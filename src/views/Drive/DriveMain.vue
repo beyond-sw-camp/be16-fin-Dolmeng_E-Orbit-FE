@@ -2447,11 +2447,19 @@ export default {
     onTreeDragOver(e, treeItem) {
       if (!this.draggingItem) return;
       
-      // 루트는 드롭 불가 (이미 루트에 있는 아이템은 이동할 필요 없음)
-      if (treeItem.id === 'root') return;
-      
       // 자기 자신에게는 드롭 불가
       if (this.draggingItem.id === treeItem.id) return;
+      
+      // 루트로 드롭하는 경우 허용 (이미 루트에 있는 아이템인지 체크는 onDrop에서)
+      if (treeItem.id === 'root') {
+        // 루트로 옮기기 허용
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        this.dragOverTreeFolder = treeItem;
+        this.dragOverItem = null;
+        return;
+      }
       
       // 폴더인 경우 순환 이동 방지 (자기 자신의 하위 폴더로는 이동 불가)
       if (this.draggingItem.type === 'folder' && this.isDescendantOf(treeItem.id, this.draggingItem.id)) {
@@ -2484,8 +2492,51 @@ export default {
       e.stopPropagation(); // 이벤트 버블링 방지 (테이블 드롭과 중복 방지)
       
       if (!this.draggingItem || !targetFolder) return;
-      if (targetFolder.id === 'root') return; // 루트는 드롭 불가
       if (this.draggingItem.id === targetFolder.id) return; // 자기 자신에게는 드롭 불가
+      
+      // 루트로 이동하는 경우 처리
+      if (targetFolder.id === 'root') {
+        // 로컬 변수로 저장
+        const sourceItem = this.draggingItem;
+        
+        // 즉시 초기화
+        this.draggingItem = null;
+        this.dragOverItem = null;
+        this.dragOverTreeFolder = null;
+        
+        try {
+          // 타입에 따라 적절한 API 호출
+          if (sourceItem.type === 'folder') {
+            // 루트로 이동: parentId를 null로 설정
+            await driveService.moveFolder(sourceItem.id, {
+              parentId: null
+            });
+            
+            // 트리 직접 업데이트 (루트로 이동)
+            this.moveFolderInTree(sourceItem.id, 'root');
+          } else if (sourceItem.type === 'document' || sourceItem.type === 'file') {
+            // 문서/파일도 루트로 이동 가능: folderId를 null로 설정
+            await driveService.moveElement(sourceItem.id, {
+              folderId: null,
+              type: sourceItem.type  // 'document' 또는 'file'
+            });
+          }
+          
+          showSnackbar(`"${sourceItem.name}"을(를) 루트로 이동했습니다.`, 'success');
+          
+          // 현재 루트 정보를 유지하면서 새로고침
+          if (this.currentRootType && this.currentRootId) {
+            await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+          } else {
+            await this.loadFolderContents(this.currentFolderId);
+          }
+        } catch (error) {
+          console.error('이동 실패:', error);
+          const errorMessage = error.response?.data?.statusMessage || '이동에 실패했습니다.';
+          showSnackbar(errorMessage, 'error');
+        }
+        return;
+      }
       
       // 폴더인 경우 순환 이동 방지 (자기 자신의 하위 폴더로는 이동 불가)
       if (this.draggingItem.type === 'folder' && this.isDescendantOf(targetFolder.id, this.draggingItem.id)) {
