@@ -211,34 +211,53 @@
           </div>
           
           <!-- 프로젝트 현황 카드들 -->
-          <div v-else class="workspace-projects">
-            <div class="project-cards-container">
-              <div class="project-card">
-                <div class="project-card-header">
-                  <button class="nav-btn prev-btn">◀</button>
-                  <button class="nav-btn next-btn">▶</button>
+          <div v-else class="project-grid">
+            <div 
+              v-for="(project, index) in workspaceProjects" 
+              :key="project.projectId" 
+              class="project-card-new"
+            >
+              <div 
+                class="project-header-new"
+                :style="{ backgroundColor: getProjectColor(index) }"
+              >
+                {{ project.projectName }}
+              </div>
+              
+              <div class="project-dates-new">
+                <div class="date-row">
+                  <span>Start</span>
+                  <span>{{ formatProjectDate(project.startedAt) }}</span>
                 </div>
-                <div class="project-stats">
-                  <div 
-                    v-for="(project, index) in workspaceProjects" 
-                    :key="project.projectId" 
-                    class="stat-item"
-                  >
-                    <div class="circular-progress">
-                      <div class="progress-ring">
-                        <div 
-                          class="progress-fill-ring" 
-                          :style="{ '--progress': Math.round(project.milestone) + '%' }"
-                        ></div>
-                        <span class="progress-text">{{ Math.round(project.milestone) }}%</span>
-                      </div>
-                    </div>
-                    <div class="stat-info">
-                      <span class="stat-label">스톤 {{ project.stoneCount }}개</span>
-                      <span class="project-name">{{ project.projectName }}</span>
-                    </div>
+                <div class="date-row">
+                  <span>End</span>
+                  <span>{{ formatProjectDate(project.endedAt) }}</span>
+                </div>
+              </div>
+              
+              <div class="progress-section-new">
+                <div class="progress-circle-new">
+                  <svg viewBox="0 0 36 36">
+                    <path
+                      class="circle-bg"
+                      d="M18 2.0845
+                         a 15.9155 15.9155 0 0 1 0 31.831
+                         a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      class="circle"
+                      :style="{ stroke: getProjectColor(index) }"
+                      :stroke-dasharray="project.milestone + ', 100'"
+                      d="M18 2.0845
+                         a 15.9155 15.9155 0 0 1 0 31.831
+                         a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div class="progress-text-new">
+                    {{ Math.round(project.milestone) }}%
                   </div>
                 </div>
+                <div class="progress-label">Completed</div>
               </div>
             </div>
           </div>
@@ -773,6 +792,16 @@ export default {
         month: 'long',
         day: 'numeric'
       });
+    },
+    
+    formatProjectDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\./g, '.').replace(/\s/g, '');
     },
     
     formatStorage(bytes) {
@@ -1388,21 +1417,27 @@ export default {
             projectName: '3번째 프로젝트!',
             milestone: 0.0,
             stoneCount: 6,
-            completedCount: 0
+            completedCount: 0,
+            startedAt: '2025-11-05T09:00:00',
+            endedAt: '2025-11-07T18:00:00'
           },
           {
             projectId: 'pjt_2',
             projectName: '새로운 프로젝트',
             milestone: 75.5,
             stoneCount: 10,
-            completedCount: 7
+            completedCount: 7,
+            startedAt: '2025-11-01T09:00:00',
+            endedAt: '2025-11-26T18:00:00'
           },
           {
             projectId: 'pjt_3',
             projectName: '완료된 프로젝트',
             milestone: 100.0,
             stoneCount: 5,
-            completedCount: 5
+            completedCount: 5,
+            startedAt: '2025-11-02T09:00:00',
+            endedAt: '2025-11-28T18:00:00'
           }
         ];
         console.log('예시 워크스페이스 프로젝트 데이터 설정됨:', this.workspaceProjects);
@@ -1479,6 +1514,12 @@ export default {
       } else {
         return 'progress-in-progress';
       }
+    },
+    
+    // 프로젝트별 색상 반환
+    getProjectColor(index) {
+      const colorPalette = ['#4f46e5', '#0891b2', '#22c55e', '#f97316', '#e11d48'];
+      return colorPalette[index % colorPalette.length];
     },
     
     // 재귀적으로 스톤 구조를 평탄화하는 헬퍼 함수
@@ -3036,167 +3077,109 @@ export default {
   background: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
 }
 
-.workspace-projects {
+/* 프로젝트 그리드 레이아웃 */
+.project-grid {
   display: flex;
-  justify-content: center;
-}
-
-.project-cards-container {
-  width: 100%;
-  max-width: 800px;
-}
-
-.project-card {
-  background: #F8F9FA;
-  border: 1px solid #E0E0E0;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.project-card-header {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.nav-btn {
-  width: 40px;
-  height: 40px;
-  background: #F5F5F5;
-  border: 1px solid #DDDDDD;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 19px;
-  color: #666666;
-  transition: all 0.2s;
-}
-
-.nav-btn:hover {
-  background: #E9ECEF;
-}
-
-.project-stats {
-  display: flex;
-  justify-content: space-around;
-  gap: 20px;
   flex-wrap: wrap;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
   gap: 20px;
-  min-height: 200px;
-  position: relative;
-  padding: 20px 10px;
-  box-sizing: border-box;
-}
-
-.circular-progress {
-  position: relative;
-  width: 100px;
-  height: 100px;
-  order: 1;
-}
-
-.progress-ring {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: #F8F9FA;
-  position: relative;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  border: 8px solid #E0E0E0;
-  box-sizing: border-box;
+  margin-top: 20px;
 }
 
-.progress-fill-ring {
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  width: calc(100% + 16px);
-  height: calc(100% + 16px);
-  border-radius: 50%;
-  background: conic-gradient(from -90deg, #4CAF50 0deg, #4CAF50 calc(var(--progress) * 3.6deg), #E0E0E0 calc(var(--progress) * 3.6deg), #E0E0E0 360deg);
-  mask: radial-gradient(circle at center, transparent 40%, black 40%);
-  -webkit-mask: radial-gradient(circle at center, transparent 40%, black 40%);
-  z-index: 1;
-}
-
-/* 프로젝트별 색상 (동적으로 적용) */
-.stat-item:nth-child(1) .progress-fill-ring {
-  background: conic-gradient(from -90deg, #4CAF50 0deg, #4CAF50 calc(var(--progress) * 3.6deg), #E0E0E0 calc(var(--progress) * 3.6deg), #E0E0E0 360deg);
-}
-
-.stat-item:nth-child(2) .progress-fill-ring {
-  background: conic-gradient(from -90deg, #FF9800 0deg, #FF9800 calc(var(--progress) * 3.6deg), #E0E0E0 calc(var(--progress) * 3.6deg), #E0E0E0 360deg);
-}
-
-.stat-item:nth-child(3) .progress-fill-ring {
-  background: conic-gradient(from -90deg, #9C27B0 0deg, #9C27B0 calc(var(--progress) * 3.6deg), #E0E0E0 calc(var(--progress) * 3.6deg), #E0E0E0 360deg);
-}
-
-.stat-item:nth-child(4) .progress-fill-ring {
-  background: conic-gradient(from -90deg, #2196F3 0deg, #2196F3 calc(var(--progress) * 3.6deg), #E0E0E0 calc(var(--progress) * 3.6deg), #E0E0E0 360deg);
-}
-
-.stat-item:nth-child(5) .progress-fill-ring {
-  background: conic-gradient(from -90deg, #F44336 0deg, #F44336 calc(var(--progress) * 3.6deg), #E0E0E0 calc(var(--progress) * 3.6deg), #E0E0E0 360deg);
-}
-
-.progress-text {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 18px;
-  line-height: 22px;
-  color: #000000;
-  z-index: 2;
-  position: relative;
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.project-card-new {
+  background: #f9fafb;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  width: 250px;
   text-align: center;
-  gap: 4px;
-  order: 2;
+  transition: transform 0.2s;
+  overflow: hidden;
 }
 
-.stat-label {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 400;
-  font-size: 12px;
-  line-height: 14px;
-  color: #666666;
+.project-card-new:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.project-name {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
+.project-header-new {
+  color: #fff;
   font-size: 14px;
-  line-height: 16px;
-  color: #1C0F0F;
-  max-width: 120px;
+  font-weight: 600;
+  padding: 12px 0;
+  border-radius: 8px 8px 0 0;
+  font-family: 'Pretendard', sans-serif;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
-  text-align: center;
-  margin-top: 15px;
-  order: 3;
+}
+
+.project-dates-new {
+  font-size: 12px;
+  color: #555;
+  margin: 12px 0;
+  padding: 0 16px;
+  font-family: 'Pretendard', sans-serif;
+}
+
+.date-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-weight: 400;
+}
+
+.date-row span:first-child {
+  font-weight: 600;
+  color: #333;
+}
+
+.progress-section-new {
+  padding: 16px 0 20px;
+}
+
+.progress-circle-new {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+}
+
+.progress-circle-new svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: #eee;
+  stroke-width: 3;
+}
+
+.circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.progress-text-new {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
+  font-family: 'Pretendard', sans-serif;
+}
+
+.progress-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
 }
 
 /* 사용자 그룹별 프로젝트 현황 섹션 */
@@ -3356,6 +3339,20 @@ export default {
   
   .group-stat-item {
     min-width: auto;
+  }
+  
+  .project-card-new {
+    width: calc(50% - 10px);
+  }
+  
+  .project-grid {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 580px) {
+  .project-card-new {
+    width: 100%;
   }
 }
 </style>
