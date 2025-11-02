@@ -213,9 +213,17 @@
           <div 
             v-else 
             class="table-wrapper"
-            @dragover="onTableDragOver"
-            @dragleave="onTableDragLeave"
+            @dragover.prevent="onTableFileDragOver"
+            @dragleave="onTableFileDragLeave"
+            @drop.prevent="onTableFileDrop"
           >
+            <!-- 파일 드래그 오버레이 (테이블 본문에만) -->
+            <div v-if="isDraggingFiles" class="file-drag-overlay">
+              <div class="file-drag-message">
+                <v-icon size="64" color="#1976d2">mdi-cloud-upload</v-icon>
+                <div class="file-drag-text">파일을 여기에 드롭하세요</div>
+              </div>
+            </div>
             <div class="table-container" ref="tableContainer">
               <v-data-table
                 ref="dataTable"
@@ -334,9 +342,12 @@
             </template>
 
             <template v-slot:no-data>
-              <div class="text-center py-8">
-                <v-icon size="64" color="grey lighten-1">mdi-folder-open-outline</v-icon>
-                <div class="text-h6 mt-4 grey--text">폴더가 비어있습니다</div>
+              <div class="empty-folder-container">
+                <div class="empty-folder-content">
+                  <v-icon size="96" color="grey lighten-2" class="empty-folder-icon">mdi-folder-open-outline</v-icon>
+                  <div class="empty-folder-title">폴더가 비어있습니다</div>
+                  <div class="empty-folder-subtitle">파일을 여기에 드래그 인 드롭하거나 <br>'신규' 버튼을 사용하세요</div>
+                </div>
               </div>
             </template>
               </v-data-table>
@@ -600,6 +611,7 @@ export default {
       dragOverTreeFolder: null, // 트리뷰 드래그 오버 폴더
       dragScrollInterval: null,
       scrollSpeed: 0,
+      isDraggingFiles: false, // 파일 드래그 중인지 여부
       
       // 정렬
       sortBy: 'modified',
@@ -2330,6 +2342,76 @@ export default {
         this.stopAutoScroll();
       }
     },
+
+    // 파일 드래그 앤 드롭 - 테이블 영역에 파일 드롭
+    onTableFileDragOver(e) {
+      // 아이템 드래그인 경우 기존 로직 실행
+      if (this.draggingItem) {
+        // 기존 아이템 드래그 오버 로직 (자동 스크롤)
+        const container = e.currentTarget;
+        const rect = container.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const scrollThreshold = 100;
+        const maxSpeed = 15;
+        
+        if (y < scrollThreshold) {
+          const distance = y;
+          this.scrollSpeed = -maxSpeed * (1 - distance / scrollThreshold);
+          this.startAutoScroll(container);
+        } else if (y > rect.height - scrollThreshold) {
+          const distance = rect.height - y;
+          this.scrollSpeed = maxSpeed * (1 - distance / scrollThreshold);
+          this.startAutoScroll(container);
+        } else {
+          this.stopAutoScroll();
+        }
+        return;
+      }
+      
+      // 파일 드래그인지 확인
+      const dataTransfer = e.dataTransfer;
+      if (dataTransfer && dataTransfer.types && dataTransfer.types.includes('Files')) {
+        this.isDraggingFiles = true;
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    },
+
+    onTableFileDragLeave(e) {
+      // 실제로 테이블 영역을 벗어났는지 확인
+      const container = e.currentTarget;
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX;
+      const y = e.clientY;
+      
+      // 아이템 드래그인 경우 스크롤 멈춤
+      if (this.draggingItem) {
+        if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+          this.stopAutoScroll();
+        }
+        return;
+      }
+      
+      // 파일 드래그인 경우
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        this.isDraggingFiles = false;
+      }
+    },
+
+    async onTableFileDrop(e) {
+      this.isDraggingFiles = false;
+      
+      // 아이템 드래그 중이면 파일 드롭 처리하지 않음
+      if (this.draggingItem) return;
+      
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      
+      // 파일들을 selectedFiles에 추가
+      this.addSelectedFiles(files);
+      
+      // 업로드 다이얼로그 열기
+      this.uploadDialog = true;
+    },
     
     // 자동 스크롤 시작
     startAutoScroll(container) {
@@ -2803,6 +2885,7 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .sidebar-header {
@@ -3207,8 +3290,9 @@ export default {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  transition: all 0.2s ease;
+  position: relative;
 }
-
 
 .table-container {
   flex: 1;
@@ -3243,6 +3327,47 @@ export default {
 
 .table-container :deep(.v-data-table__wrapper)::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+/* 파일 드래그 오버레이 (테이블 본문에만) */
+.file-drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.file-drag-message {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 32px 48px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 3px dashed #1976d2;
+}
+
+.file-drag-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1976d2;
+  margin-top: 16px;
 }
 
 /* 페이지네이션 푸터 */
@@ -3471,6 +3596,39 @@ export default {
   outline: none !important;
 }
 .action-icon-btn .v-btn__overlay { opacity: 0 !important; }
+
+/* 빈 폴더 UI */
+.empty-folder-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 48px 24px;
+}
+
+.empty-folder-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.empty-folder-icon {
+  margin-bottom: 24px;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.empty-folder-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #5f6368;
+  margin-bottom: 8px;
+}
+
+.empty-folder-subtitle {
+  font-size: 14px;
+  color: #9aa0a6;
+  line-height: 1.5;
+}
 </style>
 
 <style>
