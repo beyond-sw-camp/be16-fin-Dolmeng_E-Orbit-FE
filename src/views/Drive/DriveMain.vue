@@ -17,9 +17,9 @@
             :items="folderTree"
             :open.sync="openFolders"
             :active.sync="activeFolder"
-            activatable
+            :activatable="false"
             dense
-            open-on-click
+            :open-on-click="false"
             transition
             class="folder-tree pa-2"
             item-key="id"
@@ -37,10 +37,24 @@
             </template>
             <!-- Vuetify 2: label slot / Vuetify 3: title slot -->
             <template v-slot:label="{ item }">
-              <span class="folder-label" @click.stop.prevent="onTreeItemClick(item)">{{ item.name }}</span>
+              <span 
+                class="folder-label" 
+                :class="{ 'drag-over-tree': dragOverTreeFolder && dragOverTreeFolder.id === item.id }"
+                @click.stop.prevent="onTreeItemClick(item)"
+                @dragover.prevent="onTreeDragOver($event, item)"
+                @dragleave="onTreeDragLeave"
+                @drop.prevent="onTreeDrop($event, item)"
+              >{{ item.name }}</span>
             </template>
             <template v-slot:title="{ item }">
-              <span class="folder-label" @click.stop.prevent="onTreeItemClick(item)">{{ item.name }}</span>
+              <span 
+                class="folder-label"
+                :class="{ 'drag-over-tree': dragOverTreeFolder && dragOverTreeFolder.id === item.id }"
+                @click.stop.prevent="onTreeItemClick(item)"
+                @dragover.prevent="onTreeDragOver($event, item)"
+                @dragleave="onTreeDragLeave"
+                @drop.prevent="onTreeDrop($event, item)"
+              >{{ item.name }}</span>
             </template>
           </v-treeview>
 
@@ -583,6 +597,7 @@ export default {
       // 드래그 앤 드롭
       draggingItem: null,
       dragOverItem: null,
+      dragOverTreeFolder: null, // 트리뷰 드래그 오버 폴더
       dragScrollInterval: null,
       scrollSpeed: 0,
       
@@ -919,8 +934,32 @@ export default {
       return null;
     },
 
+    // 특정 폴더가 다른 폴더의 하위 폴더인지 확인 (순환 이동 방지)
+    isDescendantOf(folderId, ancestorId) {
+      if (!folderId || !ancestorId || folderId === ancestorId) return false;
+      
+      const ancestorNode = this.findNodeById(this.folderTree, ancestorId);
+      if (!ancestorNode) return false;
+      
+      // DFS로 하위에 해당 폴더가 있는지 확인
+      const checkNode = (node) => {
+        if (node.id === folderId) return true;
+        if (!node.children || !Array.isArray(node.children)) return false;
+        return node.children.some(child => checkNode(child));
+      };
+      
+      return checkNode(ancestorNode);
+    },
+
     // 트리에 폴더 추가
     addFolderToTree(folderId, folderName, parentId) {
+      // 이미 존재하는지 확인 (중복 방지)
+      const existingNode = this.findNodeById(this.folderTree, folderId);
+      if (existingNode) {
+        // 이미 존재하면 추가하지 않음 (중복 방지)
+        return;
+      }
+
       const newFolder = {
         id: folderId,
         name: folderName,
@@ -934,12 +973,18 @@ export default {
           if (!rootNode.children) {
             rootNode.children = [];
           }
-          rootNode.children.push(newFolder);
-          // 캐시에도 추가
-          if (!this.folderCache['root']) {
-            this.folderCache['root'] = [];
+          // 중복 체크
+          if (!rootNode.children.find(f => f.id === folderId)) {
+            rootNode.children.push(newFolder);
+            // 캐시에도 추가
+            if (!this.folderCache['root']) {
+              this.folderCache['root'] = [];
+            }
+            // 캐시에도 중복 체크
+            if (!this.folderCache['root'].find(f => f.id === folderId)) {
+              this.folderCache['root'].push(newFolder);
+            }
           }
-          this.folderCache['root'].push(newFolder);
         }
       } else {
         // 특정 폴더 하위에 추가
@@ -948,12 +993,18 @@ export default {
           if (!parentNode.children) {
             parentNode.children = [];
           }
-          parentNode.children.push(newFolder);
-          // 캐시에도 추가
-          if (!this.folderCache[parentId]) {
-            this.folderCache[parentId] = [];
+          // 중복 체크
+          if (!parentNode.children.find(f => f.id === folderId)) {
+            parentNode.children.push(newFolder);
+            // 캐시에도 추가
+            if (!this.folderCache[parentId]) {
+              this.folderCache[parentId] = [];
+            }
+            // 캐시에도 중복 체크
+            if (!this.folderCache[parentId].find(f => f.id === folderId)) {
+              this.folderCache[parentId].push(newFolder);
+            }
           }
-          this.folderCache[parentId].push(newFolder);
         }
       }
 
@@ -1008,6 +1059,108 @@ export default {
       };
 
       removeFromNode(this.folderTree);
+    },
+
+    // 트리에서 폴더 이동 (기존 위치에서 제거 후 새 위치에 추가)
+    moveFolderInTree(folderId, newParentId) {
+      // 이동할 폴더 노드 찾기
+      const folderNode = this.findNodeById(this.folderTree, folderId);
+      if (!folderNode) {
+        console.warn('[DriveMain] moveFolderInTree: 폴더 노드를 찾을 수 없습니다:', folderId);
+        return false;
+      }
+
+      // 새 위치에 이미 존재하는지 확인
+      const newParentNode = !newParentId || newParentId === 'root' 
+        ? this.findNodeById(this.folderTree, 'root')
+        : this.findNodeById(this.folderTree, newParentId);
+      
+      if (newParentNode) {
+        // 새 위치에 이미 해당 폴더가 있는지 확인
+        const existingInNewLocation = newParentNode.children?.find(f => f.id === folderId);
+        if (existingInNewLocation) {
+          // 이미 새 위치에 있으면 아무것도 하지 않음
+          console.log('[DriveMain] moveFolderInTree: 이미 새 위치에 존재합니다:', folderId);
+          return true;
+        }
+      }
+
+      // 기존 위치에서 제거 (참조 제거)
+      let removed = false;
+      const removeFromNode = (nodes, parentNode) => {
+        if (!Array.isArray(nodes)) return false;
+        for (let i = 0; i < nodes.length; i++) {
+          if (nodes[i].id === folderId) {
+            // 노드 제거
+            nodes.splice(i, 1);
+            removed = true;
+            // 캐시에서도 제거
+            if (parentNode && this.folderCache[parentNode.id]) {
+              const cacheIndex = this.folderCache[parentNode.id].findIndex(f => f.id === folderId);
+              if (cacheIndex !== -1) {
+                this.folderCache[parentNode.id].splice(cacheIndex, 1);
+              }
+            }
+            return true;
+          }
+          if (nodes[i].children && removeFromNode(nodes[i].children, nodes[i])) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // 루트 하위에서 제거 시도
+      const rootNode = this.findNodeById(this.folderTree, 'root');
+      if (rootNode && rootNode.children) {
+        const rootIndex = rootNode.children.findIndex(f => f.id === folderId);
+        if (rootIndex !== -1) {
+          rootNode.children.splice(rootIndex, 1);
+          removed = true;
+          // 캐시에서도 제거
+          if (this.folderCache['root']) {
+            const cacheIndex = this.folderCache['root'].findIndex(f => f.id === folderId);
+            if (cacheIndex !== -1) {
+              this.folderCache['root'].splice(cacheIndex, 1);
+            }
+          }
+        }
+      }
+
+      // 다른 위치에서도 제거 시도
+      if (!removed && rootNode) {
+        removeFromNode(rootNode.children || [], rootNode);
+      }
+
+      // 새 위치에 추가 (이미 존재하지 않으면)
+      if (newParentNode) {
+        if (!newParentNode.children) {
+          newParentNode.children = [];
+        }
+        // 중복 체크 후 추가
+        if (!newParentNode.children.find(f => f.id === folderId)) {
+          // 기존 노드의 children을 유지하면서 새 위치에 추가
+          const folderToMove = {
+            id: folderNode.id,
+            name: folderNode.name,
+            children: folderNode.children || []
+          };
+          newParentNode.children.push(folderToMove);
+          
+          // 캐시에도 추가
+          const cacheKey = !newParentId || newParentId === 'root' ? 'root' : newParentId;
+          if (!this.folderCache[cacheKey]) {
+            this.folderCache[cacheKey] = [];
+          }
+          if (!this.folderCache[cacheKey].find(f => f.id === folderId)) {
+            this.folderCache[cacheKey].push(folderToMove);
+          }
+        }
+      }
+
+      // Vue 반응성 유지
+      this.$forceUpdate?.();
+      return true;
     },
 
     // 트리에서 폴더 이름 업데이트
@@ -2072,6 +2225,7 @@ export default {
     onDragEnd() {
       this.draggingItem = null;
       this.dragOverItem = null;
+      this.dragOverTreeFolder = null;
       this.stopAutoScroll();
     },
     
@@ -2149,9 +2303,17 @@ export default {
       if (!this.draggingItem || item.type !== 'folder') return; // 폴더에만 드롭 가능
       if (this.draggingItem.id === item.id) return; // 자기 자신에게는 드롭 불가
       
+      // 폴더인 경우 순환 이동 방지 (자기 자신의 하위 폴더로는 이동 불가)
+      if (this.draggingItem.type === 'folder' && this.isDescendantOf(item.id, this.draggingItem.id)) {
+        return; // 드롭 불가능한 상태
+      }
+      
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       this.dragOverItem = item;
+      
+      // 테이블이 드래그 오버되면 트리뷰의 드래그 오버 상태 초기화
+      this.dragOverTreeFolder = null;
     },
 
     onDragLeave() {
@@ -2164,6 +2326,15 @@ export default {
       if (!this.draggingItem || !targetFolder || targetFolder.type !== 'folder') return;
       if (this.draggingItem.id === targetFolder.id) return; // 자기 자신에게는 드롭 불가
       
+      // 폴더인 경우 순환 이동 방지 (자기 자신의 하위 폴더로는 이동 불가)
+      if (this.draggingItem.type === 'folder' && this.isDescendantOf(targetFolder.id, this.draggingItem.id)) {
+        showSnackbar('자기 자신의 하위 폴더로는 이동할 수 없습니다.', 'warning');
+        this.draggingItem = null;
+        this.dragOverItem = null;
+        this.dragOverTreeFolder = null;
+        return;
+      }
+      
       // 로컬 변수로 저장 (나중에 null이 되어도 사용 가능)
       const sourceItem = this.draggingItem;
       const destFolder = targetFolder;
@@ -2171,6 +2342,7 @@ export default {
       // 즉시 초기화
       this.draggingItem = null;
       this.dragOverItem = null;
+      this.dragOverTreeFolder = null;
       
       try {
         // 타입에 따라 적절한 API 호출
@@ -2178,6 +2350,9 @@ export default {
           await driveService.moveFolder(sourceItem.id, {
             parentId: destFolder.id
           });
+          
+          // 트리 직접 업데이트 (새로고침 없이)
+          this.moveFolderInTree(sourceItem.id, destFolder.id);
         } else if (sourceItem.type === 'document' || sourceItem.type === 'file') {
           // 문서/파일은 통합 API 사용 (ElementMoveDto)
           await driveService.moveElement(sourceItem.id, {
@@ -2194,11 +2369,6 @@ export default {
         } else {
           await this.loadFolderContents(this.currentFolderId);
         }
-        
-        // 폴더 이동인 경우 트리도 새로고침
-        if (sourceItem.type === 'folder') {
-          await this.refreshFolderTree();
-        }
       } catch (error) {
         console.error('이동 실패:', error);
         const errorMessage = error.response?.data?.statusMessage || '이동에 실패했습니다.';
@@ -2210,6 +2380,104 @@ export default {
     async refreshFolderTree() {
       this.folderCache = {};
       await this.loadFolderTree();
+    },
+
+    // 트리뷰 드래그 앤 드롭
+    onTreeDragOver(e, treeItem) {
+      if (!this.draggingItem) return;
+      
+      // 루트는 드롭 불가 (이미 루트에 있는 아이템은 이동할 필요 없음)
+      if (treeItem.id === 'root') return;
+      
+      // 자기 자신에게는 드롭 불가
+      if (this.draggingItem.id === treeItem.id) return;
+      
+      // 폴더인 경우 순환 이동 방지 (자기 자신의 하위 폴더로는 이동 불가)
+      if (this.draggingItem.type === 'folder' && this.isDescendantOf(treeItem.id, this.draggingItem.id)) {
+        return; // 드롭 불가능한 상태
+      }
+      
+      e.preventDefault();
+      e.stopPropagation(); // 이벤트 버블링 방지
+      e.dataTransfer.dropEffect = 'move';
+      this.dragOverTreeFolder = treeItem;
+      
+      // 트리뷰가 드래그 오버되면 테이블의 드래그 오버 상태 초기화
+      this.dragOverItem = null;
+    },
+
+    onTreeDragLeave(e) {
+      // 자식 요소로 이동하는 경우를 제외하기 위해 약간의 지연
+      // 실제로 트리뷰 영역을 벗어났는지 확인
+      const relatedTarget = e.relatedTarget;
+      if (!relatedTarget || !this.$el.querySelector('.folder-tree')?.contains(relatedTarget)) {
+        // 트리뷰 영역 밖으로 나갔을 때만 초기화
+        setTimeout(() => {
+          this.dragOverTreeFolder = null;
+        }, 100);
+      }
+    },
+
+    async onTreeDrop(e, targetFolder) {
+      e.preventDefault();
+      e.stopPropagation(); // 이벤트 버블링 방지 (테이블 드롭과 중복 방지)
+      
+      if (!this.draggingItem || !targetFolder) return;
+      if (targetFolder.id === 'root') return; // 루트는 드롭 불가
+      if (this.draggingItem.id === targetFolder.id) return; // 자기 자신에게는 드롭 불가
+      
+      // 폴더인 경우 순환 이동 방지 (자기 자신의 하위 폴더로는 이동 불가)
+      if (this.draggingItem.type === 'folder' && this.isDescendantOf(targetFolder.id, this.draggingItem.id)) {
+        showSnackbar('자기 자신의 하위 폴더로는 이동할 수 없습니다.', 'warning');
+        this.draggingItem = null;
+        this.dragOverItem = null;
+        this.dragOverTreeFolder = null;
+        return;
+      }
+      
+      // 로컬 변수로 저장 (나중에 null이 되어도 사용 가능)
+      const sourceItem = this.draggingItem;
+      const destFolder = {
+        id: targetFolder.id,
+        name: targetFolder.name,
+        type: 'folder'
+      };
+      
+      // 즉시 초기화
+      this.draggingItem = null;
+      this.dragOverItem = null;
+      this.dragOverTreeFolder = null;
+      
+      try {
+        // 타입에 따라 적절한 API 호출 (테이블의 onDrop과 동일한 로직)
+        if (sourceItem.type === 'folder') {
+          await driveService.moveFolder(sourceItem.id, {
+            parentId: destFolder.id
+          });
+          
+          // 트리 직접 업데이트 (새로고침 없이)
+          this.moveFolderInTree(sourceItem.id, destFolder.id);
+        } else if (sourceItem.type === 'document' || sourceItem.type === 'file') {
+          // 문서/파일은 통합 API 사용 (ElementMoveDto)
+          await driveService.moveElement(sourceItem.id, {
+            folderId: destFolder.id,
+            type: sourceItem.type  // 'document' 또는 'file'
+          });
+        }
+        
+        showSnackbar(`"${sourceItem.name}"을(를) "${destFolder.name}"(으)로 이동했습니다.`, 'success');
+        
+        // 현재 루트 정보를 유지하면서 새로고침
+        if (this.currentRootType && this.currentRootId) {
+          await this.loadFolderContents(this.currentFolderId, this.currentRootType, this.currentRootId);
+        } else {
+          await this.loadFolderContents(this.currentFolderId);
+        }
+      } catch (error) {
+        console.error('이동 실패:', error);
+        const errorMessage = error.response?.data?.statusMessage || '이동에 실패했습니다.';
+        showSnackbar(errorMessage, 'error');
+      }
     },
     
     // 정렬 처리
@@ -2442,18 +2710,165 @@ export default {
 
 .folder-tree :deep(.v-treeview-node__root) {
   min-height: 36px;
+  background-color: transparent !important;
+}
+
+/* 모든 노드 상태에서 배경색 및 테두리 제거 */
+.folder-tree :deep(.v-treeview-node),
+.folder-tree :deep(.v-treeview-node__root),
+.folder-tree :deep(.v-treeview-node__content),
+.folder-tree :deep(.v-treeview-node--active),
+.folder-tree :deep(.v-treeview-node--active .v-treeview-node__content),
+.folder-tree :deep(.v-treeview-node--active .v-treeview-node__root) {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+.folder-tree :deep(.v-treeview-node__content) {
+  cursor: default;
+  /* 빈 공간 클릭 방지 */
+  pointer-events: none;
+  /* 활성화 배경색 제거 */
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+/* 호버 효과 제거 (모든 상태) */
+.folder-tree :deep(.v-treeview-node:hover),
+.folder-tree :deep(.v-treeview-node__root:hover),
+.folder-tree :deep(.v-treeview-node__content:hover),
+.folder-tree :deep(.v-treeview-node--active:hover),
+.folder-tree :deep(.v-treeview-node--active:hover .v-treeview-node__content) {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+/* 포커스 효과 제거 (토글 클릭 시) */
+.folder-tree :deep(.v-treeview-node__toggle:focus),
+.folder-tree :deep(.v-treeview-node__toggle:focus-visible),
+.folder-tree :deep(.v-treeview-node__toggle:active),
+.folder-tree :deep(.v-treeview-node__content:focus),
+.folder-tree :deep(.v-treeview-node__content:focus-visible),
+.folder-tree :deep(.v-treeview-node__root:focus),
+.folder-tree :deep(.v-treeview-node__root:focus-visible) {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+.folder-tree :deep(.v-treeview-node__toggle),
+.folder-tree :deep(.v-treeview-node__toggle *),
+.folder-tree :deep(.v-treeview-node__toggle button),
+.folder-tree :deep(.v-treeview-node__toggle button *),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn *),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--icon),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--variant-text),
+.folder-tree :deep(.v-treeview-node__toggle::before),
+.folder-tree :deep(.v-treeview-node__toggle::after) {
+  cursor: pointer;
+  pointer-events: auto;
+  /* 모든 상태에서 테두리 완전 제거 */
+  outline: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+.folder-tree :deep(.v-treeview-node__toggle:hover),
+.folder-tree :deep(.v-treeview-node__toggle:focus),
+.folder-tree :deep(.v-treeview-node__toggle:active),
+.folder-tree :deep(.v-treeview-node__toggle:focus-visible),
+.folder-tree :deep(.v-treeview-node__toggle:visited),
+.folder-tree :deep(.v-treeview-node__toggle:hover *),
+.folder-tree :deep(.v-treeview-node__toggle:focus *),
+.folder-tree :deep(.v-treeview-node__toggle:active *),
+.folder-tree :deep(.v-treeview-node__toggle:hover button),
+.folder-tree :deep(.v-treeview-node__toggle:focus button),
+.folder-tree :deep(.v-treeview-node__toggle:active button),
+.folder-tree :deep(.v-treeview-node__toggle button:hover),
+.folder-tree :deep(.v-treeview-node__toggle button:focus),
+.folder-tree :deep(.v-treeview-node__toggle button:active),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn:hover),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn:focus),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn:active),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--icon:hover),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--icon:focus),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--icon:active) {
+  background-color: transparent !important;
+  outline: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+}
+
+/* v-btn 관련 추가 스타일 */
+.folder-tree :deep(.v-btn),
+.folder-tree :deep(.v-btn--icon),
+.folder-tree :deep(.v-btn--variant-text),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--icon),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn--variant-text) {
+  outline: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+.folder-tree :deep(.v-btn:hover),
+.folder-tree :deep(.v-btn:focus),
+.folder-tree :deep(.v-btn:active),
+.folder-tree :deep(.v-btn--icon:hover),
+.folder-tree :deep(.v-btn--icon:focus),
+.folder-tree :deep(.v-btn--icon:active),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn:hover),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn:focus),
+.folder-tree :deep(.v-treeview-node__toggle .v-btn:active) {
+  outline: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
 }
 
 .folder-tree :deep(.v-treeview-node__label) {
   font-size: 14px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.folder-tree :deep(.v-treeview-node__prepend) {
+  pointer-events: auto;
 }
 
 .folder-label {
   cursor: pointer;
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .folder-label:hover {
   color: #1976d2;
+  background-color: #f5f5f5;
+}
+
+.folder-label.drag-over-tree {
+  background-color: #e3f2fd !important;
+  color: #1976d2 !important;
+  font-weight: 600;
+  border: 2px solid #1976d2;
+  border-radius: 4px;
 }
 
 .drive-table :deep(tbody tr) {
@@ -2503,10 +2918,18 @@ export default {
   box-shadow: none !important;
   background-color: #f5f5f5 !important;
   color: #5f6368 !important;
+  outline: none !important;
+  border: none !important;
 }
 
-.filter-btn:hover {
+.filter-btn:hover,
+.filter-btn:focus,
+.filter-btn:active,
+.filter-btn:focus-visible {
   background-color: #e8e8e8 !important;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .filter-btn-active {
@@ -2514,6 +2937,42 @@ export default {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
   color: #1976d2 !important;
   font-weight: 600;
+  outline: none !important;
+  border: none !important;
+}
+
+.filter-btn-active:hover,
+.filter-btn-active:focus,
+.filter-btn-active:active,
+.filter-btn-active:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* 새로고침 버튼 및 신규 버튼 테두리 제거 */
+.main-content-col :deep(.v-toolbar .v-btn),
+.main-content-col :deep(.v-toolbar .v-btn--text),
+.main-content-col :deep(.v-toolbar .v-btn--depressed),
+.main-content-col :deep(.v-toolbar .v-btn--small) {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.main-content-col :deep(.v-toolbar .v-btn:hover),
+.main-content-col :deep(.v-toolbar .v-btn:focus),
+.main-content-col :deep(.v-toolbar .v-btn:active),
+.main-content-col :deep(.v-toolbar .v-btn:focus-visible),
+.main-content-col :deep(.v-toolbar .v-btn--text:hover),
+.main-content-col :deep(.v-toolbar .v-btn--text:focus),
+.main-content-col :deep(.v-toolbar .v-btn--text:active),
+.main-content-col :deep(.v-toolbar .v-btn--depressed:hover),
+.main-content-col :deep(.v-toolbar .v-btn--depressed:focus),
+.main-content-col :deep(.v-toolbar .v-btn--depressed:active) {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* 필터 메뉴 컨테이너 (v-menu content) */
