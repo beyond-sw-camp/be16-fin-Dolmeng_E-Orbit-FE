@@ -1048,10 +1048,10 @@ export default {
 .today-line::after {
   content: '';
   position: absolute;
-  top: 0;
+  top: 50px;
   left: 0;
   width: 2px;
-  height: calc(100% + 240px);
+  height: calc(100% + 370px);
   border-left: 2px dashed rgba(255, 68, 68, 0.6);
 }
 
@@ -1063,24 +1063,10 @@ export default {
 }
 
 .gantt-bar-wrapper {
-  position: absolute;
+  position: relative;
   width: 100%;
-}
-
-.gantt-bar-wrapper:nth-child(1) {
-  top: 0px;
-}
-
-.gantt-bar-wrapper:nth-child(2) {
-  top: 60px;
-}
-
-.gantt-bar-wrapper:nth-child(3) {
-  top: 120px;
-}
-
-.gantt-bar-wrapper:nth-child(4) {
-  top: 180px;
+  height: 60px;
+  margin-bottom: 0;
 }
 
 .gantt-bar {
@@ -1120,6 +1106,7 @@ export default {
   width: 100%;
   position: relative;
   z-index: 2;
+  min-width: 0;
 }
 
 .project-name {
@@ -1129,6 +1116,9 @@ export default {
   line-height: 16px;
   color: #2A2828;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .project-period {
