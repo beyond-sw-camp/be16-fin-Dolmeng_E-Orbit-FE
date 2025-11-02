@@ -177,5 +177,20 @@ export default {
   getRootName(rootType, rootId) {
     return driveApi.get(`/${rootType}/${rootId}/name`);
   },
+
+  // 문서 상세 정보 조회
+  getDocumentInfo(documentId) {
+    return driveApi.get(`/document/${documentId}/info`);
+  },
+
+  // 폴더 상세 정보 조회
+  getFolderInfoDetail(folderId) {
+    return driveApi.get(`/folder/${folderId}/info`);
+  },
+
+  // 파일 상세 정보 조회
+  getFileInfo(fileId) {
+    return driveApi.get(`/file/${fileId}/info`);
+  },
 };
 

@@ -328,6 +328,10 @@
                     </v-btn>
                   </template>
                   <div class="new-item-menu action-menu-list">
+                    <button class="menu-item" @click="openInfoFromMenu">
+                      <v-icon small class="menu-item-icon">mdi-information-outline</v-icon>
+                      <span>상세 정보</span>
+                    </button>
                     <button v-if="canRename(actionTarget)" class="menu-item" @click="openRenameFromMenu">
                       <v-icon small class="menu-item-icon">mdi-pencil</v-icon>
                       <span>이름 변경</span>
@@ -467,6 +471,94 @@
           <v-btn text @click="createDocumentDialog = false" class="mr-2" :disabled="isCreatingDocument">취소</v-btn>
           <v-btn color="primary" depressed @click="createDocument" :disabled="isCreatingDocument" :loading="isCreatingDocument">
             <v-icon small left>mdi-check</v-icon>만들기
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Item Info Dialog -->
+    <v-dialog v-model="infoDialog" max-width="600" scroll-strategy="block">
+      <v-card class="info-dialog-card">
+        <v-card-title class="d-flex align-center pa-4">
+          <v-icon class="mr-3" :color="getItemIconColor(infoItem || {})" size="28">
+            {{ getItemIcon(infoItem || {}) }}
+          </v-icon>
+          <div class="flex-grow-1">
+            <div class="text-h6 font-weight-600">상세 정보</div>
+            <div class="text-caption grey--text text--darken-1 mt-1 text-truncate" style="max-width: 400px;">
+              {{ infoItem?.name || '' }}
+            </div>
+          </div>
+          <v-btn icon @click="infoDialog = false" size="small">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text class="pa-0" v-if="isLoadingInfo">
+          <div class="d-flex justify-center align-center py-8">
+            <v-progress-circular indeterminate color="primary"></v-progress-circular>
+          </div>
+        </v-card-text>
+        <v-card-text class="pa-4" v-else-if="itemInfo">
+          <v-list dense>
+            <v-list-item v-if="itemInfo.name">
+              <v-list-item-content>
+                <v-list-item-title class="info-label">이름</v-list-item-title>
+                <v-list-item-subtitle class="info-value">{{ itemInfo.name }}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+            
+            <v-list-item v-if="itemInfo.folderName || itemInfo.parentFolderName">
+              <v-list-item-content>
+                <v-list-item-title class="info-label">
+                  {{ infoItem?.type === 'folder' ? '상위 폴더' : '폴더' }}
+                </v-list-item-title>
+                <v-list-item-subtitle class="info-value">
+                  {{ itemInfo.folderName || itemInfo.parentFolderName || '루트' }}
+                </v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+            
+            <v-list-item v-if="itemInfo.fileSize">
+              <v-list-item-content>
+                <v-list-item-title class="info-label">크기</v-list-item-title>
+                <v-list-item-subtitle class="info-value">{{ formatFileSize(itemInfo.fileSize) }}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+            
+            <v-list-item v-if="itemInfo.creatorName">
+              <v-list-item-content>
+                <v-list-item-title class="info-label">생성자</v-list-item-title>
+                <v-list-item-subtitle class="info-value">{{ itemInfo.creatorName }}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+            
+            <v-list-item v-if="itemInfo.createdAt">
+              <v-list-item-content>
+                <v-list-item-title class="info-label">생성일</v-list-item-title>
+                <v-list-item-subtitle class="info-value">{{ formatDateTime(itemInfo.createdAt) }}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+            
+            <v-list-item v-if="itemInfo.updatedAt">
+              <v-list-item-content>
+                <v-list-item-title class="info-label">수정일</v-list-item-title>
+                <v-list-item-subtitle class="info-value">{{ formatDateTime(itemInfo.updatedAt) }}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+        <v-divider></v-divider>
+        <v-card-actions class="pa-4">
+          <v-spacer></v-spacer>
+          <v-btn text @click="openRenameDialog(infoItem)" :disabled="!infoItem">
+            <v-icon small left>mdi-pencil</v-icon>이름 변경
+          </v-btn>
+          <v-btn text color="error" @click="deleteItem(infoItem)" :disabled="!infoItem">
+            <v-icon small left>mdi-delete</v-icon>삭제
+          </v-btn>
+          <v-btn color="primary" depressed @click="infoDialog = false">
+            닫기
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -643,6 +735,12 @@ export default {
       uploadDialog: false,
       selectedFiles: [], // { key, file, previewUrl }
       isUploading: false,
+      
+      // 상세 정보 모달
+      infoDialog: false,
+      infoItem: null,
+      itemInfo: null,
+      isLoadingInfo: false,
       
       // 드래그 앤 드롭
       draggingItem: null,
@@ -2086,6 +2184,69 @@ export default {
       this.renameDialog = true;
     },
 
+    // 상세 정보 모달 열기
+    async openInfoDialog(item) {
+      if (!item) return;
+      
+      this.infoItem = item;
+      this.infoDialog = true;
+      this.itemInfo = null;
+      this.isLoadingInfo = true;
+      
+      try {
+        let response;
+        if (item.type === 'document') {
+          response = await driveService.getDocumentInfo(item.id);
+        } else if (item.type === 'folder') {
+          response = await driveService.getFolderInfoDetail(item.id);
+        } else if (item.type === 'file') {
+          response = await driveService.getFileInfo(item.id);
+        }
+        
+        if (response?.result) {
+          this.itemInfo = response.result;
+        } else if (response) {
+          this.itemInfo = response;
+        }
+      } catch (error) {
+        console.error('상세 정보 로드 실패:', error);
+        const errorMessage = error.response?.data?.message || error.response?.data?.statusMessage || '상세 정보를 불러올 수 없습니다.';
+        showSnackbar(errorMessage, 'error');
+        this.infoDialog = false;
+      } finally {
+        this.isLoadingInfo = false;
+      }
+    },
+
+    // 날짜 시간 포맷팅
+    formatDateTime(dateTime) {
+      if (!dateTime) return '';
+      
+      try {
+        const date = new Date(dateTime);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+      } catch (error) {
+        return dateTime;
+      }
+    },
+
+    // 파일 크기 포맷팅
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    },
+
     // 이름 변경
     async confirmRename() {
       if (!this.renameName.trim()) {
@@ -2111,6 +2272,12 @@ export default {
         
         showSnackbar(response.statusMessage || '이름이 변경되었습니다.', 'success');
         this.renameDialog = false;
+        
+        // 상세 정보 모달이 열려있고 같은 아이템이면 정보 새로고침
+        if (this.infoDialog && this.infoItem && this.infoItem.id === this.renameItem.id) {
+          this.infoItem.name = this.renameName;
+          await this.openInfoDialog(this.infoItem);
+        }
         
         // 메인 콘텐츠만 새로고침 (트리는 이미 업데이트됨)
         if (this.currentRootType && this.currentRootId) {
@@ -2208,6 +2375,13 @@ export default {
         }
         
         showSnackbar(response.statusMessage || '삭제되었습니다.', 'success');
+        
+        // 상세 정보 모달이 열려있고 같은 아이템이면 모달 닫기
+        if (this.infoDialog && this.infoItem && this.infoItem.id === item.id) {
+          this.infoDialog = false;
+          this.infoItem = null;
+          this.itemInfo = null;
+        }
         
         // 현재 루트 정보를 유지하면서 새로고침
         if (this.currentRootType && this.currentRootId) {
@@ -2817,6 +2991,11 @@ export default {
     canDelete(item) {
       if (!item) return false;
       return item.type === 'folder' || item.type === 'document' || item.type === 'file';
+    },
+
+    openInfoFromMenu() {
+      if (!this.actionTarget) return;
+      this.openInfoDialog(this.actionTarget);
     },
 
     openRenameFromMenu() {
@@ -3822,5 +4001,45 @@ export default {
 
 .create-dialog-card .v-card-actions .v-btn--depressed:hover {
   box-shadow: 0 2px 4px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+}
+
+/* 상세 정보 모달 스타일 */
+.info-dialog-card {
+  border-radius: 8px !important;
+}
+
+.info-dialog-card .v-card-title {
+  background: linear-gradient(to right, #f8f9fa 0%, #ffffff 100%);
+  border-bottom: 1px solid #e8eaed;
+}
+
+.info-dialog-card .info-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5f6368;
+  margin-bottom: 4px;
+}
+
+.info-dialog-card .info-value {
+  font-size: 14px;
+  color: #202124;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.info-dialog-card .v-list-item {
+  padding: 12px 0;
+  min-height: auto;
+}
+
+.info-dialog-card .v-list-item:not(:last-child) {
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.info-dialog-card .v-card-actions .v-btn {
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  padding: 0 20px !important;
 }
 </style>
