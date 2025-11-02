@@ -23,8 +23,8 @@
               <div class="month-labels">
                 <span v-for="(label, index) in projectTimelineLabels" :key="index">{{ label.label }}</span>
               </div>
-              <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
             </div>
+            <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
             <div class="gantt-bars">
               <div v-if="loading" class="loading-message">
                 프로젝트 로딩 중...
@@ -1018,9 +1018,9 @@ export default {
 
 .today-line {
   position: absolute;
+  top: 0;
   bottom: 0;
   width: 2px;
-  height: calc(100% + 100%);
   background: transparent;
   z-index: 10;
   pointer-events: none;
@@ -1029,7 +1029,7 @@ export default {
 .today-line::before {
   content: 'Today';
   position: absolute;
-  bottom: -6px;
+  top: 18px;
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Pretendard', sans-serif;
@@ -1048,10 +1048,10 @@ export default {
 .today-line::after {
   content: '';
   position: absolute;
-  top: 50px;
+  top: 32px;
+  bottom: 0;
   left: 0;
   width: 2px;
-  height: calc(100% + 370px);
   border-left: 2px dashed rgba(255, 68, 68, 0.6);
 }
 
