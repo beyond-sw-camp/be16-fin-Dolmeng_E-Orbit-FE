@@ -349,6 +349,11 @@ export default {
         return;
       }
 
+      if (keyword.length < 2) {
+        showSnackbar('검색어는 최소 2글자 이상 입력해주세요.', 'warning');
+        return;
+      }
+
       this.showSuggestions = false;
       // 검색 결과 페이지로 이동
       this.$router.push({

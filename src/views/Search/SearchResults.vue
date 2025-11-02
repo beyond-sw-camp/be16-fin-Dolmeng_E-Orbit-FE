@@ -259,6 +259,11 @@ export default {
         return;
       }
 
+      if (keyword.length < 2) {
+        this.searchResults = [];
+        return;
+      }
+
       this.loading = true;
       this.activeTab = 'all';
 
