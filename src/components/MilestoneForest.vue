@@ -95,8 +95,9 @@ const nodeWidth = 85
 const nodeHeight = 38
 const headerWidth = 220
 const headerHeight = 44
-const nodeVerticalSpacing = 60 // 레벨 간 간격 (60px)
-const nodeHorizontalSpacing = 120 // 형제 노드 간 간격 (120px)
+const nodeVerticalSpacing = 62 // 기본 레벨 간 간격 (기존 52px → 62px로 10px 증가)
+const nodeHorizontalSpacing = 102 // 형제 노드 간 간격 (기존 120px → 102px로 15% 감소)
+const firstChildExtraSpacing = 12 // 첫 번째 하위 노드 추가 여백
 
 /** 프로젝트별 레이아웃 캐시 */
 const layouts = reactive({})
@@ -107,13 +108,16 @@ function buildLayout(rootData) {
   // 형제 간 간격, 레벨 간 간격 조절 - 하위 노드 간격 확대
   const layout = tree()
     .nodeSize([nodeHorizontalSpacing, nodeVerticalSpacing])
-    .separation((a, b) => (a.parent === b.parent ? 1.8 : 2.2)) // 형제 간 간격 조정
+    .separation((a, b) => (a.parent === b.parent ? 1.6 : 2.0)) // 형제 간 간격 조정 (1.8→1.6, 2.2→2.0으로 감소)
   const t = layout(root)
 
   // 노드 개수에 따라 동적 높이 계산
   const descendants = t.descendants()
   const maxDepth = descendants.length > 0 ? descendants.reduce((max, d) => Math.max(max, d.depth), 0) : 0
-  const dynamicHeight = Math.max(260, (maxDepth + 1) * nodeVerticalSpacing + 50) // 최소 높이 260, 상하 여백 50
+  // depth 1에 추가 여백 반영한 높이 계산
+  let calculatedHeight = maxDepth === 0 ? 60 : 
+    (60 + (maxDepth >= 1 ? nodeVerticalSpacing + firstChildExtraSpacing : 0) + Math.max(0, maxDepth - 1) * nodeVerticalSpacing)
+  const dynamicHeight = Math.max(260, calculatedHeight + 60) // 최소 높이 260, 상하 여백 60 (50→60으로 10px 증가)
 
   // 트리의 실제 너비 계산 (최소/최대 x 좌표)
   const xValues = descendants.map(d => d.x)
@@ -122,7 +126,7 @@ function buildLayout(rootData) {
   const treeWidth = maxX - minX
   
   // scale 값
-  const scale = 0.5
+  const scale = 0.55 // 기존 0.5 → 0.55로 약간 확대하여 중앙 집중감 유지
   const yOffset = 40
 
   // 중앙 정렬: scale 적용 후의 트리 너비를 기준으로 중앙 정렬
@@ -155,25 +159,51 @@ function buildLayout(rootData) {
     const padding = 24 // 좌우 여백
     const calculatedWidth = Math.max(minWidth, textWidth + padding) + 10 // 폭 10px 추가
     
+    // depth별 y 계산: depth 1(첫 번째 하위)에만 추가 여백
+    let yPosition = 60
+    for (let depth = 1; depth <= d.depth; depth++) {
+      if (depth === 1) {
+        yPosition += nodeVerticalSpacing + firstChildExtraSpacing // 첫 번째 하위는 추가 여백
+      } else {
+        yPosition += nodeVerticalSpacing // 나머지는 기본 간격
+      }
+    }
+    
     return {
       ...d,
       x: d.x,
-      y: 60 + d.depth * nodeVerticalSpacing,
+      y: yPosition,
       rectWidth: calculatedWidth, // 동적 폭 저장 (15% 확대)
     }
   })
-  const links = t.links().map(l => ({
-    source: {
-      x: l.source.x,
-      y: 60 + l.source.depth * nodeVerticalSpacing,
-      depth: l.source.depth,
-    },
-    target: {
-      x: l.target.x,
-      y: 60 + l.target.depth * nodeVerticalSpacing,
-      depth: l.target.depth,
-    },
-  }))
+  
+  // 링크도 동일한 로직으로 계산
+  const links = t.links().map(l => {
+    const getYPosition = (depth) => {
+      let yPos = 60
+      for (let d = 1; d <= depth; d++) {
+        if (d === 1) {
+          yPos += nodeVerticalSpacing + firstChildExtraSpacing
+        } else {
+          yPos += nodeVerticalSpacing
+        }
+      }
+      return yPos
+    }
+    
+    return {
+      source: {
+        x: l.source.x,
+        y: getYPosition(l.source.depth),
+        depth: l.source.depth,
+      },
+      target: {
+        x: l.target.x,
+        y: getYPosition(l.target.depth),
+        depth: l.target.depth,
+      },
+    }
+  })
   
   // SVG 그룹 transform 계산 (중앙 정렬 + 스케일)
   // 트리의 최소 x 좌표를 기준으로 중앙 정렬
