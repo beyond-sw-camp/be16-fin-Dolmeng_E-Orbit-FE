@@ -10,56 +10,71 @@
       </div>
 
       <!-- 컨텐츠 그리드 -->
-      <div class="content-grid">
-        <!-- 첫 번째 열: 프로젝트 + 문서함 -->
-        <div class="left-column">
-          <!-- 프로젝트 목록 섹션 -->
-          <div class="project-section">
-            <div class="section-header">
-              <h2 class="section-title">진행중인 프로젝트</h2>
-              <button class="add-button" @click="openProjectCreateModal">+ 프로젝트 추가</button>
-            </div>
-            <div class="gantt-chart">
-              <div class="gantt-header">
-                <div class="month-labels">
-                  <span v-for="(label, index) in projectTimelineLabels" :key="index">{{ label.label }}</span>
-                </div>
-                <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
+      <div class="dashboard-layout">
+        <!-- 1행 -->
+        <!-- 진행중인 프로젝트 -->
+        <section class="project-section">
+          <div class="section-header">
+            <h2 class="section-title">진행중인 프로젝트</h2>
+            <button class="add-button" @click="openProjectCreateModal">+ 프로젝트 추가</button>
+          </div>
+          <div class="gantt-chart">
+            <div class="gantt-header">
+              <div class="month-labels">
+                <span v-for="(label, index) in projectTimelineLabels" :key="index">{{ label.label }}</span>
               </div>
-              <div class="gantt-bars">
-                <div v-if="loading" class="loading-message">
-                  프로젝트 로딩 중...
-                </div>
-                <div v-else-if="myProjects.length === 0" class="no-projects-message">
-                  <div class="no-projects-text">진행중인 프로젝트가 없습니다.</div>
-                  <div class="no-projects-subtext">새롭게 시작해보세요!</div>
-                </div>
-                <div v-else>
-                  <div class="gantt-bar-wrapper" v-for="project in myProjects" :key="project.id">
-                    <div class="gantt-bar" :style="project.style" @click="goToProject(project)">
-                      <div class="progress-fill" :style="{ width: project.progress + '%' }"></div>
-                      <div class="bar-content">
-                        <div class="project-name">{{ project.name }}</div>
-                        <div class="project-progress">{{ project.progress }}%</div>
-                      </div>
+              <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
+            </div>
+            <div class="gantt-bars">
+              <div v-if="loading" class="loading-message">
+                프로젝트 로딩 중...
+              </div>
+              <div v-else-if="myProjects.length === 0" class="no-projects-message">
+                <div class="no-projects-text">진행중인 프로젝트가 없습니다.</div>
+                <div class="no-projects-subtext">새롭게 시작해보세요!</div>
+              </div>
+              <div v-else>
+                <div class="gantt-bar-wrapper" v-for="project in myProjects" :key="project.id">
+                  <div class="gantt-bar" :style="project.style" @click="goToProject(project)">
+                    <div class="progress-fill" :style="{ width: project.progress + '%' }"></div>
+                    <div class="bar-content">
+                      <div class="project-name">{{ project.name }}</div>
+                      <div class="project-progress">{{ project.progress }}%</div>
                     </div>
-                    <div class="project-period" :style="{ left: project.style.left }">{{ formatProjectPeriod(project.startTime, project.endTime) }}</div>
                   </div>
+                  <div class="project-period" :style="{ left: project.style.left }">{{ formatProjectPeriod(project.startTime, project.endTime) }}</div>
                 </div>
               </div>
             </div>
           </div>
+        </section>
 
-          <!-- 나의 스톤 문서함 섹션 -->
-          <div class="stone-documents-section">
-            <h2 class="section-title">나의 스톤 문서함</h2>
-            <div class="document-list">
+        <!-- 스톤 채팅방 목록 -->
+        <aside class="chat-section">
+          <ChatRoomList 
+            embedded 
+            @select-room="handleChatRoomSelect"
+            @preview-summary="handlePreviewSummary"
+            :summaries-by-room-id="summariesByRoomId"
+            :selected-room-id="null"
+          />
+        </aside>
+
+        <!-- 2행 -->
+        <!-- 나의 스톤 문서함 -->
+        <section class="docs-section">
+          <h2 class="section-title">나의 스톤 문서함</h2>
+          <div class="document-list">
+            <div v-if="documentFolders.length === 0" class="no-stones-message">
+              <div class="no-stones-text">나의 스톤이 없습니다.</div>
+            </div>
+            <div v-else>
               <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
                 <div class="folder-header" :style="{ backgroundColor: folder.color }">
                   <span class="folder-name">📁 {{ folder.name }}</span>
                 </div>
                 <div class="folder-content">
-                  <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
+                  <div class="document-item" v-for="doc in folder.documents" :key="doc.id" @click="goToStoneDrive(doc)">
                     <span class="doc-icon">📄</span>
                     <span class="doc-name">{{ doc.name }}</span>
                   </div>
@@ -67,73 +82,49 @@
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- 두 번째 열: 나의 Task (넓은 공간) -->
-        <div class="middle-column">
-          <div class="urgent-tasks-section">
-            <div class="section-header">
-              <h2 class="section-title">📋 나의 Task</h2>
-              <div class="task-stats">
-                <div class="stat-item">
-                  <span class="stat-number">{{ taskStats.total }}</span>
-                  <span class="stat-label">총 Task</span>
-                </div>
-                <div class="stat-item completed">
-                  <span class="stat-number">{{ taskStats.completed }}</span>
-                  <span class="stat-label">완료</span>
-                </div>
-                <div class="stat-item pending">
-                  <span class="stat-number">{{ taskStats.pending }}</span>
-                  <span class="stat-label">진행중</span>
-                </div>
-                <div class="stat-item rate">
-                  <span class="stat-number">{{ taskStats.completionRate }}%</span>
-                  <span class="stat-label">완료율</span>
-                </div>
-              </div>
+        <!-- 나의 Task -->
+        <section class="task-section">
+          <div class="section-header">
+            <h2 class="section-title">나의 Task</h2>
+          </div>
+          
+          <div class="task-timeline-wrapper">
+            <div v-if="loading" class="loading-message">
+              로딩 중...
             </div>
-            
-            <div class="progress-section">
-              <div v-if="loading" class="loading-message">
-                로딩 중...
+            <div v-else-if="pendingTasks.length === 0" class="no-tasks-message">
+              할당된 Task가 없습니다.
+            </div>
+            <div v-else class="task-timeline-chart">
+              <!-- 타임라인 헤더 -->
+              <div class="task-timeline-header">
+                <div class="task-timeline-labels">
+                  <span v-for="(label, index) in taskTimelineLabels" :key="index" class="task-label">
+                    {{ label.label }}
+                  </span>
+                </div>
+                <div v-if="showTaskTodayLine" class="task-today-line" :style="{ left: taskTodayLinePosition }"></div>
               </div>
-              <div v-else-if="myTasks.length === 0" class="no-tasks-message">
-                할당된 Task가 없습니다.
-              </div>
-              <div v-else class="task-sections">
-                <!-- 미완료 태스크 -->
-                <div v-if="pendingTasks.length > 0" class="task-group">
-                  <h4 class="task-group-title">🔄 진행중인 Task ({{ pendingTasks.length }})</h4>
-                  <div class="task-list">
-                    <div class="task-item" v-for="task in pendingTasks" :key="task.id">
-                      <div class="task-content">
-                        <div class="task-info">
-                          <span class="task-name">{{ task.name }}</span>
-                          <span class="task-project">{{ task.projectName }} - {{ task.stoneName }}</span>
-                        </div>
-                        <span class="task-deadline">{{ task.deadline }}</span>
-                      </div>
+              
+              <!-- Task 바들 -->
+              <div class="task-timeline-bars">
+                <div class="task-bar-wrapper" v-for="task in pendingTasks" :key="task.id">
+                  <div class="task-bar" :style="calculateTaskBarStyle(task)" @click="goToTask(task)">
+                    <div class="task-bar-content">
+                      <div class="task-bar-name">{{ task.name }}</div>
+                      <div class="task-bar-deadline">{{ task.deadline }}</div>
                     </div>
+                  </div>
+                  <div class="task-bar-period" :style="{ left: calculateTaskBarStyle(task).left }">
+                    {{ formatTaskPeriod(task.startTime, task.endTime) }}
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- 세 번째 열: 채팅 알림 -->
-        <div class="right-column">
-          <div class="chat-notifications-section">
-            <ChatRoomList 
-              embedded 
-              @select-room="handleChatRoomSelect"
-              @preview-summary="handlePreviewSummary"
-              :summaries-by-room-id="summariesByRoomId"
-              :selected-room-id="null"
-            />
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>
@@ -157,7 +148,7 @@
 
 <script>
 import { workspaceWatcher } from '@/mixins/workspaceWatcher';
-import { getMyTasks, getMyProjects } from '@/api/task.js';
+import { getMyTasks, getMyProjects, getMyStones } from '@/api/task.js';
 import { useWorkspaceStore } from '@/stores/workspace.js';
 import ChatRoomList from '@/views/Chat/ChatRoomList.vue';
 import stompManager from '@/services/stompService.js';
@@ -178,36 +169,8 @@ export default {
         { id: 2, progress: 80, name: '개발 완료' }
       ],
       myTasks: [], // API에서 가져온 실제 데이터
-      documentFolders: [
-        {
-          id: 1,
-          name: '한화시스템 일정관리 웹서비스',
-          color: 'linear-gradient(90deg, #FFE364 0%, #FFD700 100%)',
-          documents: [
-            { id: 1, name: '요구사항 문서' },
-            { id: 2, name: '설계 문서' },
-            { id: 3, name: '테스트 계획서' }
-          ]
-        },
-        {
-          id: 2,
-          name: '인프런 강의 플랫폼',
-          color: 'linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)',
-          documents: [
-            { id: 4, name: '기획서' },
-            { id: 5, name: 'UI/UX 디자인' }
-          ]
-        },
-        {
-          id: 3,
-          name: 'React Native 모바일 앱',
-          color: 'linear-gradient(135deg, #42A5F5 0%, #2196F3 100%)',
-          documents: [
-            { id: 6, name: '앱 설계서' },
-            { id: 7, name: 'API 문서' }
-          ]
-        }
-      ],
+      myStones: [], // API에서 가져온 실제 스톤 데이터
+      documentFolders: [], // 프로젝트별로 그룹화된 스톤 데이터
       loading: false,
       summariesByRoomId: {},
       summaryUnsub: null,
@@ -217,14 +180,15 @@ export default {
     };
   },
   
-  async mounted() {
+    async mounted() {
     // store 초기화
     const workspaceStore = useWorkspaceStore();
     workspaceStore.initialize();
     
     await Promise.all([
       this.loadMyTasks(),
-      this.loadMyProjects()
+      this.loadMyProjects(),
+      this.loadMyStones()
     ]);
     
     // 프로젝트 생성 후 목록 새로고침
@@ -342,6 +306,80 @@ export default {
     // 미완료 태스크 목록
     pendingTasks() {
       return this.myTasks.filter(task => !task.isDone);
+    },
+    
+    // Task 타임라인 라벨 (Task 전체 기간 기준 MM/DD)
+    taskTimelineLabels() {
+      if (this.pendingTasks.length === 0) return [];
+      
+      // 모든 Task의 시작일과 종료일 찾기
+      const allDates = [];
+      this.pendingTasks.forEach(task => {
+        allDates.push(new Date(task.startTime));
+        allDates.push(new Date(task.endTime));
+      });
+      
+      const minDate = new Date(Math.min(...allDates));
+      const maxDate = new Date(Math.max(...allDates));
+      
+      // 4개의 날짜 라벨 생성 (첫 날짜 + 2개 중간 + 마지막 날짜)
+      const labels = [];
+      const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+      const interval = totalDays / 3; // 3등분
+      
+      // 첫 번째 날짜
+      labels.push({
+        date: new Date(minDate),
+        label: `${minDate.getMonth() + 1}/${minDate.getDate()}`
+      });
+      
+      // 중간 날짜 2개
+      for (let i = 1; i <= 2; i++) {
+        const intermediateDate = new Date(minDate);
+        intermediateDate.setDate(minDate.getDate() + Math.round(interval * i));
+        labels.push({
+          date: new Date(intermediateDate),
+          label: `${intermediateDate.getMonth() + 1}/${intermediateDate.getDate()}`
+        });
+      }
+      
+      // 마지막 날짜
+      labels.push({
+        date: new Date(maxDate),
+        label: `${maxDate.getMonth() + 1}/${maxDate.getDate()}`
+      });
+      
+      return labels;
+    },
+    
+    // Task Today 라인 위치
+    taskTodayLinePosition() {
+      if (this.pendingTasks.length === 0) return '0%';
+      
+      const today = new Date();
+      const range = this.getTaskDateRange();
+      
+      // Task 기간 내에 오늘이 있는지 확인
+      if (today < range.start || today > range.end) {
+        return '0%'; // Task 기간 밖이면 표시하지 않음
+      }
+      
+      // Task 기간 내에서의 오늘의 위치 계산
+      const totalDays = Math.ceil((range.end - range.start) / (1000 * 60 * 60 * 24));
+      const daysFromStart = Math.ceil((today - range.start) / (1000 * 60 * 60 * 24));
+      
+      const position = (daysFromStart / totalDays) * 100;
+      return `${Math.max(0, Math.min(100, position))}%`;
+    },
+    
+    // Task Today 라인 표시 여부
+    showTaskTodayLine() {
+      if (this.pendingTasks.length === 0) return false;
+      
+      const today = new Date();
+      const range = this.getTaskDateRange();
+      
+      return today >= range.start && today <= range.end;
     }
   },
   
@@ -385,7 +423,8 @@ export default {
       console.log('홈 페이지 데이터 새로고침');
       await Promise.all([
         this.loadMyTasks(),
-        this.loadMyProjects()
+        this.loadMyProjects(),
+        this.loadMyStones()
       ]);
     },
     
@@ -453,10 +492,7 @@ export default {
         this.loading = true;
         
         // Pinia store에서 워크스페이스 ID 가져오기
-        const workspaceStore = useWorkspaceStore();
-        const workspaceId = workspaceStore.getCurrentWorkspaceId || 'ws_2';
-        
-        const response = await getMyTasks(workspaceId);
+        const response = await getMyTasks();
         
         if (response.statusCode === 200) {
           this.myTasks = response.result.map(task => {
@@ -467,10 +503,12 @@ export default {
               name: task.taskName,
               projectName: task.projectName,
               stoneName: task.stoneName,
+              stoneId: task.stoneId,
               startTime: task.startTime,
               endTime: task.endTime,
               isDone: isDone,
-              deadline: isDone ? '완료' : this.calculateDeadline(task.endTime)
+              deadline: isDone ? '완료' : this.calculateDeadline(task.endTime),
+              stoneMilestone: task.stoneMilestone || 0
             };
           });
         }
@@ -480,6 +518,77 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    
+    // 나의 스톤 목록 로드 및 프로젝트별 그룹화
+    async loadMyStones() {
+      try {
+        const workspaceStore = useWorkspaceStore();
+        const workspaceId = workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_2';
+        
+        const response = await getMyStones(workspaceId);
+        
+        if (response.statusCode === 200) {
+          this.myStones = response.result.map(stone => ({
+            stoneId: stone.stoneId,
+            stoneName: stone.stoneName,
+            projectName: stone.projectName,
+            milestone: stone.milestone,
+            startTime: stone.startTime,
+            endTime: stone.endTime
+          }));
+          
+          // 프로젝트별로 그룹화
+          this.groupStonesByProject();
+        } else {
+          this.myStones = [];
+          this.documentFolders = [];
+        }
+      } catch (error) {
+        console.error('나의 스톤 로드 실패:', error);
+        this.myStones = [];
+        this.documentFolders = [];
+      }
+    },
+    
+    // 프로젝트별로 스톤 그룹화
+    groupStonesByProject() {
+      const projectMap = new Map();
+      
+      // 프로젝트별로 스톤 그룹화
+      this.myStones.forEach(stone => {
+        if (!projectMap.has(stone.projectName)) {
+          projectMap.set(stone.projectName, []);
+        }
+        projectMap.get(stone.projectName).push(stone);
+      });
+      
+      // 그룹화된 데이터를 documentFolders 형식으로 변환
+      const colors = [
+        'linear-gradient(90deg, #FFE364 0%, #FFD700 100%)',
+        'linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)',
+        'linear-gradient(135deg, #42A5F5 0%, #2196F3 100%)',
+        'linear-gradient(135deg, #AB47BC 0%, #8E24AA 100%)',
+        'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
+        'linear-gradient(135deg, #66BB6A 0%, #43A047 100%)'
+      ];
+      
+      let colorIndex = 0;
+      this.documentFolders = Array.from(projectMap.entries()).map(([projectName, stones], index) => {
+        const color = colors[colorIndex % colors.length];
+        colorIndex++;
+        
+        return {
+          id: index + 1,
+          name: projectName,
+          color: color,
+          documents: stones.map(stone => ({
+            id: stone.stoneId,
+            name: stone.stoneName,
+            stoneId: stone.stoneId
+          }))
+        };
+      });
     },
     
     // 마감일 계산
@@ -644,6 +753,102 @@ export default {
     formatMultiline(text) {
       if (!text) return '';
       return String(text).replace(/\n/g, '<br/>');
+    },
+    
+    // Task 기간 범위 계산
+    getTaskDateRange() {
+      if (this.pendingTasks.length === 0) {
+        return { start: new Date(), end: new Date() };
+      }
+      
+      const allDates = [];
+      this.pendingTasks.forEach(task => {
+        allDates.push(new Date(task.startTime));
+        allDates.push(new Date(task.endTime));
+      });
+      
+      const minDate = new Date(Math.min(...allDates));
+      const maxDate = new Date(Math.max(...allDates));
+      
+      return {
+        start: minDate,
+        end: maxDate
+      };
+    },
+    
+    // Task 바 스타일 계산 (startTime ~ endTime 기준)
+    calculateTaskBarStyle(task) {
+      const range = this.getTaskDateRange();
+      
+      if (range.start.getTime() === range.end.getTime()) {
+        return {
+          left: '0%',
+          width: '100%'
+        };
+      }
+      
+      const startDate = new Date(task.startTime);
+      const endDate = new Date(task.endTime);
+      
+      // 전체 Task 기간에서의 위치 계산
+      const totalRangeDays = Math.ceil((range.end - range.start) / (1000 * 60 * 60 * 24));
+      const taskStartOffset = Math.ceil((startDate - range.start) / (1000 * 60 * 60 * 24));
+      const taskDuration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+      
+      const leftPercent = (taskStartOffset / totalRangeDays) * 100;
+      const widthPercent = (taskDuration / totalRangeDays) * 100;
+      
+      return {
+        left: `${Math.max(0, leftPercent)}%`,
+        width: `${Math.min(100, widthPercent)}%`
+      };
+    },
+    
+    // Task 기간 포맷팅
+    formatTaskPeriod(startTime, endTime) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      
+      const startMonth = start.getMonth() + 1;
+      const startDay = start.getDate();
+      const endMonth = end.getMonth() + 1;
+      const endDay = end.getDate();
+      
+      return `${startMonth}/${startDay} - ${endMonth}/${endDay}`;
+    },
+    
+    // 스톤 문서함으로 이동
+    goToStoneDrive(doc) {
+      console.log('스톤 문서함으로 이동:', doc);
+      if (doc.stoneId) {
+        this.$router.push({
+          name: 'driveRoot',
+          params: { rootType: 'STONE', rootId: doc.stoneId }
+        });
+      } else {
+        console.error('stoneId를 찾을 수 없음:', doc);
+      }
+    },
+    
+    // Task 페이지로 이동 (stone 모달 열기)
+    goToTask(task) {
+      console.log('Task로 이동:', task);
+      
+      // 프로젝트 이름으로 myProjects에서 projectId 찾기
+      const project = this.myProjects.find(p => p.name === task.projectName);
+      
+      if (project && task.stoneId) {
+        // 프로젝트 페이지로 이동하면서 stoneId 쿼리 파라미터로 전달
+        this.$router.push({ 
+          path: '/project', 
+          query: { 
+            id: project.id,
+            stoneId: task.stoneId
+          } 
+        });
+      } else {
+        console.error('프로젝트 또는 stoneId를 찾을 수 없음:', { project, task });
+      }
     }
   }
 };
@@ -687,46 +892,29 @@ export default {
   margin: 0;
 }
 
-.content-grid {
+.dashboard-layout {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 0.8fr;
-  gap: 15px;
-  margin-bottom: 0;
-  height: calc(100% - 50px);
+  grid-template-columns: 1.4fr 1.4fr 1.2fr; /* 왼쪽 2칸(균등) + 오른쪽 좁게 */
+  grid-template-rows: auto auto; /* 2행 구조 */
+  gap: 20px;
+  width: 100%;
   padding: 0 20px 10px 20px;
-}
-
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 100%;
-}
-
-.middle-column {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.right-column {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  height: calc(100% - 50px);
+  box-sizing: border-box;
 }
 
 /* 프로젝트 섹션 */
 .project-section {
-  background: #FFFFFF;
-  border-radius: 16px;
-  padding: 18px;
-  flex: 1;
-  min-height: 0;
-  overflow: visible;
+  grid-column: 1 / 3; /* 왼쪽 2칸 차지 */
+  grid-row: 1 / 2;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  min-height: 0;
+  overflow: visible;
   transition: box-shadow 0.3s ease;
 }
 
@@ -745,9 +933,15 @@ export default {
   font-family: 'Pretendard', sans-serif;
   font-weight: 700;
   font-size: 18px;
-  line-height: 22px;
+  line-height: 28px;
   color: #1C0F0F;
   margin: 0;
+  padding: 8px 0;
+  min-height: 44px;
+}
+
+.task-section .section-header {
+  margin-bottom: 20px;
 }
 
 .add-button {
@@ -826,7 +1020,7 @@ export default {
   position: absolute;
   bottom: 0;
   width: 2px;
-  height: calc(100% + 100px);
+  height: calc(100% + 100%);
   background: transparent;
   z-index: 10;
   pointer-events: none;
@@ -854,10 +1048,10 @@ export default {
 .today-line::after {
   content: '';
   position: absolute;
-  bottom: -320px;
+  top: 0;
   left: 0;
   width: 2px;
-  height: calc(100% + 200px);
+  height: calc(100% + 240px);
   border-left: 2px dashed rgba(255, 68, 68, 0.6);
 }
 
@@ -958,22 +1152,242 @@ export default {
 
 /* 마일스톤 섹션 완전 제거 */
 
-/* 나의 Task 섹션 */
-.urgent-tasks-section {
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
-  border-radius: 16px;
-  padding: 18px;
+/* 채팅 섹션 */
+.chat-section {
+  grid-column: 3 / 4;
+  grid-row: 1 / 3; /* 세로 전체 확장 */
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 0;
   height: 100%;
-  overflow-y: hidden;
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
   transition: box-shadow 0.3s ease;
 }
 
-.urgent-tasks-section:hover {
+.chat-section:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* 나의 스톤 문서함 섹션 */
+.docs-section {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.docs-section:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* 나의 Task 섹션 */
+.task-section {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+  transition: box-shadow 0.3s ease;
+}
+
+.task-section:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Task 타임라인 스타일 */
+.task-timeline-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.task-timeline-chart {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Task 타임라인 헤더 */
+.task-timeline-header {
+  position: relative;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.task-timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 14px;
+  color: #666666;
+}
+
+.task-label {
+  position: relative;
+}
+
+.task-label::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 8px;
+  background: #E0E0E0;
+}
+
+.task-today-line {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  height: calc(100% + 100%);
+  background: transparent;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.task-today-line::before {
+  content: 'Today';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 12px;
+  color: #FF4444;
+  background: #FFFFFF;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 11;
+  pointer-events: auto;
+}
+
+.task-today-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: calc(100% + 240px);
+  border-left: 2px dashed rgba(255, 68, 68, 0.6);
+}
+
+/* Task 바들 영역 */
+.task-timeline-bars {
+  position: relative;
+  flex: 1;
+  min-height: 230px;
+  z-index: 1;
+}
+
+.task-bar-wrapper {
+  position: absolute;
+  width: 100%;
+}
+
+.task-bar-wrapper:nth-child(1) {
+  top: 0px;
+}
+
+.task-bar-wrapper:nth-child(2) {
+  top: 60px;
+}
+
+.task-bar-wrapper:nth-child(3) {
+  top: 120px;
+}
+
+.task-bar-wrapper:nth-child(4) {
+  top: 180px;
+}
+
+.task-bar {
+  position: absolute;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 2;
+  background: #E9ECEF;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 60px;
+}
+
+.task-bar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.task-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.task-bar-name {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 16px;
+  color: #2A2828;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-bar-deadline {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 16px;
+  color: #000000;
+  flex-shrink: 0;
+}
+
+.task-bar-period {
+  position: absolute;
+  top: 32px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 12px;
+  color: #666666;
+  white-space: nowrap;
 }
 
 .task-stats {
@@ -1030,15 +1444,19 @@ export default {
 
 .progress-section {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   display: flex;
   flex-direction: column;
+  min-height: 450px;
 }
 
-.task-sections {
-  margin-top: 15px;
-  flex: 1;
-  overflow-y: auto;
+.matrix-chart-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
 }
 
 .task-group {
@@ -1154,6 +1572,23 @@ export default {
   padding: 20px;
 }
 
+.no-stones-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100px;
+}
+
+.no-stones-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 14px;
+  color: #666666;
+  text-align: center;
+}
+
 .no-projects-message {
   display: flex;
   flex-direction: column;
@@ -1180,24 +1615,6 @@ export default {
 }
 
 
-/* 나의 스톤 문서함 섹션 */
-.stone-documents-section {
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
-  border-radius: 16px;
-  padding: 18px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.3s ease;
-}
-
-.stone-documents-section:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
 
 .document-list {
   display: flex;
@@ -1244,6 +1661,12 @@ export default {
   align-items: center;
   gap: 8px;
   padding: 4px 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.document-item:hover {
+  color: #2A2828;
 }
 
 .doc-icon {
@@ -1258,33 +1681,15 @@ export default {
   color: #666666;
 }
 
-/* 채팅 알림 섹션 */
-.chat-notifications-section {
-  background: #FFFFFF;
-  border-radius: 16px;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.3s ease;
-}
-
-.chat-notifications-section:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
 /* ChatRoomList 컴포넌트 임베드 스타일 조정 */
-.chat-notifications-section :deep(.chatlist-wrapper) {
+.chat-section :deep(.chatlist-wrapper) {
   padding: 0;
   min-height: 100%;
   height: 100%;
   display: flex;
 }
 
-.chat-notifications-section :deep(.chatlist-card) {
+.chat-section :deep(.chatlist-card) {
   border: none;
   border-radius: 0;
   width: 100%;
@@ -1295,27 +1700,27 @@ export default {
   flex-direction: column;
 }
 
-.chat-notifications-section :deep(.chatlist-banner) {
-  border-radius: 16px 16px 0 0;
+.chat-section :deep(.chatlist-banner) {
+  border-radius: 12px 12px 0 0;
   flex-shrink: 0;
 }
 
-.chat-notifications-section :deep(.chatlist-body) {
+.chat-section :deep(.chatlist-body) {
   flex: 1;
   overflow-y: auto;
 }
 
-.chat-notifications-section :deep(.v-container) {
+.chat-section :deep(.v-container) {
   padding: 0;
   height: 100%;
 }
 
-.chat-notifications-section :deep(.v-row) {
+.chat-section :deep(.v-row) {
   margin: 0;
   height: 100%;
 }
 
-.chat-notifications-section :deep(.v-col) {
+.chat-section :deep(.v-col) {
   padding: 0;
   height: 100%;
 }
@@ -1350,69 +1755,74 @@ export default {
 
 /* 반응형 레이아웃 */
 @media (max-width: 1400px) {
-  .content-grid {
+  .dashboard-layout {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto auto;
     height: auto;
   }
   
-  .middle-column {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  
-  .right-column {
-    grid-column: 2;
-    grid-row: 2;
-  }
-  
-  .left-column {
+  .project-section {
     grid-column: 1 / -1;
-    grid-row: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    grid-row: 1 / 2;
+  }
+  
+  .chat-section {
+    grid-column: 2 / 3;
+    grid-row: 2 / 5;
+  }
+  
+  .docs-section {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+  }
+  
+  .task-section {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
   }
   
   .project-section,
-  .urgent-tasks-section {
+  .docs-section,
+  .task-section {
     min-height: 300px;
   }
   
-  .stone-documents-section,
-  .chat-notifications-section {
-    min-height: 400px;
+  .chat-section {
+    min-height: 600px;
   }
 }
 
 @media (max-width: 1000px) {
-  .content-grid {
+  .dashboard-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto auto auto auto;
     height: auto;
   }
   
-  .left-column {
-    grid-column: 1;
-    grid-row: 1;
-    display: flex;
-    flex-direction: column;
+  .project-section {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
   }
   
-  .middle-column {
-    grid-column: 1;
-    grid-row: 2;
+  .chat-section {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
   }
   
-  .right-column {
-    grid-column: 1;
-    grid-row: 3;
+  .docs-section {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+  }
+  
+  .task-section {
+    grid-column: 1 / 2;
+    grid-row: 4 / 5;
   }
   
   .project-section,
-  .urgent-tasks-section,
-  .stone-documents-section,
-  .chat-notifications-section {
+  .docs-section,
+  .task-section,
+  .chat-section {
     min-height: 250px;
   }
 }
@@ -1424,14 +1834,15 @@ export default {
     padding: 10px;
   }
   
-  .content-grid {
+  .dashboard-layout {
     gap: 15px;
+    padding: 0 10px 10px 10px;
   }
   
   .project-section,
-  .urgent-tasks-section,
-  .stone-documents-section,
-  .chat-notifications-section {
+  .docs-section,
+  .task-section,
+  .chat-section {
     min-height: 200px;
     padding: 15px;
   }

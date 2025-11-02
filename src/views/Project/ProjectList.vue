@@ -1026,6 +1026,12 @@ export default {
       await this.loadProjectDetail(projectId);
     }
     
+    // stoneId가 있으면 해당 스톤 모달 열기
+    const stoneId = this.$route.query.stoneId;
+    if (stoneId && projectId) {
+      await this.openStoneModalByQuery(stoneId);
+    }
+    
     // 캔버스 크기 업데이트
     this.$nextTick(() => {
       this.updateCanvasSize();
@@ -1082,6 +1088,14 @@ export default {
         if (newProjectId && newProjectId !== oldProjectId) {
           console.log('프로젝트 ID 변경됨:', oldProjectId, '->', newProjectId);
           this.loadProjectData(newProjectId);
+          
+          // stoneId도 함께 확인해서 모달 열기
+          const stoneId = this.$route.query.stoneId;
+          if (stoneId) {
+            this.$nextTick(() => {
+              this.openStoneModalByQuery(stoneId);
+            });
+          }
         }
       },
       immediate: true
@@ -1633,6 +1647,62 @@ export default {
         this.isLoadingStoneDetail = false;
       }
     },
+    
+    // 쿼리 파라미터로 stone 모달 열기
+    async openStoneModalByQuery(stoneId) {
+      console.log('쿼리로 스톤 모달 열기:', stoneId);
+      try {
+        this.isLoadingStoneDetail = true;
+        
+        const response = await getStoneDetail(stoneId);
+        
+        if (response.statusCode === 200) {
+          const stoneDetail = response.result;
+          
+          // 참여자 목록 처리
+          const participants = stoneDetail.stoneParticipantDtoList || [];
+          const participantNames = participants.map(p => p.participantName);
+          const participantsText = participantNames.length > 0 ? participantNames.join(', ') : '비어 있음';
+          
+          // API 응답 데이터를 모달에 맞는 형태로 변환
+          this.selectedStoneData = {
+            stoneId: stoneId,
+            stoneName: stoneDetail.stoneName,
+            startTime: stoneDetail.startTime,
+            endTime: stoneDetail.endTime,
+            manager: stoneDetail.stoneManagerName,
+            participants: participantsText,
+            documentLink: '바로가기',
+            chatCreation: stoneDetail.chatCreation,
+            stoneStatus: stoneDetail.stoneStatus,
+            tasks: (stoneDetail.taskResDtoList || []).map((task, index) => ({
+              id: task.taskId || index + 1,
+              name: task.taskName || '태스크',
+              completed: task.taskStatus === 'COMPLETED' || false,
+              startTime: task.startTime || stoneDetail.startTime,
+              endTime: task.endTime || stoneDetail.endTime
+            })),
+            isProject: false
+          };
+          
+          console.log('쿼리로 열린 스톤 모달 설정:', this.selectedStoneData);
+          this.showStoneDetailModal = true;
+          
+          // 쿼리 파라미터 제거
+          this.$router.replace({ 
+            path: '/project',
+            query: { id: this.$route.query.id }
+          });
+        } else {
+          console.error('스톤 상세 조회 실패:', response.statusMessage);
+        }
+      } catch (error) {
+        console.error('스톤 상세 조회 API 호출 실패:', error);
+      } finally {
+        this.isLoadingStoneDetail = false;
+      }
+    },
+    
     calculateDDay(endTime) {
       if (!endTime) return null;
       const endDate = new Date(endTime);
