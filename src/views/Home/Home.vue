@@ -65,14 +65,19 @@
         <section class="docs-section">
           <h2 class="section-title">나의 스톤 문서함</h2>
           <div class="document-list">
-            <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
-              <div class="folder-header" :style="{ backgroundColor: folder.color }">
-                <span class="folder-name">📁 {{ folder.name }}</span>
-              </div>
-              <div class="folder-content">
-                <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
-                  <span class="doc-icon">📄</span>
-                  <span class="doc-name">{{ doc.name }}</span>
+            <div v-if="documentFolders.length === 0" class="no-stones-message">
+              <div class="no-stones-text">나의 스톤이 없습니다.</div>
+            </div>
+            <div v-else>
+              <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
+                <div class="folder-header" :style="{ backgroundColor: folder.color }">
+                  <span class="folder-name">📁 {{ folder.name }}</span>
+                </div>
+                <div class="folder-content">
+                  <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
+                    <span class="doc-icon">📄</span>
+                    <span class="doc-name">{{ doc.name }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -143,7 +148,7 @@
 
 <script>
 import { workspaceWatcher } from '@/mixins/workspaceWatcher';
-import { getMyTasks, getMyProjects } from '@/api/task.js';
+import { getMyTasks, getMyProjects, getMyStones } from '@/api/task.js';
 import { useWorkspaceStore } from '@/stores/workspace.js';
 import ChatRoomList from '@/views/Chat/ChatRoomList.vue';
 import stompManager from '@/services/stompService.js';
@@ -164,36 +169,8 @@ export default {
         { id: 2, progress: 80, name: '개발 완료' }
       ],
       myTasks: [], // API에서 가져온 실제 데이터
-      documentFolders: [
-        {
-          id: 1,
-          name: '한화시스템 일정관리 웹서비스',
-          color: 'linear-gradient(90deg, #FFE364 0%, #FFD700 100%)',
-          documents: [
-            { id: 1, name: '요구사항 문서' },
-            { id: 2, name: '설계 문서' },
-            { id: 3, name: '테스트 계획서' }
-          ]
-        },
-        {
-          id: 2,
-          name: '인프런 강의 플랫폼',
-          color: 'linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)',
-          documents: [
-            { id: 4, name: '기획서' },
-            { id: 5, name: 'UI/UX 디자인' }
-          ]
-        },
-        {
-          id: 3,
-          name: 'React Native 모바일 앱',
-          color: 'linear-gradient(135deg, #42A5F5 0%, #2196F3 100%)',
-          documents: [
-            { id: 6, name: '앱 설계서' },
-            { id: 7, name: 'API 문서' }
-          ]
-        }
-      ],
+      myStones: [], // API에서 가져온 실제 스톤 데이터
+      documentFolders: [], // 프로젝트별로 그룹화된 스톤 데이터
       loading: false,
       summariesByRoomId: {},
       summaryUnsub: null,
@@ -210,7 +187,8 @@ export default {
     
     await Promise.all([
       this.loadMyTasks(),
-      this.loadMyProjects()
+      this.loadMyProjects(),
+      this.loadMyStones()
     ]);
     
     // 프로젝트 생성 후 목록 새로고침
@@ -445,7 +423,8 @@ export default {
       console.log('홈 페이지 데이터 새로고침');
       await Promise.all([
         this.loadMyTasks(),
-        this.loadMyProjects()
+        this.loadMyProjects(),
+        this.loadMyStones()
       ]);
     },
     
@@ -539,6 +518,77 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    
+    // 나의 스톤 목록 로드 및 프로젝트별 그룹화
+    async loadMyStones() {
+      try {
+        const workspaceStore = useWorkspaceStore();
+        const workspaceId = workspaceStore.getCurrentWorkspaceId || localStorage.getItem('selectedWorkspaceId') || 'ws_2';
+        
+        const response = await getMyStones(workspaceId);
+        
+        if (response.statusCode === 200) {
+          this.myStones = response.result.map(stone => ({
+            stoneId: stone.stoneId,
+            stoneName: stone.stoneName,
+            projectName: stone.projectName,
+            milestone: stone.milestone,
+            startTime: stone.startTime,
+            endTime: stone.endTime
+          }));
+          
+          // 프로젝트별로 그룹화
+          this.groupStonesByProject();
+        } else {
+          this.myStones = [];
+          this.documentFolders = [];
+        }
+      } catch (error) {
+        console.error('나의 스톤 로드 실패:', error);
+        this.myStones = [];
+        this.documentFolders = [];
+      }
+    },
+    
+    // 프로젝트별로 스톤 그룹화
+    groupStonesByProject() {
+      const projectMap = new Map();
+      
+      // 프로젝트별로 스톤 그룹화
+      this.myStones.forEach(stone => {
+        if (!projectMap.has(stone.projectName)) {
+          projectMap.set(stone.projectName, []);
+        }
+        projectMap.get(stone.projectName).push(stone);
+      });
+      
+      // 그룹화된 데이터를 documentFolders 형식으로 변환
+      const colors = [
+        'linear-gradient(90deg, #FFE364 0%, #FFD700 100%)',
+        'linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)',
+        'linear-gradient(135deg, #42A5F5 0%, #2196F3 100%)',
+        'linear-gradient(135deg, #AB47BC 0%, #8E24AA 100%)',
+        'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
+        'linear-gradient(135deg, #66BB6A 0%, #43A047 100%)'
+      ];
+      
+      let colorIndex = 0;
+      this.documentFolders = Array.from(projectMap.entries()).map(([projectName, stones], index) => {
+        const color = colors[colorIndex % colors.length];
+        colorIndex++;
+        
+        return {
+          id: index + 1,
+          name: projectName,
+          color: color,
+          documents: stones.map(stone => ({
+            id: stone.stoneId,
+            name: stone.stoneName,
+            stoneId: stone.stoneId
+          }))
+        };
+      });
     },
     
     // 마감일 계산
@@ -1507,6 +1557,23 @@ export default {
   color: #666666;
   text-align: center;
   padding: 20px;
+}
+
+.no-stones-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100px;
+}
+
+.no-stones-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 14px;
+  color: #666666;
+  text-align: center;
 }
 
 .no-projects-message {
