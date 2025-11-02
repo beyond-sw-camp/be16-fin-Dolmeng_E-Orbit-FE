@@ -10,130 +10,125 @@
       </div>
 
       <!-- 컨텐츠 그리드 -->
-      <div class="content-grid">
-        <!-- 첫 번째 열: 프로젝트 + 문서함 -->
-        <div class="left-column">
-          <!-- 프로젝트 목록 섹션 -->
-          <div class="project-section">
-            <div class="section-header">
-              <h2 class="section-title">진행중인 프로젝트</h2>
-              <button class="add-button" @click="openProjectCreateModal">+ 프로젝트 추가</button>
-            </div>
-            <div class="gantt-chart">
-              <div class="gantt-header">
-                <div class="month-labels">
-                  <span v-for="(label, index) in projectTimelineLabels" :key="index">{{ label.label }}</span>
-                </div>
-                <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
-              </div>
-              <div class="gantt-bars">
-                <div v-if="loading" class="loading-message">
-                  프로젝트 로딩 중...
-                </div>
-                <div v-else-if="myProjects.length === 0" class="no-projects-message">
-                  <div class="no-projects-text">진행중인 프로젝트가 없습니다.</div>
-                  <div class="no-projects-subtext">새롭게 시작해보세요!</div>
-                </div>
-                <div v-else>
-                  <div class="gantt-bar-wrapper" v-for="project in myProjects" :key="project.id">
-                    <div class="gantt-bar" :style="project.style" @click="goToProject(project)">
-                      <div class="progress-fill" :style="{ width: project.progress + '%' }"></div>
-                      <div class="bar-content">
-                        <div class="project-name">{{ project.name }}</div>
-                        <div class="project-progress">{{ project.progress }}%</div>
-                      </div>
-                    </div>
-                    <div class="project-period" :style="{ left: project.style.left }">{{ formatProjectPeriod(project.startTime, project.endTime) }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div class="dashboard-layout">
+        <!-- 1행 -->
+        <!-- 진행중인 프로젝트 -->
+        <section class="project-section">
+          <div class="section-header">
+            <h2 class="section-title">진행중인 프로젝트</h2>
+            <button class="add-button" @click="openProjectCreateModal">+ 프로젝트 추가</button>
           </div>
-
-          <!-- 나의 스톤 문서함 섹션 -->
-          <div class="stone-documents-section">
-            <h2 class="section-title">나의 스톤 문서함</h2>
-            <div class="document-list">
-              <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
-                <div class="folder-header" :style="{ backgroundColor: folder.color }">
-                  <span class="folder-name">📁 {{ folder.name }}</span>
-                </div>
-                <div class="folder-content">
-                  <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
-                    <span class="doc-icon">📄</span>
-                    <span class="doc-name">{{ doc.name }}</span>
-                  </div>
-                </div>
+          <div class="gantt-chart">
+            <div class="gantt-header">
+              <div class="month-labels">
+                <span v-for="(label, index) in projectTimelineLabels" :key="index">{{ label.label }}</span>
               </div>
+              <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
             </div>
-          </div>
-        </div>
-
-        <!-- 두 번째 열: 나의 Task (넓은 공간) -->
-        <div class="middle-column">
-          <div class="urgent-tasks-section">
-            <div class="section-header">
-              <h2 class="section-title">📋 나의 Task</h2>
-              <div class="task-stats">
-                <div class="stat-item">
-                  <span class="stat-number">{{ taskStats.total }}</span>
-                  <span class="stat-label">총 Task</span>
-                </div>
-                <div class="stat-item completed">
-                  <span class="stat-number">{{ taskStats.completed }}</span>
-                  <span class="stat-label">완료</span>
-                </div>
-                <div class="stat-item pending">
-                  <span class="stat-number">{{ taskStats.pending }}</span>
-                  <span class="stat-label">진행중</span>
-                </div>
-                <div class="stat-item rate">
-                  <span class="stat-number">{{ taskStats.completionRate }}%</span>
-                  <span class="stat-label">완료율</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="progress-section">
+            <div class="gantt-bars">
               <div v-if="loading" class="loading-message">
-                로딩 중...
+                프로젝트 로딩 중...
               </div>
-              <div v-else-if="myTasks.length === 0" class="no-tasks-message">
-                할당된 Task가 없습니다.
+              <div v-else-if="myProjects.length === 0" class="no-projects-message">
+                <div class="no-projects-text">진행중인 프로젝트가 없습니다.</div>
+                <div class="no-projects-subtext">새롭게 시작해보세요!</div>
               </div>
-              <div v-else class="task-sections">
-                <!-- 미완료 태스크 -->
-                <div v-if="pendingTasks.length > 0" class="task-group">
-                  <h4 class="task-group-title">🔄 진행중인 Task ({{ pendingTasks.length }})</h4>
-                  <div class="task-list">
-                    <div class="task-item" v-for="task in pendingTasks" :key="task.id">
-                      <div class="task-content">
-                        <div class="task-info">
-                          <span class="task-name">{{ task.name }}</span>
-                          <span class="task-project">{{ task.projectName }} - {{ task.stoneName }}</span>
-                        </div>
-                        <span class="task-deadline">{{ task.deadline }}</span>
+              <div v-else>
+                <div class="gantt-bar-wrapper" v-for="project in myProjects" :key="project.id">
+                  <div class="gantt-bar" :style="project.style" @click="goToProject(project)">
+                    <div class="progress-fill" :style="{ width: project.progress + '%' }"></div>
+                    <div class="bar-content">
+                      <div class="project-name">{{ project.name }}</div>
+                      <div class="project-progress">{{ project.progress }}%</div>
+                    </div>
+                  </div>
+                  <div class="project-period" :style="{ left: project.style.left }">{{ formatProjectPeriod(project.startTime, project.endTime) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 스톤 채팅방 목록 -->
+        <aside class="chat-section">
+          <ChatRoomList 
+            embedded 
+            @select-room="handleChatRoomSelect"
+            @preview-summary="handlePreviewSummary"
+            :summaries-by-room-id="summariesByRoomId"
+            :selected-room-id="null"
+          />
+        </aside>
+
+        <!-- 2행 -->
+        <!-- 나의 스톤 문서함 -->
+        <section class="docs-section">
+          <h2 class="section-title">나의 스톤 문서함</h2>
+          <div class="document-list">
+            <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
+              <div class="folder-header" :style="{ backgroundColor: folder.color }">
+                <span class="folder-name">📁 {{ folder.name }}</span>
+              </div>
+              <div class="folder-content">
+                <div class="document-item" v-for="doc in folder.documents" :key="doc.id">
+                  <span class="doc-icon">📄</span>
+                  <span class="doc-name">{{ doc.name }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 나의 Task -->
+        <section class="task-section">
+          <div class="section-header">
+            <h2 class="section-title">📋 나의 Task</h2>
+            <div class="task-stats">
+              <div class="stat-item">
+                <span class="stat-number">{{ taskStats.total }}</span>
+                <span class="stat-label">총 Task</span>
+              </div>
+              <div class="stat-item completed">
+                <span class="stat-number">{{ taskStats.completed }}</span>
+                <span class="stat-label">완료</span>
+              </div>
+              <div class="stat-item pending">
+                <span class="stat-number">{{ taskStats.pending }}</span>
+                <span class="stat-label">진행중</span>
+              </div>
+              <div class="stat-item rate">
+                <span class="stat-number">{{ taskStats.completionRate }}%</span>
+                <span class="stat-label">완료율</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="progress-section">
+            <div v-if="loading" class="loading-message">
+              로딩 중...
+            </div>
+            <div v-else-if="myTasks.length === 0" class="no-tasks-message">
+              할당된 Task가 없습니다.
+            </div>
+            <div v-else class="task-sections">
+              <!-- 미완료 태스크 -->
+              <div v-if="pendingTasks.length > 0" class="task-group">
+                <h4 class="task-group-title">🔄 진행중인 Task ({{ pendingTasks.length }})</h4>
+                <div class="task-list">
+                  <div class="task-item" v-for="task in pendingTasks" :key="task.id">
+                    <div class="task-content">
+                      <div class="task-info">
+                        <span class="task-name">{{ task.name }}</span>
+                        <span class="task-project">{{ task.projectName }} - {{ task.stoneName }}</span>
                       </div>
+                      <span class="task-deadline">{{ task.deadline }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- 세 번째 열: 채팅 알림 -->
-        <div class="right-column">
-          <div class="chat-notifications-section">
-            <ChatRoomList 
-              embedded 
-              @select-room="handleChatRoomSelect"
-              @preview-summary="handlePreviewSummary"
-              :summaries-by-room-id="summariesByRoomId"
-              :selected-room-id="null"
-            />
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>
@@ -687,46 +682,29 @@ export default {
   margin: 0;
 }
 
-.content-grid {
+.dashboard-layout {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 0.8fr;
-  gap: 15px;
-  margin-bottom: 0;
-  height: calc(100% - 50px);
+  grid-template-columns: 1.4fr 1.4fr 1.2fr; /* 왼쪽 2칸(균등) + 오른쪽 좁게 */
+  grid-template-rows: auto auto; /* 2행 구조 */
+  gap: 20px;
+  width: 100%;
   padding: 0 20px 10px 20px;
-}
-
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 100%;
-}
-
-.middle-column {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.right-column {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  height: calc(100% - 50px);
+  box-sizing: border-box;
 }
 
 /* 프로젝트 섹션 */
 .project-section {
-  background: #FFFFFF;
-  border-radius: 16px;
-  padding: 18px;
-  flex: 1;
-  min-height: 0;
-  overflow: visible;
+  grid-column: 1 / 3; /* 왼쪽 2칸 차지 */
+  grid-row: 1 / 2;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  min-height: 0;
+  overflow: visible;
   transition: box-shadow 0.3s ease;
 }
 
@@ -826,7 +804,7 @@ export default {
   position: absolute;
   bottom: 0;
   width: 2px;
-  height: calc(100% + 100px);
+  height: calc(100% + 100%);
   background: transparent;
   z-index: 10;
   pointer-events: none;
@@ -854,10 +832,10 @@ export default {
 .today-line::after {
   content: '';
   position: absolute;
-  bottom: -320px;
+  top: 0;
   left: 0;
   width: 2px;
-  height: calc(100% + 200px);
+  height: calc(100% + 240px);
   border-left: 2px dashed rgba(255, 68, 68, 0.6);
 }
 
@@ -958,21 +936,61 @@ export default {
 
 /* 마일스톤 섹션 완전 제거 */
 
-/* 나의 Task 섹션 */
-.urgent-tasks-section {
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
-  border-radius: 16px;
-  padding: 18px;
+/* 채팅 섹션 */
+.chat-section {
+  grid-column: 3 / 4;
+  grid-row: 1 / 3; /* 세로 전체 확장 */
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 0;
   height: 100%;
-  overflow-y: hidden;
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
   transition: box-shadow 0.3s ease;
 }
 
-.urgent-tasks-section:hover {
+.chat-section:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* 나의 스톤 문서함 섹션 */
+.docs-section {
+  grid-column: 1 / 2;
+  grid-row: 2 / 3;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.docs-section:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* 나의 Task 섹션 */
+.task-section {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.task-section:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
@@ -1180,24 +1198,6 @@ export default {
 }
 
 
-/* 나의 스톤 문서함 섹션 */
-.stone-documents-section {
-  background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
-  border-radius: 16px;
-  padding: 18px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.3s ease;
-}
-
-.stone-documents-section:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
 
 .document-list {
   display: flex;
@@ -1258,33 +1258,15 @@ export default {
   color: #666666;
 }
 
-/* 채팅 알림 섹션 */
-.chat-notifications-section {
-  background: #FFFFFF;
-  border-radius: 16px;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.3s ease;
-}
-
-.chat-notifications-section:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
 /* ChatRoomList 컴포넌트 임베드 스타일 조정 */
-.chat-notifications-section :deep(.chatlist-wrapper) {
+.chat-section :deep(.chatlist-wrapper) {
   padding: 0;
   min-height: 100%;
   height: 100%;
   display: flex;
 }
 
-.chat-notifications-section :deep(.chatlist-card) {
+.chat-section :deep(.chatlist-card) {
   border: none;
   border-radius: 0;
   width: 100%;
@@ -1295,27 +1277,27 @@ export default {
   flex-direction: column;
 }
 
-.chat-notifications-section :deep(.chatlist-banner) {
-  border-radius: 16px 16px 0 0;
+.chat-section :deep(.chatlist-banner) {
+  border-radius: 12px 12px 0 0;
   flex-shrink: 0;
 }
 
-.chat-notifications-section :deep(.chatlist-body) {
+.chat-section :deep(.chatlist-body) {
   flex: 1;
   overflow-y: auto;
 }
 
-.chat-notifications-section :deep(.v-container) {
+.chat-section :deep(.v-container) {
   padding: 0;
   height: 100%;
 }
 
-.chat-notifications-section :deep(.v-row) {
+.chat-section :deep(.v-row) {
   margin: 0;
   height: 100%;
 }
 
-.chat-notifications-section :deep(.v-col) {
+.chat-section :deep(.v-col) {
   padding: 0;
   height: 100%;
 }
@@ -1350,69 +1332,74 @@ export default {
 
 /* 반응형 레이아웃 */
 @media (max-width: 1400px) {
-  .content-grid {
+  .dashboard-layout {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
-    height: auto;
-  }
-  
-  .middle-column {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  
-  .right-column {
-    grid-column: 2;
-    grid-row: 2;
-  }
-  
-  .left-column {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-  
-  .project-section,
-  .urgent-tasks-section {
-    min-height: 300px;
-  }
-  
-  .stone-documents-section,
-  .chat-notifications-section {
-    min-height: 400px;
-  }
-}
-
-@media (max-width: 1000px) {
-  .content-grid {
-    grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
     height: auto;
   }
   
-  .left-column {
-    grid-column: 1;
-    grid-row: 1;
-    display: flex;
-    flex-direction: column;
+  .project-section {
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
   }
   
-  .middle-column {
-    grid-column: 1;
-    grid-row: 2;
+  .chat-section {
+    grid-column: 2 / 3;
+    grid-row: 2 / 4;
   }
   
-  .right-column {
-    grid-column: 1;
-    grid-row: 3;
+  .docs-section {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+  }
+  
+  .task-section {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
   }
   
   .project-section,
-  .urgent-tasks-section,
-  .stone-documents-section,
-  .chat-notifications-section {
+  .docs-section,
+  .task-section {
+    min-height: 300px;
+  }
+  
+  .chat-section {
+    min-height: 600px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    height: auto;
+  }
+  
+  .project-section {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+  }
+  
+  .chat-section {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+  }
+  
+  .docs-section {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+  }
+  
+  .task-section {
+    grid-column: 1 / 2;
+    grid-row: 4 / 5;
+  }
+  
+  .project-section,
+  .docs-section,
+  .task-section,
+  .chat-section {
     min-height: 250px;
   }
 }
@@ -1424,14 +1411,15 @@ export default {
     padding: 10px;
   }
   
-  .content-grid {
+  .dashboard-layout {
     gap: 15px;
+    padding: 0 10px 10px 10px;
   }
   
   .project-section,
-  .urgent-tasks-section,
-  .stone-documents-section,
-  .chat-notifications-section {
+  .docs-section,
+  .task-section,
+  .chat-section {
     min-height: 200px;
     padding: 15px;
   }
