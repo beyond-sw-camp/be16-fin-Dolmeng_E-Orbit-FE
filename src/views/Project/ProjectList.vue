@@ -1061,7 +1061,17 @@ export default {
       hoveredRingStoneId: null,
       hoveredRingDir: null,
       // 그래프 초기 중심 Y 오프셋 (디폴트 위치를 약간 아래로)
-      defaultCenterYOffset: 30
+      defaultCenterYOffset: 30,
+      // 모드별 뷰포트 상태 (포커스/전체보기 분리 보관)
+      modeViewport: {
+        all: null,   // { scale, x, y }
+        focus: null  // { scale, x, y }
+      },
+      // 최초 계산된 레이아웃 좌표 스냅샷(모드별 고정): { [mode]: { [stoneId]: {x,y} } }
+      layoutSnapshots: {
+        all: {},
+        focus: {}
+      }
     };
   },
   computed: {
@@ -1143,6 +1153,11 @@ export default {
             this.gaugeAnimationReady = false;
             setTimeout(() => {
               this.gaugeAnimationReady = true;
+              // 전체보기 모드에서만 레이아웃 관련 보정 수행 (포커스 모드 영향 없음)
+              if (this.viewMode === 'all') {
+                this.applyAutoScaleForAllMode && this.applyAutoScaleForAllMode();
+                this.restoreViewportForCurrentMode && this.restoreViewportForCurrentMode();
+              }
             }, 500);
           });
         } else {
@@ -1224,19 +1239,114 @@ export default {
         this.$nextTick(() => {
           if (this.stones && this.stones.length > 0) {
             this.stoneNodes = this.convertStonesToNodes(this.stones);
-            this.updateStonePositions();
-            this.updateConnections();
+            // 스냅샷이 있으면 레이아웃/뷰포트 그대로 복원 (재계산 금지)
+            if (this.restoreLayoutIfAvailable && this.restoreLayoutIfAvailable()) {
+              this.updateConnections();
+              this.restoreViewportForCurrentMode && this.restoreViewportForCurrentMode();
+            } else {
+              // 최초 진입 시에만 배치 계산 후 스냅샷 고정
+              this.updateStonePositions();
+              this.updateConnections();
+              this.snapshotLayoutOnce && this.snapshotLayoutOnce();
+              this.restoreViewportForCurrentMode && this.restoreViewportForCurrentMode();
+            }
           }
         });
       }
     }
   },
   methods: {
+    // 현재 모드 키
+    getModeKey() {
+      return this.viewMode === 'focus' ? 'focus' : 'all';
+    },
+    // 레이아웃 스냅샷 저장(최초 1회만)
+    snapshotLayoutOnce() {
+      const key = this.getModeKey();
+      const store = this.layoutSnapshots[key] || {};
+      // 이미 저장되어 있으면 건너뜀
+      if (store && Object.keys(store).length > 0) return;
+      const next = {};
+      this.stoneNodes.forEach(n => {
+        next[n.id] = { x: n.x, y: n.y };
+      });
+      this.$set ? this.$set(this.layoutSnapshots, key, next) : (this.layoutSnapshots[key] = next);
+    },
+    // 저장된 레이아웃 복원(완전 일치 시에만 적용)
+    restoreLayoutIfAvailable() {
+      const key = this.getModeKey();
+      const snap = this.layoutSnapshots[key];
+      if (!snap || Object.keys(snap).length === 0) return false;
+      // 모든 노드가 스냅샷에 존재하는 경우에만 복원
+      for (const n of this.stoneNodes) {
+        if (!snap[n.id]) return false;
+      }
+      this.stoneNodes.forEach(n => {
+        const s = snap[n.id];
+        n.x = s.x;
+        n.y = s.y;
+      });
+      return true;
+    },
+    // 현재 모드의 뷰포트 저장
+    saveViewportForCurrentMode() {
+      const key = this.viewMode === 'focus' ? 'focus' : 'all';
+      this.modeViewport[key] = {
+        scale: this.scale,
+        x: this.translate?.x ?? 0,
+        y: this.translate?.y ?? 0
+      };
+    },
+    // 현재 모드의 뷰포트 복원 (없으면 기본 동작)
+    restoreViewportForCurrentMode() {
+      const key = this.viewMode === 'focus' ? 'focus' : 'all';
+      const vp = this.modeViewport[key];
+      if (vp && typeof vp.scale === 'number') {
+        this.scale = vp.scale;
+        this.zoomLevel = vp.scale;
+        this.translate.x = vp.x ?? 0;
+        this.translate.y = vp.y ?? 0;
+      } else {
+        if (key === 'all') {
+          // 전체보기: 자동 스케일 적용
+          this.applyAutoScaleForAllMode && this.applyAutoScaleForAllMode();
+        } else {
+          // 포커스: 기본 중앙 정렬, 스케일 1
+          this.scale = 1;
+          this.zoomLevel = 1;
+          this.calculateGraphCenter();
+        }
+      }
+    },
+    // 전체보기 모드에서 스톤 수에 따라 자동 스케일 조정 (포커스 모드에는 영향 없음)
+    applyAutoScaleForAllMode() {
+      if (this.viewMode !== 'all') return;
+      // 이미 all 모드의 뷰포트가 저장돼 있다면, 사용자가 본 모양을 유지하기 위해 스케일 자동 변경을 하지 않음
+      if (this.modeViewport && this.modeViewport.all && typeof this.modeViewport.all.scale === 'number') {
+        return;
+      }
+      const count = Array.isArray(this.stoneNodes) ? this.stoneNodes.length : 0;
+      if (count <= 0) return;
+      let target = 1.0;
+      if (count > 20) target = 0.6;
+      else if (count > 15) target = 0.7;
+      else if (count > 10) target = 0.8;
+      else if (count > 6) target = 0.9;
+      target = this.clamp(target, this.minScale, this.maxScale);
+      if (Math.abs((this.scale || 1) - target) > 0.001) {
+        const center = { x: this.canvasWidth / 2, y: this.canvasHeight / 2 };
+        this.applyZoom(target, center);
+      }
+    },
     setViewMode(mode) {
       if (mode !== 'all' && mode !== 'focus') return;
       if (this.viewMode === mode) return;
+      // 현재 모드 뷰포트 저장
+      this.saveViewportForCurrentMode && this.saveViewportForCurrentMode();
       this.viewMode = mode;
       localStorage.setItem('projectViewMode', this.viewMode);
+      // 모드별 뷰포트 복원
+      this.$nextTick(() => this.restoreViewportForCurrentMode && this.restoreViewportForCurrentMode());
     },
     // 토성 띠 반지름 계산 (스톤 외곽에서 여백을 둔 링)
     getRingRadius(stone) {
@@ -1832,6 +1942,8 @@ export default {
       this.translate.y = center.y - ratio * (center.y - this.translate.y);
       this.scale = newScale;
       this.zoomLevel = newScale;
+      // 모드별 뷰포트 저장
+      this.saveViewportForCurrentMode && this.saveViewportForCurrentMode();
     },
     
     // 값 제한 유틸리티
@@ -2193,6 +2305,15 @@ export default {
       if (this.stoneNodes.length === 0) return;
       
       console.log('D3.js 트리 배치 시작');
+      // 모드별로 저장된 좌표가 있으면 그것을 우선 적용하여 모드 전환 시 모양 고정
+      if (this.restoreLayoutIfAvailable && this.restoreLayoutIfAvailable()) {
+        this.updateConnections();
+        this.$nextTick(() => {
+          this.adjustCanvasSizeForStones();
+          this.calculateGraphCenter();
+        });
+        return;
+      }
       
       // 스톤 데이터를 D3.js 계층 구조로 변환
       const rootStone = this.stoneNodes.find(stone => stone.isRoot);
@@ -2202,18 +2323,22 @@ export default {
       console.log('D3 데이터:', d3Data);
       
       // D3.js 트리 레이아웃 설정 - 가로로 넓게 배치 (width > height)
-      const fixedWidth = 1400;
-      const fixedHeight = 400;
+      // 모드와 무관하게 동일 규칙으로 레이아웃 크기를 계산해 모드 전환에 따른 모양 변형을 방지
+      const nodeCount = this.stoneNodes.length;
+      const maxDepth = (typeof this.getTotalDepth === 'function') ? this.getTotalDepth() : 3;
+      let layoutWidth = Math.max(1400, (this.canvasWidth || 1000) - 200);
+      let layoutHeight = Math.max(400, maxDepth * 220);
+      if (nodeCount > 24) layoutWidth *= 1.8;
+      else if (nodeCount > 16) layoutWidth *= 1.5;
+      else if (nodeCount > 10) layoutWidth *= 1.25;
+      else if (nodeCount > 6) layoutWidth *= 1.1;
       
       const tree = d3.tree()
-        .size([fixedWidth, fixedHeight])
+        .size([layoutWidth, layoutHeight])
         .separation((a, b) => {
-          // 동일한 부모를 가진 형제 노드 간 간격
-          if (a.parent === b.parent) {
-            return 1.2;
-          }
-          // 다른 부모를 가진 노드 간 간격
-          return 1.5;
+          // 모드 전환과 무관하게 일정한 간격 유지
+          if (a.parent === b.parent) return 1.5;
+          return 1.8;
         });
       
       const root = d3.hierarchy(d3Data, d => d.children);
@@ -2231,6 +2356,8 @@ export default {
           console.log(`${stone.name} D3 위치: (${stone.x}, ${stone.y})`);
         }
       });
+      // 최초 계산된 레이아웃을 모드별로 스냅샷 고정
+      this.snapshotLayoutOnce && this.snapshotLayoutOnce();
       
       // 연결선 업데이트
       this.updateConnections();
@@ -2647,6 +2774,9 @@ export default {
         this.stoneNodes = [];
         this.connections = [];
         this.projectName = '';
+        // 모드별 뷰포트/레이아웃 스냅샷 초기화(프로젝트 변경 시)
+        this.modeViewport = { all: null, focus: null };
+        this.layoutSnapshots = { all: {}, focus: {} };
         this.loadProjectData(projectId);
       }
     },
