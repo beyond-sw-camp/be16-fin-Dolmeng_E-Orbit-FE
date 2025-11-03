@@ -36,7 +36,8 @@ export default {
 
       // 스트림 또는 컨테이너 준비 확인
       if (!this.streamManager || !container) {
-        setTimeout(this.tryAttachStream, 200);
+        // bind to this to preserve context
+        setTimeout(() => this.tryAttachStream(), 200);
         return;
       }
 
@@ -63,9 +64,9 @@ export default {
 
           // 비디오 속성 설정
           video.autoplay = true;
-          video.playsinline = true; 
-          video.controls = false; 
-          
+          video.playsinline = true;
+          video.controls = false;
+
           // 로컬 비디오(Publisher)는 음소거하여 하울링 방지
           if (this.streamManager.stream.typeOfVideo === 'LOCAL') {
             video.muted = true;
@@ -73,10 +74,32 @@ export default {
 
           // DOM에 비디오 요소 추가
           container.appendChild(video);
-          
-          video.play().catch(e => {
-            console.warn('Video play failed:', e);
-          });
+
+          // Try to play immediately. On browsers like Chrome autoplay with audio may be blocked.
+          // If playback fails, try muting and play again to satisfy autoplay policy.
+          const tryPlay = async () => {
+            try {
+              await video.play();
+            } catch (err) {
+              console.warn('Video play failed, attempting muted fallback:', err);
+              try {
+                // Temporarily mute to allow autoplay, then (optionally) leave muted state for remote streams
+                video.muted = true;
+                await video.play();
+              } catch (err2) {
+                console.warn('Muted play also failed:', err2);
+              }
+            }
+          };
+
+          // Also try to start playing when enough data is available
+          const onCanPlay = () => {
+            tryPlay();
+            video.removeEventListener('canplay', onCanPlay);
+          };
+          video.addEventListener('canplay', onCanPlay);
+
+          tryPlay();
           
         } catch (e) {
           console.error('Video attach 에러:', e, ', 200ms 후 재시도');

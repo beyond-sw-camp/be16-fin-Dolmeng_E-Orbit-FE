@@ -92,6 +92,8 @@ export default {
     return {
       // pending streams received before we finish connecting
       _pendingStreams: [],
+  // connectionId -> parsed client name cache
+  _connectionClientMap: {},
       // bound handler references so we can remove them on cleanup
       _onStartSpeaking: null,
       _onStopSpeaking: null,
@@ -217,7 +219,15 @@ export default {
       const seen = new Set();
       const addUnique = (sm) => {
         if (!sm) return;
-        const key = this.clientData(sm) || sm?.stream?.connection?.connectionId;
+        // Use connectionId as primary unique key (stable, always unique).
+        // For the local publisher, connectionId may not be available immediately after initPublisher,
+        // so use a stable local key based on myUserName to avoid creating 'Unknown' duplicate entries.
+        let key = sm?.stream?.connection?.connectionId || null;
+        if (!key && sm === this.publisher) {
+          const localName = this.myUserName && String(this.myUserName).trim() !== '' ? this.myUserName : 'local-self';
+          key = `local-${localName}`;
+        }
+        if (!key) key = this.clientData(sm) || null;
         if (!key || seen.has(key)) return;
         seen.add(key);
         parts.push(sm);
@@ -350,6 +360,14 @@ export default {
           }
 
           const streamConnId = stream?.connection?.connectionId;
+            // cache clientData quickly for UI (nickname)
+            try {
+              const parsed = this._parseRawClientData(stream?.connection?.data);
+              // store only valid string names
+              if (streamConnId && typeof parsed === 'string' && parsed.trim() !== '' && !/^\[object\s+.+\]$/.test(parsed)) {
+                this._connectionClientMap = { ...this._connectionClientMap, [streamConnId]: parsed };
+              }
+            } catch (e) { /* ignore */ }
           // 자기 자신의 스트림은 구독하지 않음
           if (streamConnId && this.session?.connection?.connectionId === streamConnId) return;
 
@@ -368,6 +386,13 @@ export default {
 
           const subscriber = this.session.subscribe(stream);
           this.subscribers.push(subscriber);
+
+            // Try to cache clientData for this connection — retry a few times because
+            // some browsers (Chrome) may populate connection.data slightly later.
+            this._cacheClientDataForConnection(streamConnId, subscriber, stream).catch(e => {
+              // non-fatal
+              console.debug('cacheClientDataForConnection error', e);
+            });
 
           // 렌더링 완료 후 볼륨 반영
           this.$nextTick(() => {
@@ -410,6 +435,11 @@ export default {
             const { [cid]: _, ...rest } = this.speakingMap || {};
             this.speakingMap = rest;
           }
+          // connection이 사라지면 캐시에서 제거
+          if (cid && this._connectionClientMap && this._connectionClientMap[cid]) {
+            const { [cid]: __, ...rest } = this._connectionClientMap || {};
+            this._connectionClientMap = rest;
+          }
           // ✅ 포커스 대상이 나간 경우 처리 (보조 안전장치)
           if (streamManager && this.focusedStreamManager === streamManager) {
             this.focusedStreamManager = null;
@@ -420,6 +450,16 @@ export default {
         // === 세션 연결 ===
         const token = await this.getToken(); // 서버에서 토큰 발급받는 함수
         await this.session.connect(token, { clientData: this.myUserName });
+
+        // 연결 직후, 세션 연결이 완료되었으므로 내 connectionId에 대해 clientData 캐시를 채우고
+        // 버퍼에 보관된 스트림을 먼저 처리하여 원격 영상이 빠르게 표시되도록 한다
+        try {
+          const myCid = this.session?.connection?.connectionId;
+          if (myCid && typeof this.myUserName === 'string' && this.myUserName.trim() !== '') {
+            this._connectionClientMap = { ...this._connectionClientMap, [myCid]: this.myUserName };
+          }
+        } catch (e) { /* ignore */ }
+        this._processPendingStreams && this._processPendingStreams();
 
         // === 퍼블리셔 초기화 및 publish ===
         this.publisher = await this.OV.initPublisherAsync(undefined, {
@@ -434,6 +474,13 @@ export default {
 
   await this.session.publish(this.publisher);
   this.mainStreamManager = this.publisher;
+  // Ensure publisher's own connectionId maps to myUserName for immediate UI display
+  try {
+    const pubCid = this.publisher?.stream?.connection?.connectionId || this.session?.connection?.connectionId;
+    if (pubCid && typeof this.myUserName === 'string' && this.myUserName.trim() !== '') {
+      this._connectionClientMap = { ...this._connectionClientMap, [pubCid]: this.myUserName };
+    }
+  } catch (e) { /* ignore */ }
   // 세션 연결/게시 완료 후에 버퍼에 남아있던 streamCreated 이벤트들을 처리
   this._processPendingStreams && this._processPendingStreams();
         // 초기에는 그리드 모드 유지 (focusedStreamManager = null)
@@ -573,26 +620,47 @@ export default {
     },
 
     // 안전 정리: 세션/퍼블리셔/구독자 정리 및 상태 리셋
-    safeCleanup() {
+    // NOTE: make async to allow callers (leaveSession) to await completion and avoid navigation/teardown races
+    async safeCleanup() {
       try {
         if (this.session) {
-          try { if (this.publisher) this.session.unpublish(this.publisher); } catch (e) { }
+          // Unpublish local publisher if exists
+          try {
+            if (this.publisher) {
+              // Some SDKs/modes may throw if publish state is not yet established — guard it
+              try { this.session.unpublish(this.publisher); } catch (e) { console.debug('unpublish error', e); }
+            }
+          } catch (e) { console.debug('safeCleanup unpublish outer error', e); }
+
+          // Unsubscribe all subscribers (guard each call)
           try {
             this.subscribers.forEach(sub => {
-              try { this.session.unsubscribe(sub); } catch (e) { }
+              try { this.session.unsubscribe(sub); } catch (e) { console.debug('unsubscribe error', e); }
             });
-          } catch (e) { }
-          // 이벤트 핸들러 제거
-          try { if (this._onStartSpeaking) this.session.off('publisherStartSpeaking', this._onStartSpeaking); } catch (e) {}
-          try { if (this._onStopSpeaking) this.session.off('publisherStopSpeaking', this._onStopSpeaking); } catch (e) {}
-          try { if (this._onStreamCreated) this.session.off('streamCreated', this._onStreamCreated); } catch (e) {}
-          try { if (this._onStreamDestroyed) this.session.off('streamDestroyed', this._onStreamDestroyed); } catch (e) {}
-          try { if (this._onConnectionDestroyed) this.session.off('connectionDestroyed', this._onConnectionDestroyed); } catch (e) {}
-          try { this.session.disconnect(); } catch (e) { }
+          } catch (e) { console.debug('safeCleanup unsubscribers iteration error', e); }
+
+          // 이벤트 핸들러 제거 (off) — remove only if handler refs exist
+          try { if (this._onStartSpeaking) this.session.off('publisherStartSpeaking', this._onStartSpeaking); } catch (e) { console.debug('off startSpeaking error', e); }
+          try { if (this._onStopSpeaking) this.session.off('publisherStopSpeaking', this._onStopSpeaking); } catch (e) { console.debug('off stopSpeaking error', e); }
+          try { if (this._onStreamCreated) this.session.off('streamCreated', this._onStreamCreated); } catch (e) { console.debug('off streamCreated error', e); }
+          try { if (this._onStreamDestroyed) this.session.off('streamDestroyed', this._onStreamDestroyed); } catch (e) { console.debug('off streamDestroyed error', e); }
+          try { if (this._onConnectionDestroyed) this.session.off('connectionDestroyed', this._onConnectionDestroyed); } catch (e) { console.debug('off connectionDestroyed error', e); }
+
+          // Disconnect session (guarded)
+          try { this.session.disconnect(); } catch (e) { console.debug('session.disconnect error', e); }
         }
       } catch (e) {
         console.debug('safeCleanup error', e);
       } finally {
+        // Remove beforeunload listener if present (avoid duplicate handlers later)
+        try {
+          if (this._beforeUnloadBound) {
+            window.removeEventListener('beforeunload', this._beforeUnloadBound);
+            this._beforeUnloadBound = null;
+          }
+        } catch (e) { console.debug('remove beforeunload error', e); }
+
+        // Reset all internal state synchronously
         this.session = undefined;
         this.publisher = undefined;
         this.subscribers = [];
@@ -600,22 +668,36 @@ export default {
         this.focusedStreamManager = null;
         this.speakingMap = {};
         this._pendingStreams = [];
+        this._connectionClientMap = {};
         this.OV = null;
       }
     },
 
-    leaveSession() {
+    async leaveSession() {
       try {
-        this.safeCleanup();
+        // Await cleanup to avoid racing navigation/unmount with in-flight SDK ops
+        await this.safeCleanup();
       } catch (e) {
         console.debug('leaveSession safeCleanup error', e);
       }
-      try { sessionStorage.setItem(this._refreshStorageKey, '0'); } catch (e) { }
-      if (this._beforeUnloadBound) {
-        window.removeEventListener('beforeunload', this._beforeUnloadBound);
-        this._beforeUnloadBound = null;
+
+      // Reset refresh counter to allow normal re-entry
+      try { sessionStorage.setItem(this._refreshStorageKey, '0'); } catch (e) { console.debug('sessionStorage set error', e); }
+
+      // Ensure beforeunload listener is removed (safeCleanup already tries, but double-guard here)
+      try {
+        if (this._beforeUnloadBound) {
+          window.removeEventListener('beforeunload', this._beforeUnloadBound);
+          this._beforeUnloadBound = null;
+        }
+      } catch (e) { console.debug('leaveSession remove beforeunload error', e); }
+
+      // Navigate back to main — guard routing to avoid uncaught exceptions
+      try {
+        this.$router.push(`/`);
+      } catch (e) {
+        console.debug('router push error on leaveSession', e);
       }
-      this.$router.push(`/main`);
     },
     deleteSubscriber(streamManager) {
       const idx = this.subscribers.indexOf(streamManager);
@@ -653,6 +735,10 @@ export default {
     },
 
     clientData(streamManager) {
+      const connId = streamManager?.stream?.connection?.connectionId;
+      if (connId && this._connectionClientMap && this._connectionClientMap[connId]) {
+        return this._connectionClientMap[connId];
+      }
       const raw = streamManager?.stream?.connection?.data;
       if (!raw) return 'Unknown';
       return this._parseRawClientData(raw) || 'Unknown';
@@ -661,28 +747,61 @@ export default {
     // raw connection.data 파싱(다양한 포맷 지원)
     _parseRawClientData(raw) {
       if (!raw) return null;
+      // If it's already an object, inspect its fields
       try {
-        // JSON 문자열일 경우
-        const parsed = JSON.parse(raw);
-        if (parsed) {
-          if (typeof parsed === 'string') return parsed;
-          if (parsed.clientData) return String(parsed.clientData);
-          if (parsed.name) return String(parsed.name);
-          if (parsed.userName) return String(parsed.userName);
-          // 객체였지만 위 키가 없으면 무시
-          return null;
+        if (typeof raw === 'object') {
+          const obj = raw;
+          if (obj.clientData) return String(obj.clientData);
+          if (obj.name) return String(obj.name);
+          if (obj.userName) return String(obj.userName);
+          // maybe nested stringified json inside a field
+          if (typeof obj.clientData === 'string') {
+            // fall through to string parsing
+            raw = obj.clientData;
+          } else {
+            return null;
+          }
         }
+
+        // If it's a string, try iteratively parsing nested JSON up to a few times
+        let s = String(raw);
+        for (let i = 0; i < 3; i++) {
+          // trim
+          s = s.trim();
+          // try key=value pattern first
+          const kv = s.match(/clientData=([^;,&]*)/);
+          if (kv && kv[1]) return decodeURIComponent(kv[1]);
+
+          try {
+            const parsed = JSON.parse(s);
+            if (parsed == null) break;
+            if (typeof parsed === 'string') {
+              s = parsed; // continue to next iteration
+              continue;
+            }
+            if (typeof parsed === 'object') {
+              if (parsed.clientData) return String(parsed.clientData);
+              if (parsed.name) return String(parsed.name);
+              if (parsed.userName) return String(parsed.userName);
+              // if object has a string value, try that
+              s = String(parsed);
+              break;
+            }
+          } catch (e) {
+            // not json, return raw string
+            break;
+          }
+        }
+
+        // final fallback: return the trimmed string if non-empty and not a toString'ed object
+        const trimmed = s && s.trim();
+        if (!trimmed || trimmed === '{}' ) return null;
+        // avoid returning '[object Object]' style values
+        if (/^\[object\s+.+\]$/.test(trimmed)) return null;
+        return trimmed;
       } catch (e) {
-        // not json
+        return null;
       }
-
-      // key=value 형식 (예: clientData=홍길동)
-      const s = String(raw);
-      const kv = s.match(/clientData=([^;,&]*)/);
-      if (kv && kv[1]) return decodeURIComponent(kv[1]);
-
-      // 그냥 일반 문자열
-      return s;
     },
 
     // pending streams 처리
@@ -694,6 +813,9 @@ export default {
           const streamConnId = stream?.connection?.connectionId;
           if (streamConnId && this.session?.connection?.connectionId === streamConnId) return;
           const client = this._parseRawClientData(stream?.connection?.data);
+          if (streamConnId && typeof client === 'string' && client.trim() !== '' && !/^\[object\s+.+\]$/.test(client)) {
+            this._connectionClientMap = { ...this._connectionClientMap, [streamConnId]: client };
+          }
           if (client && client === this.myUserName) return;
           const alreadySubscribed = this.subscribers.some(
             (s) => s.stream.connection.connectionId === streamConnId
@@ -701,18 +823,58 @@ export default {
           if (alreadySubscribed) return;
           const subscriber = this.session.subscribe(stream);
           this.subscribers.push(subscriber);
+          // same caching for pending streams
+          this._cacheClientDataForConnection(streamConnId, subscriber, stream).catch(e => { /* ignore */ });
         } catch (e) { console.debug('processPendingStreams error', e); }
       });
       // 반영
       this.$nextTick(() => this.updateOutputVolume(this.outputVolume));
     },
 
-    displayName(streamManager, isPublisher = false) {
-      const name = this.clientData(streamManager);
-      if (isPublisher) {
-        const display = name && name !== 'Unknown' ? name : (this.myUserName || '나');
-        return `${display}(나)`;
+    // Try reading/parsing clientData for a connection multiple times with small delays.
+    async _cacheClientDataForConnection(connectionId, subscriber, stream) {
+      if (!connectionId) return;
+      const delays = [0, 100, 300, 600];
+      for (const d of delays) {
+        if (d) await new Promise(r => setTimeout(r, d));
+        try {
+          const raw = (subscriber && subscriber.stream && subscriber.stream.connection && subscriber.stream.connection.data)
+            || (stream && stream.connection && stream.connection.data)
+            || null;
+          const parsed = this._parseRawClientData(raw);
+          if (parsed && typeof parsed === 'string' && parsed.trim() !== '' && !/^[\[]object\s+.+\]$/.test(parsed)) {
+            this._connectionClientMap = { ...this._connectionClientMap, [connectionId]: parsed };
+            return;
+          }
+        } catch (e) {
+          // ignore and retry
+        }
       }
+      // Final attempt: if nothing found, leave unknown but log for diagnostics
+      try {
+        const rawFinal = (subscriber && subscriber.stream && subscriber.stream.connection && subscriber.stream.connection.data)
+          || (stream && stream.connection && stream.connection.data) || null;
+        if (rawFinal) console.debug('clientData remained unavailable after retries, raw:', rawFinal);
+      } catch (e) { /* ignore */ }
+    },
+
+    displayName(streamManager, isPublisher = false) {
+      // For publisher (local), prefer the authoritative myUserName value so we don't show fallback '나(나)'
+      if (isPublisher) {
+        // Prefer myUserName if available
+        if (this.myUserName && String(this.myUserName).trim() !== '') {
+          return `${this.myUserName}(나)`;
+        }
+
+        // Otherwise try to use any parsed clientData from the stream/connection
+        const cached = this.clientData(streamManager);
+        if (cached && cached !== 'Unknown') return `${cached}(나)`;
+
+        // Final fallback: just display '나' (without duplicating suffix)
+        return '나';
+      }
+
+      const name = this.clientData(streamManager);
       return name || 'Unknown';
     },
 
