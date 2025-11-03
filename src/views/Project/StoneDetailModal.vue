@@ -124,7 +124,7 @@
             <span>진행도</span>
           </div>
           <div class="info-value-with-status">
-            <span class="progress-percent">{{ currentStoneData?.milestone || 0 }}%</span>
+            <span class="progress-percent">{{ formatMilestone(currentStoneData?.milestone) }}%</span>
             <div class="stone-status" :class="getStoneStatusClass(currentStoneData?.stoneStatus)">
               {{ getStoneStatusText(currentStoneData?.stoneStatus) }}
             </div>
@@ -890,7 +890,13 @@ export default {
   computed: {
     // 현재 사용할 스톤 데이터 (stoneData가 있으면 사용, 없으면 stoneId로 로드)
     currentStoneData() {
-      return this.stoneData || this.loadedStoneData;
+      const data = this.stoneData || this.loadedStoneData;
+      if (data) {
+        console.log('[currentStoneData] 스톤 데이터:', data);
+        console.log('[currentStoneData] milestone 값:', data.milestone);
+        console.log('[currentStoneData] milestone 타입:', typeof data.milestone);
+      }
+      return data;
     },
     
     // 채팅방 생성 체크박스 비활성화 여부
@@ -1003,6 +1009,9 @@ export default {
         // Postman 결과 구조와 동일하게 result로 래핑되어 있음
         const json = await response.json();
         this.loadedStoneData = json.result;
+        
+        console.log('로드된 스톤 데이터:', this.loadedStoneData);
+        console.log('마일스톤 값:', this.loadedStoneData?.milestone);
 
         // taskList도 세팅
         if (json.result?.taskResDtoList?.length) {
@@ -1014,6 +1023,8 @@ export default {
             endTime: t.endTime,
             assigneeName: t.taskManagerName,
           }));
+        } else {
+          this.taskList = [];
         }
         
       } catch (error) {
@@ -1894,6 +1905,31 @@ export default {
       return `${formatDate(startDate)} - ${formatDate(endDate)}`
     },
     
+    formatMilestone(milestone) {
+      console.log('[formatMilestone] 입력값:', milestone, '타입:', typeof milestone);
+      
+      // milestone 값이 없거나 null/undefined인 경우 0 반환
+      if (milestone === null || milestone === undefined || milestone === '') {
+        console.log('[formatMilestone] milestone이 null/undefined/빈 문자열이므로 0 반환');
+        return 0;
+      }
+      
+      // 숫자로 변환
+      const value = Number(milestone);
+      console.log('[formatMilestone] 숫자 변환 후:', value);
+      
+      // NaN이면 0 반환
+      if (isNaN(value)) {
+        console.log('[formatMilestone] NaN이므로 0 반환');
+        return 0;
+      }
+      
+      // 소수점이 있으면 반올림하여 정수로 표시
+      const rounded = Math.round(value);
+      console.log('[formatMilestone] 최종 반환값:', rounded);
+      return rounded;
+    },
+    
     // 담당자 목록 로드 (실제 API 호출)
     async loadAvailableManagers() {
       try {
@@ -2039,6 +2075,12 @@ export default {
     // 스톤 데이터가 변경될 때 태스크 목록 다시 로드
     stoneData: {
       handler(newStoneData) {
+        console.log('[stoneData watch] 스톤 데이터 변경됨:', newStoneData);
+        if (newStoneData) {
+          console.log('[stoneData watch] milestone 값:', newStoneData.milestone);
+          console.log('[stoneData watch] milestone 타입:', typeof newStoneData.milestone);
+          console.log('[stoneData watch] 전체 데이터:', JSON.stringify(newStoneData, null, 2));
+        }
         if (newStoneData && (newStoneData.stoneId || newStoneData.id)) {
           this.loadTaskList();
         }
@@ -2050,6 +2092,12 @@ export default {
     // 로드된 스톤 데이터가 변경될 때 태스크 목록 다시 로드
     loadedStoneData: {
       handler(newStoneData) {
+        console.log('[loadedStoneData watch] 로드된 스톤 데이터 변경됨:', newStoneData);
+        if (newStoneData) {
+          console.log('[loadedStoneData watch] milestone 값:', newStoneData.milestone);
+          console.log('[loadedStoneData watch] milestone 타입:', typeof newStoneData.milestone);
+          console.log('[loadedStoneData watch] 전체 데이터:', JSON.stringify(newStoneData, null, 2));
+        }
         if (newStoneData && (newStoneData.stoneId || newStoneData.id)) {
           this.loadTaskList();
         }

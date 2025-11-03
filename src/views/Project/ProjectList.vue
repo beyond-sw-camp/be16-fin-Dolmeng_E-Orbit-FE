@@ -1683,6 +1683,7 @@ export default {
             chatCreation: stoneDetail.chatCreation,
             stoneStatus: stoneDetail.stoneStatus,
             stoneDescribe: stoneDetail.stoneDescribe, // 스톤 설명 추가
+            milestone: stoneDetail.milestone || 0, // 마일스톤 진행률 추가
             tasks: (stoneDetail.taskResDtoList || []).map((task, index) => ({
               id: task.taskId || index + 1,
               name: task.taskName || '태스크',
@@ -1715,6 +1716,7 @@ export default {
           participants: '비어 있음',
           documentLink: '바로가기',
           chatCreation: false,
+          milestone: stone.milestone || 0, // 마일스톤 진행률 추가
           tasks: [],
           isProject: stone.isRoot || false
         };
@@ -1754,6 +1756,7 @@ export default {
             chatCreation: stoneDetail.chatCreation,
             stoneStatus: stoneDetail.stoneStatus,
             stoneDescribe: stoneDetail.stoneDescribe, // 스톤 설명 추가
+            milestone: stoneDetail.milestone || 0, // 마일스톤 진행률 추가
             tasks: (stoneDetail.taskResDtoList || []).map((task, index) => ({
               id: task.taskId || index + 1,
               name: task.taskName || '태스크',
