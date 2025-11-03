@@ -152,8 +152,14 @@ export default {
       return this.workspaceStore.getCurrentWorkspace;
     },
     projects() {
-      // API에서 받아온 프로젝트 목록을 반환
-      return this.projectList.map(project => ({
+      // API에서 받아온 프로젝트 목록을 시작일 기준으로 정렬하여 반환
+      const sortedProjects = [...this.projectList].sort((a, b) => {
+        const dateA = new Date(a.startedAt || a.startTime || 0);
+        const dateB = new Date(b.startedAt || b.startTime || 0);
+        return dateA - dateB; // 시작일이 빠른 순서로 정렬
+      });
+      
+      return sortedProjects.map(project => ({
         id: project.projectId,
         name: project.projectName,
         color: '#FDF5EB'
