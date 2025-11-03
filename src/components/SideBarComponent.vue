@@ -79,6 +79,7 @@
             v-for="project in projects" 
             :key="project.id"
             class="project-item"
+            :class="{ 'selected': isProjectSelected(project.id) }"
             @click="selectProject(project)"
           >
             <div class="project-circle" :style="{ background: project.color }"></div>
@@ -336,8 +337,13 @@ export default {
     
     selectProject(project) {
       console.log('프로젝트 선택:', project);
-      this.showProjectDropdown = false;
+      // 프로젝트 선택 후에도 드롭다운 유지
       this.$router.push({ path: '/project', query: { id: project.id } });
+    },
+    
+    isProjectSelected(projectId) {
+      // 현재 라우트가 프로젝트 페이지이고 query의 id가 일치하는지 확인
+      return this.currentRoute === '/project' && this.$route.query.id === projectId;
     },
     
     createProject() {
@@ -836,23 +842,22 @@ export default {
   font-size: 16px;
   line-height: 19px;
   color: #FDF5EB;
+  transition: transform 0.3s ease;
+}
+
+.nav-item .dropdown-arrow.rotated {
+  transform: translateY(-50%) rotate(180deg);
 }
 
 .project-nav-container {
-  position: relative;
   margin-bottom: 8px;
 }
 
 .project-dropdown {
-  position: absolute;
-  top: 52px;
-  left: 0;
-  right: 0;
   background: rgba(26, 26, 26, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
+  margin-top: 4px;
   max-height: 250px;
   overflow-y: auto;
 }
@@ -869,6 +874,10 @@ export default {
 
 .project-item:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.project-item.selected {
+  background: rgba(255, 221, 68, 0.2);
 }
 
 .project-item .project-circle {
@@ -891,7 +900,7 @@ export default {
   cursor: pointer;
   border-top: 1px solid #333;
   transition: background-color 0.2s;
-  background: rgba(255, 221, 68, 0.1);
+  background: #000000;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -907,7 +916,7 @@ export default {
 }
 
 .project-create-item:hover {
-  background: rgba(255, 221, 68, 0.2);
+  background: rgba(0, 0, 0, 0.8);
 }
 
 .project-create-icon {
