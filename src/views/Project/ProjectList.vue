@@ -673,6 +673,7 @@
       :stone-data="selectedStoneData"
       :is-loading="isLoadingStoneDetail"
       :workspace-id="currentWorkspaceId"
+      :project-end-time="projectDetail?.endTime"
       @close="closeStoneDetailModal"
       @expand="expandStoneDetailModal"
       @stone-updated="onStoneUpdatedFromModal"
