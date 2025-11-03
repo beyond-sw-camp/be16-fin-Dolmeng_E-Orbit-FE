@@ -2357,13 +2357,13 @@ export default {
         // rootType에 따라 아이콘 분리
         switch (rootType) {
           case 'WORKSPACE':
-            return 'mdi-folder-home';
+            return 'mdi-account-group-outline';
           case 'PROJECT':
-            return 'mdi-folder-star';
+            return 'mdi-clipboard-list-outline';
           case 'STONE':
-            return 'mdi-folder-heart';
+            return 'mdi-archive-outline';
           default:
-            return 'mdi-folder-home';
+            return 'mdi-account-group-outline';
         }
       }
       // 일반 폴더
@@ -2420,20 +2420,21 @@ export default {
         const rootType = item.rootType;
         switch (rootType) {
           case 'WORKSPACE':
-            return 'mdi-folder-home';
+            return 'mdi-account-group-outline';
           case 'PROJECT':
-            return 'mdi-folder-star';
+            return 'mdi-clipboard-list-outline';
           case 'STONE':
-            return 'mdi-folder-heart';
+            return 'mdi-archive-outline';
           default:
-            return 'mdi-folder-home';
+            return 'mdi-account-group-outline';
         }
       }
       
       if (item.type === 'folder') return 'mdi-folder';
       if (item.type === 'document') return 'mdi-file-document-edit';
-      if (item.type === 'STONE') return 'mdi-link-variant';  // 바로가기 아이콘
-      if (item.type === 'PROJECT') return 'mdi-link-variant';  // 바로가기 아이콘
+      // 루트 문서함 바로가기 타입
+      if (item.type === 'STONE') return 'mdi-archive-outline';
+      if (item.type === 'PROJECT') return 'mdi-clipboard-list-outline';
       
       const ext = (item.extension || this.getFileExtension(item.name)).toLowerCase();
 
