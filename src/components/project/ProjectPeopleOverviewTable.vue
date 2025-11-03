@@ -35,7 +35,13 @@
       
       <!-- 테이블 -->
       <div class="people-table-container">
-        <table class="people-table">
+        <div v-if="filteredAndSortedPeople.length === 0" class="people-table-empty">
+          <p v-if="selectedParticipatingStoneFilter">
+            선택한 스톤에 참여하는 인원이 없습니다.
+          </p>
+          <p v-else>데이터가 없습니다.</p>
+        </div>
+        <table v-else class="people-table">
           <thead>
             <tr>
               <th class="user-col">사용자</th>
@@ -59,13 +65,32 @@
                   {{ sortOrder === 'asc' ? '▲' : '▼' }}
                 </span>
               </th>
-              <th class="task-col">맡은 태스크</th>
+              <th class="task-col">담당 태스크</th>
               <th class="stones-col">담당 스톤</th>
-              <th class="stones-col">참여 스톤</th>
+              <th class="stones-col">
+                <div class="header-with-filter-inline">
+                  <span>참여 스톤</span>
+                  <select 
+                    v-model="selectedParticipatingStoneFilter" 
+                    class="header-filter-select-inline"
+                    @change="handleFilterChange"
+                    @click.stop
+                  >
+                    <option value="">전체</option>
+                    <option 
+                      v-for="stone in availableStones" 
+                      :key="stone.stoneId + '_participating'" 
+                      :value="stone.stoneId"
+                    >
+                      {{ stone.stoneName }}
+                    </option>
+                  </select>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="person in sortedPeople" :key="person.user.userId">
+            <tr v-for="person in paginatedPeople" :key="person.user.userId">
               <td class="user-col">
                 <div class="user-cell">
                   <div class="user-info">
@@ -119,10 +144,46 @@
                 </div>
               </td>
             </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+          
+          <!-- 페이지네이션 -->
+          <div v-if="totalPages > 1" class="pagination-container">
+            <div class="pagination-info">
+              총 {{ filteredAndSortedPeople.length }}명 중 {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, filteredAndSortedPeople.length) }}명 표시
+            </div>
+            <div class="pagination-controls">
+              <button 
+                class="pagination-btn"
+                :class="{ disabled: currentPage === 1 }"
+                :disabled="currentPage === 1"
+                @click="goToPage(currentPage - 1)"
+              >
+                이전
+              </button>
+              <div class="pagination-pages">
+                <button
+                  v-for="page in visiblePages"
+                  :key="page"
+                  class="pagination-page-btn"
+                  :class="{ active: page === currentPage }"
+                  @click="goToPage(page)"
+                >
+                  {{ page }}
+                </button>
+              </div>
+              <button 
+                class="pagination-btn"
+                :class="{ disabled: currentPage === totalPages }"
+                :disabled="currentPage === totalPages"
+                @click="goToPage(currentPage + 1)"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
     
     <!-- 스톤 목록 모달 -->
     <div v-if="showStoneModal" class="stone-modal-overlay" @click="closeStoneModal">
@@ -172,17 +233,74 @@ export default {
       sortOrder: 'desc',
       showStoneModal: false,
       modalStones: [],
-      modalTitle: ''
+      modalTitle: '',
+      selectedParticipatingStoneFilter: '',
+      currentPage: 1,
+      itemsPerPage: 12 // 10~15명 사이로 설정
     };
   },
   
   computed: {
-    sortedPeople() {
+    // 모든 사용 가능한 스톤 목록 (중복 제거)
+    availableStones() {
       if (!this.overview || !this.overview.people) {
         return [];
       }
       
-      const people = [...this.overview.people];
+      const stoneMap = new Map();
+      
+      this.overview.people.forEach(person => {
+        // 담당 스톤 추가
+        if (person.ownedStones && Array.isArray(person.ownedStones)) {
+          person.ownedStones.forEach(stone => {
+            if (!stoneMap.has(stone.stoneId)) {
+              stoneMap.set(stone.stoneId, stone);
+            }
+          });
+        }
+        
+        // 참여 스톤 추가
+        if (person.participatingStones && Array.isArray(person.participatingStones)) {
+          person.participatingStones.forEach(stone => {
+            if (!stoneMap.has(stone.stoneId)) {
+              stoneMap.set(stone.stoneId, stone);
+            }
+          });
+        }
+      });
+      
+      return Array.from(stoneMap.values()).sort((a, b) => {
+        return (a.stoneName || '').localeCompare(b.stoneName || '');
+      });
+    },
+    
+    // 필터링된 사람 목록
+    filteredPeople() {
+      if (!this.overview || !this.overview.people) {
+        return [];
+      }
+      
+      // 필터가 없으면 전체 반환
+      if (!this.selectedParticipatingStoneFilter) {
+        return this.overview.people;
+      }
+      
+      return this.overview.people.filter(person => {
+        // 참여 스톤 필터 체크
+        if (person.participatingStones && Array.isArray(person.participatingStones)) {
+          return person.participatingStones.some(stone => stone.stoneId === this.selectedParticipatingStoneFilter);
+        }
+        return false;
+      });
+    },
+    
+    // 필터링 + 정렬된 사람 목록
+    filteredAndSortedPeople() {
+      if (this.filteredPeople.length === 0) {
+        return [];
+      }
+      
+      const people = [...this.filteredPeople];
       
       return people.sort((a, b) => {
         // 첫 번째 정렬 기준
@@ -203,6 +321,56 @@ export default {
         // 정렬 순서 적용
         return this.sortOrder === 'asc' ? -comparison : comparison;
       });
+    },
+    
+    // 전체 페이지 수
+    totalPages() {
+      if (this.filteredAndSortedPeople.length === 0) {
+        return 1;
+      }
+      return Math.ceil(this.filteredAndSortedPeople.length / this.itemsPerPage);
+    },
+    
+    // 현재 페이지에 표시할 사람 목록
+    paginatedPeople() {
+      if (this.filteredAndSortedPeople.length === 0) {
+        return [];
+      }
+      
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.filteredAndSortedPeople.slice(start, end);
+    },
+    
+    // 표시할 페이지 번호들 (최대 5개)
+    visiblePages() {
+      const pages = [];
+      const maxVisible = 5;
+      let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+      let end = Math.min(this.totalPages, start + maxVisible - 1);
+      
+      if (end - start < maxVisible - 1) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      return pages;
+    }
+  },
+  
+  watch: {
+    selectedParticipatingStoneFilter() {
+      // 필터 변경 시 첫 페이지로 이동
+      this.currentPage = 1;
+    },
+    filteredAndSortedPeople() {
+      // 필터링 결과가 변경되면 현재 페이지가 범위를 벗어났는지 확인
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = this.totalPages;
+      }
     }
   },
   
@@ -236,6 +404,23 @@ export default {
       this.showStoneModal = false;
       this.modalStones = [];
       this.modalTitle = '';
+    },
+    
+    handleFilterChange() {
+      // 필터 변경 시 첫 페이지로 이동 (watch에서 처리)
+    },
+    
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page;
+        // 페이지 이동 시 테이블 상단으로 스크롤
+        this.$nextTick(() => {
+          const tableContainer = this.$el.querySelector('.people-table-container');
+          if (tableContainer) {
+            tableContainer.scrollTop = 0;
+          }
+        });
+      }
     }
   }
 };
@@ -277,6 +462,44 @@ export default {
   color: #d32f2f;
 }
 
+/* 헤더 내 필터 (인라인) */
+.header-with-filter-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.header-with-filter-inline span {
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.header-filter-select-inline {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: white;
+  color: #1a1a1a;
+  cursor: pointer;
+  flex: 1;
+  min-width: 120px;
+  max-width: 200px;
+  transition: border-color 0.2s;
+}
+
+.header-filter-select-inline:hover {
+  border-color: #bbb;
+}
+
+.header-filter-select-inline:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
 /* 메트릭 카드 */
 .people-metrics-grid {
   display: grid;
@@ -309,6 +532,14 @@ export default {
   overflow-x: auto;
 }
 
+.people-table-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #666;
+}
+
 .people-table {
   width: 100%;
   border-collapse: collapse;
@@ -326,6 +557,7 @@ export default {
   font-weight: 600;
   color: #1a1a1a;
   white-space: nowrap;
+  vertical-align: top;
 }
 
 .people-table td {
@@ -521,6 +753,83 @@ export default {
   text-align: center;
   padding: 40px;
   color: #999;
+}
+
+/* 페이지네이션 */
+.pagination-container {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #666;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: white;
+  color: #1a1a1a;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.pagination-btn:hover:not(.disabled) {
+  background-color: #f5f5f5;
+  border-color: #bbb;
+}
+
+.pagination-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+
+.pagination-page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: white;
+  color: #1a1a1a;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-page-btn:hover {
+  background-color: #f5f5f5;
+  border-color: #bbb;
+}
+
+.pagination-page-btn.active {
+  background-color: #1976d2;
+  border-color: #1976d2;
+  color: white;
+  font-weight: 600;
 }
 </style>
 
