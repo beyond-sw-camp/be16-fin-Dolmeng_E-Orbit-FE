@@ -1,60 +1,108 @@
-<!-- src/views/schedule/ProjectCalendar.vue -->
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import CalendarView from "@/components/schedule/CalendarView.vue";
+import axios from "axios";
+import CalendarBase from "@/components/CalendarBase.vue";
+import StoneDetailModal from "@/views/Project/StoneDetailModal.vue";
 
 const router = useRouter();
+const workspaceId = localStorage.getItem("selectedWorkspaceId");
 
-// 임시 이벤트
-const events = ref([
-  { title: "JWT Filter 구현", start: "2025-09-10", end: "2025-09-13", color: "#FFD93D" },
-  { title: "ERD 설계",       start: "2025-09-22", end: "2025-09-29", color: "#6A7FDB" },
-  { title: "출시 테스트",     start: "2025-09-19", end: "2025-09-21", color: "#F2C94C" },
-]);
-
+// ✅ 일정 배열
+const events = ref([]);
 const currentView = ref("dayGridMonth");
 const showSidebar = ref(false);
-const currentDate = ref(new Date(2025, 8)); // 2025-09
+const currentDate = ref(new Date());
+const selected = ref(null);
 
-function goScheduleHome() { router.push({ path: "/schedule" }); }
-function goSharedCalendar() { router.push({ path: "/schedule/shared" }); } // 추후 실제 라우트
+// ✅ 모달 제어
+const showStoneModal = ref(false);
+const selectedStoneId = ref<string | null>(null);
 
-function toggleSidebar() {
-  showSidebar.value = !showSidebar.value;
-}
+// ✅ 참여 스톤 & 태스크 불러오기
+const fetchEvents = async () => {
+  try {
+    const userId = localStorage.getItem("id");
+    const [stoneRes, taskRes] = await Promise.all([
+      axios.get(`/workspace-service/workspace/${workspaceId}/my-stones`, {
+        headers: { "X-User-Id": userId },
+      }),
+      axios.get(`/workspace-service/workspace/${workspaceId}/my-tasks`, {
+        headers: { "X-User-Id": userId },
+      }),
+    ]);
 
-function changeMonth(delta: number) {
+    const stoneEvents = (stoneRes.data.result || []).map((s) => ({
+      id: s.stoneId,
+      title: `[스톤] ${s.stoneName}`,
+      start: s.startTime,
+      end: s.endTime,
+      project: s.projectName,
+      type: "STONE",
+      color: "#A3B8FF",
+      stoneId: s.stoneId,
+    }));
+
+    const taskEvents = (taskRes.data.result || []).map((t) => ({
+      id: t.taskId,
+      title: `[태스크] ${t.taskName}`,
+      start: t.startTime,
+      end: t.endTime,
+      project: t.projectName,
+      stone: t.stoneName,
+      type: "TASK",
+      color: "#FFD93D",
+      stoneId: t.stoneId,
+    }));
+
+    events.value = [...stoneEvents, ...taskEvents];
+  } catch (e) {
+    console.error("❌ 프로젝트 캘린더 이벤트 불러오기 실패:", e);
+  }
+};
+
+onMounted(fetchEvents);
+
+// ✅ 월 이동
+function changeMonth(delta) {
   const date = new Date(currentDate.value);
   date.setMonth(date.getMonth() + delta);
   currentDate.value = date;
 }
-
-function formatYearMonth(date: Date) {
+function formatYearMonth(date) {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 }
+function toggleSidebar() {
+  showSidebar.value = !showSidebar.value;
+}
 
+// ✅ 사이드바
 const sidebarItems = ref([
-  { name: "기획", color: "#EB5757", visible: true },
-  { name: "담당자 테스트1", color: "#9B51E0", visible: true },
-  { name: "작업1", color: "#56CCF2", visible: true },
-  { name: "담당자 테스트2", color: "#BB6BD9", visible: true },
-  { name: "ERD", color: "#2F80ED", visible: false },
-  { name: "출시 테스트", color: "#F2C94C", visible: true },
+  { name: "스톤 일정", color: "#A3B8FF", visible: true },
+  { name: "태스크 일정", color: "#FFD93D", visible: true },
 ]);
+function toggleVisibility(item) {
+  item.visible = !item.visible;
+}
 
-function toggleVisibility(item: any) { item.visible = !item.visible; }
+// ✅ 모달 열기 (CalendarBase에서 emit)
+function handleOpenStoneModal(eventData: any) {
+  console.log("🟢 클릭된 일정:", eventData);
+  // 태스크 클릭 시 stoneId를 사용
+  const stoneId = eventData.stoneId || eventData.id;
+  if (!stoneId) return;
+
+  selectedStoneId.value = stoneId;
+  showStoneModal.value = true;
+}
+function closeStoneModal() {
+  showStoneModal.value = false;
+  selectedStoneId.value = null;
+}
 </script>
 
 <template>
   <div class="project-calendar-wrap">
-    <!-- 탭 -->
-    <!-- <div class="tabs">
-      <button class="tab" @click="goScheduleHome">일정 홈</button>
-      <button class="tab active">프로젝트 캘린더</button>
-      <button class="tab" @click="goSharedCalendar">공유 캘린더</button>
-    </div> -->
-
     <!-- 툴바 -->
     <div class="toolbar">
       <div class="left">
@@ -73,12 +121,26 @@ function toggleVisibility(item: any) { item.visible = !item.visible; }
       </div>
     </div>
 
-    <!-- 캘린더 -->
+    <!-- 📅 캘린더 -->
     <div class="calendar-container">
-      <CalendarView :events="events" :viewType="currentView" />
+      <CalendarBase
+        :events="events"
+        :viewType="currentView"
+        :initialDate="currentDate"
+        @openStoneModal="handleOpenStoneModal"
+      />
+
+      <!-- ✅ 스톤 상세 모달 -->
+      <StoneDetailModal
+        v-if="showStoneModal"
+        :is-visible="showStoneModal"
+        :stone-id="selectedStoneId"
+        :workspace-id="workspaceId"
+        @close="closeStoneModal"
+      />
     </div>
 
-    <!-- 사이드바 -->
+    <!-- 👁️ 사이드바 -->
     <transition name="slide">
       <aside v-if="showSidebar" class="sidebar">
         <div class="sidebar-header">
@@ -100,10 +162,6 @@ function toggleVisibility(item: any) { item.visible = !item.visible; }
 
 <style scoped>
 .project-calendar-wrap { padding: 18px 20px; position: relative; }
-.tabs { display: flex; gap: 12px; border-bottom: 1px solid #e5e5e5; padding-bottom: 10px; margin-bottom: 18px; }
-.tab { border: none; background: none; padding: 8px 14px; border-bottom: 2px solid transparent; color: #888; font-weight: 600; cursor: pointer; }
-.tab.active { color: #111; border-color: #ffcc00; }
-
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .left { display: flex; align-items: center; gap: 10px; }
 .arrow { border: none; background: #fff; border-radius: 6px; width: 28px; height: 28px; box-shadow: 0 1px 5px rgba(0,0,0,.08); cursor: pointer; }
@@ -125,4 +183,12 @@ function toggleVisibility(item: any) { item.visible = !item.visible; }
 
 .slide-enter-active, .slide-leave-active { transition: all .3s ease; }
 .slide-enter-from, .slide-leave-to { opacity: 0; transform: translateX(20px); }
+.calendar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
 </style>
