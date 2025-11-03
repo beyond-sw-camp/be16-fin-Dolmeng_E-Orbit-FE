@@ -1,46 +1,54 @@
 <template>
   <div v-if="visible" class="modal-overlay" @click.self="close">
-    <div class="modal">
-      <h3>📅 일정 상세 정보</h3>
-
-      <div v-if="!isEditing && schedule">
-        <p><strong>일정명:</strong> {{ schedule.calendarName }}</p>
-        <p><strong>작성자:</strong> {{ schedule.userName || "-" }}</p>
-        <p><strong>시작일:</strong> {{ formatDate(schedule.startedAt) }}</p>
-        <p><strong>종료일:</strong> {{ formatDate(schedule.endedAt) }}</p>
-        <p><strong>공유 여부:</strong> {{ schedule.isShared ? "공개" : "비공개" }}</p>
-
-        <div class="modal-actions">
-          <button class="edit-btn" @click="startEdit">수정</button>
-          <button class="delete-btn" @click="deleteSchedule">삭제</button>
-          <button class="close-btn" @click="close">닫기</button>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="icon-title">
+          <span class="icon">📅</span>
+          <h3>일정 상세 정보</h3>
         </div>
       </div>
 
-      <!-- ✏️ 수정 모드 -->
-      <div v-else-if="isEditing">
-        <label>일정명</label>
-        <input v-model="editForm.calendarName" />
+      <div class="modal-body" v-if="schedule">
+        <!-- 일정명 -->
+        <label class="field-label">일정명</label>
+        <input class="field-input" v-model="editForm.calendarName" />
 
-        <label>시작일</label>
-        <input type="datetime-local" v-model="editForm.startedAt" />
+        <!-- 작성자 -->
+        <p class="readonly"><strong>작성자:</strong> {{ schedule.userName || "-" }}</p>
 
-        <label>종료일</label>
-        <input type="datetime-local" v-model="editForm.endedAt" />
+        <!-- 시작일 -->
+        <label class="field-label">시작일</label>
+        <input class="field-input" type="datetime-local" v-model="editForm.startedAt" />
 
-        <label>
-          <input type="checkbox" v-model="editForm.isShared" />
-          공개 일정
-        </label>
+        <!-- 종료일 -->
+        <label class="field-label">종료일</label>
+        <input class="field-input" type="datetime-local" v-model="editForm.endedAt" />
 
-        <div class="modal-actions">
-          <button class="cancel-btn" @click="cancelEdit">취소</button>
-          <button class="submit-btn" @click="updateSchedule">저장</button>
+        <!-- 일정 공개 여부 -->
+        <div class="share-row">
+          <label class="field-label">일정 공개 여부</label>
+          <input id="shared" type="checkbox" v-model="editForm.isShared" class="checkbox" />
         </div>
       </div>
 
-      <div v-else>
-        <p>⏳ 일정 정보를 불러오는 중...</p>
+      <div v-else class="loading">⏳ 일정 정보를 불러오는 중...</div>
+
+      <div class="modal-footer">
+        <button
+          class="btn-edit"
+          v-if="schedule?.userId === userId"
+          @click="updateSchedule"
+        >
+          수정
+        </button>
+        <button
+          class="btn-delete"
+          v-if="schedule?.userId === userId"
+          @click="deleteSchedule"
+        >
+          삭제
+        </button>
+        <button class="btn-close" @click="close">닫기</button>
       </div>
     </div>
   </div>
@@ -57,21 +65,16 @@ const props = defineProps({
 const emit = defineEmits(["update:visible", "updated", "deleted"]);
 
 const userId = localStorage.getItem("id");
-const schedule = ref(null);
-const isEditing = ref(false);
-const editForm = ref({});
-
 const workspaceId = localStorage.getItem("selectedWorkspaceId");
+
+const schedule = ref(null);
+const editForm = ref({});
 
 // 일정 정보 불러오기
 watch(
   () => props.eventId,
   async (newId) => {
     if (!newId) return;
-
-    console.log("🧭 eventId:", newId);
-    console.log("🧭 workspaceId:", workspaceId); // ✅ 추가
-
     try {
       const { data } = await axios.get(
         `/user-service/shared-calendars/detail/${newId}?workspaceId=${workspaceId}`,
@@ -80,6 +83,13 @@ watch(
         }
       );
       schedule.value = data.result || data;
+
+      editForm.value = {
+        calendarName: schedule.value.calendarName,
+        startedAt: schedule.value.startedAt?.slice(0, 16),
+        endedAt: schedule.value.endedAt?.slice(0, 16),
+        isShared: schedule.value.isShared,
+      };
     } catch (err) {
       console.error("❌ 일정 조회 실패:", err);
       alert(err.response?.data?.statusMessage || "일정 정보를 불러오지 못했습니다.");
@@ -88,23 +98,7 @@ watch(
   { immediate: true }
 );
 
-// 일정 수정 시작
-const startEdit = () => {
-  isEditing.value = true;
-  editForm.value = {
-    calendarName: schedule.value.calendarName,
-    startedAt: schedule.value.startedAt?.slice(0, 16),
-    endedAt: schedule.value.endedAt?.slice(0, 16),
-    isShared: schedule.value.isShared,
-  };
-};
-
-// 일정 수정 취소
-const cancelEdit = () => {
-  isEditing.value = false;
-};
-
-// 일정 수정 저장
+// 수정 저장
 const updateSchedule = async () => {
   try {
     await axios.put(
@@ -119,11 +113,8 @@ const updateSchedule = async () => {
         headers: { "X-User-Id": userId },
       }
     );
-
     alert("✅ 일정이 수정되었습니다.");
-    isEditing.value = false;
-    emit("updated"); // 부모 컴포넌트에서 fetchSharedData 실행
-    close();
+    emit("updated");
   } catch (err) {
     console.error("❌ 일정 수정 실패:", err);
     alert("일정 수정 실패");
@@ -135,13 +126,11 @@ const deleteSchedule = async () => {
   if (!confirm("이 일정을 삭제하시겠습니까?")) return;
   try {
     await axios.delete(
-        `/user-service/shared-calendars/${props.eventId}?workspaceId=${workspaceId}`,
-    {
-      headers: { "X-User-Id": userId },
-    });
-
+      `/user-service/shared-calendars/${props.eventId}?workspaceId=${workspaceId}`,
+      { headers: { "X-User-Id": userId } }
+    );
     alert("🗑️ 일정이 삭제되었습니다.");
-    emit("deleted"); // 부모에서 다시 렌더링
+    emit("deleted");
     close();
   } catch (err) {
     console.error("❌ 일정 삭제 실패:", err);
@@ -149,102 +138,181 @@ const deleteSchedule = async () => {
   }
 };
 
-// 닫기
 const close = () => {
-  isEditing.value = false;
   emit("update:visible", false);
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  return d.toLocaleString();
 };
 </script>
 
 <style scoped>
+/* ✅ 모달 전체 영역 */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
+  backdrop-filter: blur(2px);
 }
 
-.modal {
-  background: white;
-  border-radius: 10px;
-  padding: 20px;
-  width: 400px;
+/* ✅ 카드 스타일 모달 */
+.modal-card {
+  width: 420px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+/* ✅ 헤더 */
+.modal-header {
+  background: linear-gradient(135deg, #a5b4ff, #ffd580);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  color: #333;
+}
+
+.icon-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 20px;
+}
+
+.modal-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+}
+
+/* ✅ 본문 */
+.modal-body {
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  animation: fadeIn 0.2s ease-in-out;
 }
 
-.modal h3 {
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+}
+
+.field-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: #a5b4ff;
+  box-shadow: 0 0 0 2px rgba(165, 180, 255, 0.2);
+}
+
+.readonly {
+  font-size: 14px;
+  color: #666;
+}
+
+/* ✅ 공개 여부 한 줄 정렬 */
+.share-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
   margin-bottom: 8px;
 }
 
-.modal p {
-  margin: 4px 0;
+.share-row .field-label {
+  margin: 0;
 }
 
-.modal-actions {
-  margin-top: 12px;
+.checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #ffd580;
+}
+
+/* ✅ 푸터 버튼 영역 */
+.modal-footer {
+  padding: 14px 20px;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+  background: #fafafa;
+  border-top: 1px solid #eee;
 }
 
-.close-btn,
-.cancel-btn {
+.btn-edit {
+  background: #a5b4ff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-edit:hover {
+  background: #8d9efc;
+}
+
+.btn-delete {
+  background: #ff7777;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-delete:hover {
+  background: #ff5a5a;
+}
+
+.btn-close {
   background: #ddd;
   border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.edit-btn {
-  background: #a5b4ff;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  color: #fff;
+  border-radius: 8px;
+  padding: 7px 14px;
   font-weight: 600;
-}
-
-.delete-btn {
-  background: #ff7777;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
   cursor: pointer;
-  color: white;
-  font-weight: 600;
+  transition: all 0.2s;
 }
 
-.submit-btn {
-  background: #ffd580;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-weight: 600;
+.btn-close:hover {
+  background: #ccc;
 }
 
+/* ✅ 로딩 상태 */
+.loading {
+  text-align: center;
+  padding: 24px;
+  color: #666;
+}
+
+/* ✅ 애니메이션 */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: scale(0.98);
+    transform: scale(0.97);
   }
   to {
     opacity: 1;
