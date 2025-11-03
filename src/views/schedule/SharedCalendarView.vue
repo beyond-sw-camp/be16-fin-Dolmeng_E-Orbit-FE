@@ -97,6 +97,14 @@
         </div>
       </div>
     </div>
+
+    <!-- 일정 조회 모달 -->
+    <ScheduleDetailModal
+      v-model:visible="isDetailModalOpen"
+      :eventId="selectedEventId"
+      @updated="fetchSharedData"
+      @deleted="fetchSharedData"
+    />
   </div>
 </template>
 
@@ -105,6 +113,7 @@ import { ref, onMounted, watch } from "vue";
 import { getMySchedules, getSubscriptions } from "@/api/sharedCalendarApi.js";
 import axios from "axios";
 import SearchUserModal from "@/components/modal/SearchUserModal.vue"; 
+import ScheduleDetailModal from "@/components/modal/ScheduleDetailModal.vue";
 
 const workspaceId = localStorage.getItem("selectedWorkspaceId");
 const calendarEl = ref(null);
@@ -119,6 +128,9 @@ const showModal = ref(false);
 const isUserModalOpen = ref(false);
 
 const openModal = () => (isUserModalOpen.value = true);
+
+const selectedEventId = ref(null);
+const isDetailModalOpen = ref(false);
 
 const form = ref({
   calendarName: "",
@@ -256,7 +268,8 @@ const renderCalendar = () => {
     headerToolbar: false,
     events: visibleEvents,
     eventClick(info) {
-      alert(`📅 ${info.event.title}`);
+      selectedEventId.value = info.event.id;
+      isDetailModalOpen.value = true;
     },
   });
 
