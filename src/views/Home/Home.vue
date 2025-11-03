@@ -23,8 +23,8 @@
               <div class="month-labels">
                 <span v-for="(label, index) in projectTimelineLabels" :key="index">{{ label.label }}</span>
               </div>
-              <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
             </div>
+            <div v-if="showTodayLine" class="today-line" :style="{ left: todayLinePosition }"></div>
             <div class="gantt-bars">
               <div v-if="loading" class="loading-message">
                 프로젝트 로딩 중...
@@ -68,19 +68,22 @@
             <div v-if="documentFolders.length === 0" class="no-stones-message">
               <div class="no-stones-text">나의 스톤이 없습니다.</div>
             </div>
-            <div v-else>
-              <div class="document-folder" v-for="folder in documentFolders" :key="folder.id">
+            <template v-else>
+              <v-card class="document-folder" v-for="folder in documentFolders" :key="folder.id" elevation="0">
                 <div class="folder-header" :style="{ backgroundColor: folder.color }">
-                  <span class="folder-name">📁 {{ folder.name }}</span>
+                  <span class="folder-name">
+                    <img src="/src/assets/icons/home/folder-open.svg" alt="폴더" class="folder-icon" />
+                    {{ folder.name }}
+                  </span>
                 </div>
-                <div class="folder-content">
+                <v-card-text class="folder-content">
                   <div class="document-item" v-for="doc in folder.documents" :key="doc.id" @click="goToStoneDrive(doc)">
-                    <span class="doc-icon">📄</span>
+                    <img src="/src/assets/icons/home/file-document.svg" alt="문서" class="doc-icon" />
                     <span class="doc-name">{{ doc.name }}</span>
                   </div>
-                </div>
-              </div>
-            </div>
+                </v-card-text>
+              </v-card>
+            </template>
           </div>
         </section>
 
@@ -105,8 +108,8 @@
                     {{ label.label }}
                   </span>
                 </div>
-                <div v-if="showTaskTodayLine" class="task-today-line" :style="{ left: taskTodayLinePosition }"></div>
               </div>
+              <div v-if="showTaskTodayLine" class="task-today-line" :style="{ left: taskTodayLinePosition }"></div>
               
               <!-- Task 바들 -->
               <div class="task-timeline-bars">
@@ -783,7 +786,8 @@ export default {
       if (range.start.getTime() === range.end.getTime()) {
         return {
           left: '0%',
-          width: '100%'
+          width: '100%',
+          backgroundColor: this.getTaskColor(task.id)
         };
       }
       
@@ -800,8 +804,37 @@ export default {
       
       return {
         left: `${Math.max(0, leftPercent)}%`,
-        width: `${Math.min(100, widthPercent)}%`
+        width: `${Math.min(100, widthPercent)}%`,
+        backgroundColor: this.getTaskColor(task.id)
       };
+    },
+    
+    // Task ID 기반 밝은 색상 생성
+    getTaskColor(taskId) {
+      // taskId를 숫자로 변환 (해시 함수)
+      let hash = 0;
+      const str = String(taskId);
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      
+      // 밝은 파스텔 색상 팔레트
+      const lightColors = [
+        '#FFE4E1', // 연한 핑크
+        '#FFE4B5', // 연한 주황
+        '#FFFACD', // 연한 노랑
+        '#E0FFE0', // 연한 민트
+        '#E0F2FF', // 연한 하늘
+        '#E6E6FA', // 연한 라벤더
+        '#FFE4F0', // 연한 장미
+        '#FFF4E6', // 연한 살구
+        '#E8F5E9', // 연한 초록
+        '#F3E5F5', // 연한 보라
+        '#E1F5FE', // 연한 파랑
+        '#FFF9C4', // 연한 레몬
+      ];
+      
+      return lightColors[Math.abs(hash) % lightColors.length];
     },
     
     // Task 기간 포맷팅
@@ -1018,9 +1051,9 @@ export default {
 
 .today-line {
   position: absolute;
+  top: 0;
   bottom: 0;
   width: 2px;
-  height: calc(100% + 100%);
   background: transparent;
   z-index: 10;
   pointer-events: none;
@@ -1029,7 +1062,7 @@ export default {
 .today-line::before {
   content: 'Today';
   position: absolute;
-  bottom: -6px;
+  top: 18px;
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Pretendard', sans-serif;
@@ -1048,10 +1081,10 @@ export default {
 .today-line::after {
   content: '';
   position: absolute;
-  top: 0;
+  top: 32px;
+  bottom: 0;
   left: 0;
   width: 2px;
-  height: calc(100% + 240px);
   border-left: 2px dashed rgba(255, 68, 68, 0.6);
 }
 
@@ -1063,24 +1096,10 @@ export default {
 }
 
 .gantt-bar-wrapper {
-  position: absolute;
+  position: relative;
   width: 100%;
-}
-
-.gantt-bar-wrapper:nth-child(1) {
-  top: 0px;
-}
-
-.gantt-bar-wrapper:nth-child(2) {
-  top: 60px;
-}
-
-.gantt-bar-wrapper:nth-child(3) {
-  top: 120px;
-}
-
-.gantt-bar-wrapper:nth-child(4) {
-  top: 180px;
+  height: 60px;
+  margin-bottom: 0;
 }
 
 .gantt-bar {
@@ -1120,6 +1139,7 @@ export default {
   width: 100%;
   position: relative;
   z-index: 2;
+  min-width: 0;
 }
 
 .project-name {
@@ -1129,6 +1149,9 @@ export default {
   line-height: 16px;
   color: #2A2828;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .project-period {
@@ -1263,9 +1286,9 @@ export default {
 
 .task-today-line {
   position: absolute;
+  top: 0;
   bottom: 0;
   width: 2px;
-  height: calc(100% + 100%);
   background: transparent;
   z-index: 10;
   pointer-events: none;
@@ -1274,7 +1297,7 @@ export default {
 .task-today-line::before {
   content: 'Today';
   position: absolute;
-  bottom: -6px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Pretendard', sans-serif;
@@ -1293,10 +1316,10 @@ export default {
 .task-today-line::after {
   content: '';
   position: absolute;
-  top: 0;
+  top: 32px;
+  bottom: 0;
   left: 0;
   width: 2px;
-  height: calc(100% + 240px);
   border-left: 2px dashed rgba(255, 68, 68, 0.6);
 }
 
@@ -1337,11 +1360,11 @@ export default {
   align-items: center;
   padding: 0 16px;
   z-index: 2;
-  background: #E9ECEF;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   min-width: 60px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .task-bar:hover {
@@ -1619,66 +1642,89 @@ export default {
 .document-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   flex: 1;
   overflow-y: auto;
 }
 
 .document-folder {
-  border-radius: 10px;
+  border-radius: 10px !important;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-  cursor: pointer;
+  border: 1px solid #E0E0E0 !important;
+  position: relative;
+  z-index: 10;
 }
 
-.document-folder:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+.document-folder .v-card-text {
+  padding: 0 !important;
 }
 
 .folder-header {
-  padding: 8px 12px;
+  padding: 12px 16px;
   border-radius: 8px 8px 0 0;
 }
 
 .folder-name {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 400;
-  font-size: 12px;
-  line-height: 14px;
-  color: #000000;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 17px;
+  color: #1C0F0F;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder-icon {
+  width: 20px;
+  height: 20px;
+  fill: #FFE364;
+  filter: invert(85%) sepia(45%) saturate(1173%) hue-rotate(350deg) brightness(103%) contrast(101%);
 }
 
 .folder-content {
   background: #F8FAFC;
-  padding: 8px 12px;
+  padding: 12px 16px !important;
   border-radius: 0 0 8px 8px;
 }
 
 .document-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 10px;
+  padding: 8px 12px;
+  padding-left: 28px;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.document-item:last-child {
+  margin-bottom: 0;
 }
 
 .document-item:hover {
-  color: #2A2828;
+  background: rgba(255, 227, 100, 0.2);
+  transform: translateX(2px);
 }
 
 .doc-icon {
-  font-size: 10px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  filter: invert(60%) sepia(0%) saturate(0%) brightness(90%) contrast(90%);
 }
 
 .doc-name {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 400;
-  font-size: 10px;
-  line-height: 12px;
-  color: #666666;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 16px;
+  color: #2A2828;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ChatRoomList 컴포넌트 임베드 스타일 조정 */

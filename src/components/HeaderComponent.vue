@@ -64,7 +64,7 @@
         <template v-else>
           <div v-if="notifList.length === 0" class="notif-empty">알림이 없습니다</div>
           <div v-else class="notif-list">
-            <div v-for="(n, idx) in notifList" :key="n.id" class="notif-item" :class="{ unread: (n.readStatus||'').toUpperCase()==='UNREAD' }">
+            <div v-for="(n, idx) in notifList" :key="n.id" class="notif-item" :class="{ unread: (n.readStatus||'').toUpperCase()==='UNREAD' }" @click="onNotificationClick(n)">
               <button class="notif-dismiss" title="닫기" @click.stop="onDismissNotif(n.id, idx)">
                 <img src="@/assets/icons/user/close.svg" alt="닫기" />
               </button>
@@ -255,10 +255,21 @@ export default {
           content: n.content || '',
           readStatus: (n.readStatus || 'UNREAD'),
           createdAt,
+          notificationType: n.notificationType,
+          workspaceId: n.workspaceId,
+          projectId: n.projectId,
+          stoneId: n.stoneId,
+          taskId: n.taskId,
         };
         this.notifList = [item, ...(this.notifList || [])];
         this.notifCount = this.notifList.length;
       } catch(_) {}
+    },
+    // 알림 클릭 시 프로젝트 페이지로 이동
+    onNotificationClick(notification) {
+      if (notification.projectId) {
+        this.$router.push(`/project?id=${notification.projectId}`);
+      }
     },
     // 검색창 포커스
     onSearchFocus() {
@@ -811,8 +822,10 @@ export default {
   border-radius: 0;
   background: transparent;
   position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
-.notif-item:hover { background: rgba(255,255,255,0.03); }
+.notif-item:hover { background: rgba(255,255,255,0.08); }
 .notif-item:last-child { border-bottom: none; }
 .notif-item.unread { border-left: none; }
 .notif-item-title { font-weight: 700; font-size: 13.5px; color: #FFFFFF; margin-bottom: 4px; line-height: 1.35; }
