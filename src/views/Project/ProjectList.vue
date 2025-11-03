@@ -333,9 +333,8 @@
                 </g>
               </g>
 
-              <!-- 스톤 생성 텍스트 버튼 (hover 시 표시) -->
+              <!-- 스톤 생성 텍스트 버튼 -->
               <g 
-                v-if="hoveredStoneId === stone.id"
                 class="create-stone-text stone-add-text" 
                 :class="{ 'disabled': isStoneCompleted(stone) }"
                 @click="openCreateStoneModal(stone, $event)"
@@ -1280,8 +1279,8 @@ export default {
       const centerX = stone.x + (stone.isRoot ? 90 : 75);
       const centerY = stone.y + (stone.isRoot ? 90 : 75);
       const radius = stone.isRoot ? 90 : 75;
-      // 스톤 기준으로 약간 더 오른쪽으로 이동
-      const offsetX = radius * 1.1;
+      // 스톤과 조금 더 가깝게 붙이고, 텍스트를 약간 오른쪽으로 이동
+      const offsetX = radius * 0.95 + 12;
       const offsetY = radius * 0.85;
       return {
         x: centerX + offsetX,
@@ -4968,7 +4967,7 @@ export default {
 
 .create-stone-text-content {
   font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 11px;
   fill: #4A4848;
   text-anchor: middle;
