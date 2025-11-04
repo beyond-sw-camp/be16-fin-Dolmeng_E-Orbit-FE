@@ -230,7 +230,7 @@
                   </button>
                   <span v-else class="docs-toggle-placeholder"></span>
                   <img
-                    :src="node.type === 'folder' ? '/src/assets/icons/home/file-tree-outline.svg' : '/src/assets/icons/home/folder-open.svg'"
+                    :src="node.type === 'folder' ? '/src/assets/icons/sidebar/project.svg' : '/src/assets/icons/home/folder-open.svg'"
                     alt="아이콘"
                     class="docs-icon"
                   />
@@ -932,6 +932,8 @@ export default {
     // 프로젝트 페이지로 이동
     goToProject(project) {
       console.log('프로젝트로 이동:', project);
+      // 사이드바 프로젝트 메뉴 열기 이벤트 발생
+      window.dispatchEvent(new CustomEvent('openProjectDropdown'));
       this.$router.push({ path: '/project', query: { id: project.id } });
     },
     
@@ -1143,6 +1145,8 @@ export default {
       const project = this.myProjects.find(p => p.name === task.projectName);
       
       if (project && task.stoneId) {
+        // 사이드바 프로젝트 메뉴 열기 이벤트 발생
+        window.dispatchEvent(new CustomEvent('openProjectDropdown'));
         // 프로젝트 페이지로 이동하면서 stoneId 쿼리 파라미터로 전달
         this.$router.push({ 
           path: '/project', 

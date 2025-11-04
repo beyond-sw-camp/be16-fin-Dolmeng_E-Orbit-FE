@@ -210,6 +210,8 @@ export default {
     window.addEventListener('projectUpdated', this.onProjectUpdated);
     // 프로젝트 삭제 이벤트 리스너 추가
     window.addEventListener('projectDeleted', this.onProjectDeleted);
+    // 프로젝트 드롭다운 열기 이벤트 리스너 추가
+    window.addEventListener('openProjectDropdown', this.openProjectDropdown);
   },
   
   beforeUnmount() {
@@ -217,6 +219,7 @@ export default {
     window.removeEventListener('projectCreated', this.onProjectCreated);
     window.removeEventListener('projectUpdated', this.onProjectUpdated);
     window.removeEventListener('projectDeleted', this.onProjectDeleted);
+    window.removeEventListener('openProjectDropdown', this.openProjectDropdown);
   },
   watch: {
     // 워크스페이스 변경 감지
@@ -325,6 +328,10 @@ export default {
     
     toggleProjectDropdown() {
       this.showProjectDropdown = !this.showProjectDropdown;
+    },
+    
+    openProjectDropdown() {
+      this.showProjectDropdown = true;
     },
     
     navigateToHome() {
