@@ -828,8 +828,8 @@ export default {
 .notif-item:hover { background: rgba(255,255,255,0.08); }
 .notif-item:last-child { border-bottom: none; }
 .notif-item.unread { border-left: none; }
-.notif-item-title { font-weight: 700; font-size: 13.5px; color: #FFFFFF; margin-bottom: 4px; line-height: 1.35; }
-.notif-item-content { font-size: 12.5px; color: #DEDEDE; margin-bottom: 6px; line-height: 1.45; }
+.notif-item-title { font-weight: 700; font-size: 15px; color: #FFFFFF; margin-bottom: 4px; line-height: 1.35; }
+.notif-item-content { font-size: 14px; color: #DEDEDE; margin-bottom: 6px; line-height: 1.45; }
 .notif-item-time { font-size: 11.5px; color: #BDBDBD; }
 
 .notif-dismiss {
