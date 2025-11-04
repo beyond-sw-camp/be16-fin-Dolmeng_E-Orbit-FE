@@ -40,10 +40,10 @@
           <div class="text-body-2 grey--text">다른 검색어를 시도해보세요</div>
         </div>
 
-        <!-- 테이블 형식 (문서, 파일 탭) -->
-        <div v-else-if="(activeTab === 'DOCUMENT' || activeTab === 'FILE')" class="table-results">
+        <!-- 테이블 형식 (문서, 파일, 스톤 탭) -->
+        <div v-else-if="(activeTab === 'DOCUMENT' || activeTab === 'FILE' || activeTab === 'STONE')" class="table-results">
           <v-data-table
-            :headers="tableHeaders"
+            :headers="activeTab === 'STONE' ? stoneTableHeaders : tableHeaders"
             :items="sortedTableResults"
             :sort-by="[{ key: sortBy, order: sortOrder }]"
             class="search-table elevation-0"
@@ -53,7 +53,7 @@
           >
             <template v-slot:header.name>
               <div class="d-flex align-center clickable-header" @click="handleSort('name')">
-                <span class="table-header-text">이름</span>
+                <span class="table-header-text">{{ activeTab === 'STONE' ? '스톤명' : '이름' }}</span>
                 <v-icon v-if="sortBy === 'name'" x-small class="ml-1">
                   {{ sortOrder === 'asc' ? 'mdi-menu-up' : 'mdi-menu-down' }}
                 </v-icon>
@@ -64,11 +64,28 @@
             </template>
             <template v-slot:header.modified>
               <div class="d-flex align-center clickable-header" @click="handleSort('modified')">
-                <span class="table-header-text">수정일</span>
+                <span class="table-header-text">생성일</span>
                 <v-icon v-if="sortBy === 'modified'" x-small class="ml-1">
                   {{ sortOrder === 'asc' ? 'mdi-menu-up' : 'mdi-menu-down' }}
                 </v-icon>
               </div>
+            </template>
+            <template v-if="activeTab === 'STONE'" v-slot:header.manager>
+              <span class="table-header-text">스톤 담당자</span>
+            </template>
+            <template v-if="activeTab === 'STONE'" v-slot:header.deadline>
+              <div class="d-flex align-center clickable-header" @click="handleSort('deadline')">
+                <span class="table-header-text">마감일</span>
+                <v-icon v-if="sortBy === 'deadline'" x-small class="ml-1">
+                  {{ sortOrder === 'asc' ? 'mdi-menu-up' : 'mdi-menu-down' }}
+                </v-icon>
+              </div>
+            </template>
+            <template v-if="activeTab === 'STONE'" v-slot:header.participants>
+              <span class="table-header-text">참여자 목록</span>
+            </template>
+            <template v-if="activeTab === 'STONE'" v-slot:header.status>
+              <span class="table-header-text">상태</span>
             </template>
             <template v-slot:header.size>
               <div class="d-flex align-center clickable-header" @click="handleSort('size')">
@@ -88,7 +105,7 @@
               </div>
             </template>
 
-            <template v-slot:item.shortcut="{ item }">
+            <template v-if="activeTab !== 'STONE'" v-slot:item.shortcut="{ item }">
               <div class="d-flex align-center justify-center">
                 <v-btn
                   v-if="item.parentId || (item.rootType && item.rootId)"
@@ -121,10 +138,69 @@
             <template v-slot:item.size="{ item }">
               <span>{{ formatFileSize(item.size) || '-' }}</span>
             </template>
+
+            <!-- 스톤 전용 슬롯 -->
+            <template v-if="activeTab === 'STONE'" v-slot:item.manager="{ item }">
+              <div class="d-flex align-center">
+                <v-avatar size="24" class="mr-2">
+                  <v-img v-if="item.profileImageUrl" :src="item.profileImageUrl" alt="프로필" />
+                  <v-icon v-else small>mdi-account-circle</v-icon>
+                </v-avatar>
+                <span>{{ item.creatorName || '알 수 없음' }}</span>
+              </div>
+            </template>
+
+            <template v-if="activeTab === 'STONE'" v-slot:item.deadline="{ item }">
+              <span>{{ formatDate(item.dateTime) }}</span>
+            </template>
+
+            <template v-if="activeTab === 'STONE'" v-slot:item.participants="{ item }">
+              <div class="d-flex align-center participants-list">
+                <template v-if="item.participantInfos && Array.isArray(item.participantInfos) && item.participantInfos.length > 0">
+                  <v-tooltip
+                    v-for="(participant, index) in item.participantInfos.slice(0, 5)"
+                    :key="participant.id || `participant-${index}`"
+                    location="top"
+                  >
+                    <template v-slot:activator="{ props }">
+                      <v-avatar
+                        v-bind="props"
+                        size="28"
+                        class="participant-avatar"
+                        :style="{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }"
+                      >
+                        <v-img
+                          v-if="participant.profileImageUrl"
+                          :src="participant.profileImageUrl"
+                          alt="참여자"
+                        />
+                        <v-icon v-else size="20">mdi-account-circle</v-icon>
+                      </v-avatar>
+                    </template>
+                    <span>{{ participant.name || '알 수 없음' }}</span>
+                  </v-tooltip>
+                  <span v-if="item.participantInfos.length > 5" class="participant-more">
+                    +{{ item.participantInfos.length - 5 }}
+                  </span>
+                </template>
+                <span v-else class="text-grey">-</span>
+              </div>
+            </template>
+
+            <template v-if="activeTab === 'STONE'" v-slot:item.status="{ item }">
+              <v-chip
+                :color="getStoneStatusColor(item.stoneStatus)"
+                size="small"
+                variant="flat"
+                class="status-chip"
+              >
+                {{ getStoneStatusLabel(item.stoneStatus) }}
+              </v-chip>
+            </template>
           </v-data-table>
         </div>
 
-        <!-- 리스트 형식 (전체, 스톤, 프로젝트 탭) -->
+        <!-- 리스트 형식 (전체, 작업 탭) -->
         <div v-else class="results-list">
           <div 
             v-for="result in currentTabResults" 
@@ -153,7 +229,7 @@
                   </v-avatar>
                   <span class="creator-name">{{ result.creatorName || '알 수 없음' }}</span>
                 </div>
-                <span class="result-date">{{ formatDateShort(result.dateTime) }}</span>
+                <span v-if="activeTab !== 'all' && (result.docType === 'DOCUMENT' || result.docType === 'FILE')" class="result-date">{{ formatDateShort(result.dateTime) }}</span>
               </div>
             </div>
           </div>
@@ -191,8 +267,8 @@ export default {
     stoneResults() {
       return this.searchResults.filter(r => r.docType === 'STONE');
     },
-    projectResults() {
-      return this.searchResults.filter(r => r.docType === 'PROJECT');
+    taskResults() {
+      return this.searchResults.filter(r => r.docType === 'TASK');
     },
     currentTabResults() {
       if (this.activeTab === 'all') {
@@ -209,7 +285,7 @@ export default {
         { value: 'DOCUMENT', label: '문서', count: this.documentResults.length },
         { value: 'FILE', label: '파일', count: this.fileResults.length },
         { value: 'STONE', label: '스톤', count: this.stoneResults.length },
-        { value: 'PROJECT', label: '프로젝트', count: this.projectResults.length },
+        { value: 'TASK', label: '작업', count: this.taskResults.length },
       ];
     },
     tableHeaders() {
@@ -221,8 +297,17 @@ export default {
         { text: '바로가기', value: 'shortcut', width: '10%', sortable: false },
       ];
     },
+    stoneTableHeaders() {
+      return [
+        { text: '스톤명', value: 'name', width: '25%', sortable: true },
+        { text: '스톤 담당자', value: 'manager', width: '20%', sortable: false },
+        { text: '마감일', value: 'deadline', width: '18%', sortable: true },
+        { text: '참여자 목록', value: 'participants', width: '25%', sortable: false },
+        { text: '상태', value: 'status', width: '12%', sortable: false },
+      ];
+    },
     sortedTableResults() {
-      if (this.activeTab !== 'DOCUMENT' && this.activeTab !== 'FILE') {
+      if (this.activeTab !== 'DOCUMENT' && this.activeTab !== 'FILE' && this.activeTab !== 'STONE') {
         return this.currentTabResults;
       }
 
@@ -237,6 +322,8 @@ export default {
             bVal = (b.searchTitle || '').toLowerCase();
             break;
           case 'modified':
+          case 'deadline':
+            // dateTime: 파일/문서는 생성일, 스톤/테스크는 마감일 (백엔드에서 설정됨)
             aVal = new Date(a.dateTime || 0).getTime();
             bVal = new Date(b.dateTime || 0).getTime();
             break;
@@ -288,6 +375,25 @@ export default {
         const response = await searchService.search(keyword);
         if (response.result && Array.isArray(response.result)) {
           this.searchResults = response.result;
+          
+          // 검색 결과 전체 로그
+          console.log('=== 검색 결과 전체 ===', this.searchResults);
+          
+          // 스톤 타입 결과 상세 로그
+          const stoneResults = this.searchResults.filter(r => r.docType === 'STONE');
+          if (stoneResults.length > 0) {
+            console.log('=== 스톤 검색 결과 ===', stoneResults);
+            stoneResults.forEach((stone, index) => {
+              console.log(`[스톤 ${index + 1}]`, {
+                id: stone.id,
+                searchTitle: stone.searchTitle,
+                participants: stone.participants,
+                participants타입: typeof stone.participants,
+                participants배열여부: Array.isArray(stone.participants),
+                전체데이터: stone
+              });
+            });
+          }
         } else {
           this.searchResults = [];
         }
@@ -320,7 +426,7 @@ export default {
         DOCUMENT: 'mdi-file-document-outline',
         FILE: 'mdi-file-outline',
         STONE: 'mdi-folder-star-outline',
-        PROJECT: 'mdi-folder-outline',
+        TASK: 'mdi-folder-outline',
       };
       return iconMap[docType] || 'mdi-file-outline';
     },
@@ -331,7 +437,7 @@ export default {
         DOCUMENT: '#1976d2',
         FILE: '#ff9800',
         STONE: '#9c27b0',
-        PROJECT: '#1976d2',
+        TASK: '#1976d2',
       };
       return colorMap[docType] || '#757575';
     },
@@ -342,7 +448,7 @@ export default {
         DOCUMENT: '문서',
         FILE: '파일',
         STONE: '스톤',
-        PROJECT: '프로젝트',
+        TASK: '작업',
       };
       return labelMap[docType] || docType;
     },
@@ -353,7 +459,7 @@ export default {
         DOCUMENT: '#1976d2',
         FILE: '#ff9800',
         STONE: '#9c27b0',
-        PROJECT: '#1976d2',
+        TASK: '#1976d2',
       };
       return colorMap[docType] || 'grey';
     },
@@ -364,7 +470,7 @@ export default {
         DOCUMENT: '#e3f2fd',
         FILE: '#fff3e0',
         STONE: '#f3e5f5',
-        PROJECT: '#e3f2fd',
+        TASK: '#e3f2fd',
       };
       return colorMap[docType] || '#f5f5f5';
     },
@@ -453,8 +559,27 @@ export default {
         const routeData = this.$router.resolve(`/viewer/${result.id}`);
         window.open(routeData.href, '_blank');
       } else if (result.docType === 'STONE') {
-        this.$router.push({ path: '/project', query: { id: result.id } });
-      } else if (result.docType === 'PROJECT') {
+        // 스톤 상세 모달을 열기 위해 프로젝트 페이지로 이동
+        // 필요: 프로젝트 ID (rootId), 스톤 ID (id)
+        const projectId = result.rootId; // 프로젝트 ID
+        const stoneId = result.id; // 스톤 ID
+        
+        if (projectId && stoneId) {
+          this.$router.push({ 
+            path: '/project', 
+            query: { 
+              id: projectId,
+              stoneId: stoneId
+            } 
+          });
+        } else {
+          console.warn('스톤 상세 페이지 이동에 필요한 정보가 없습니다:', {
+            projectId,
+            stoneId,
+            result
+          });
+        }
+      } else if (result.docType === 'TASK') {
         this.$router.push({ path: '/project', query: { id: result.id } });
       } else if (result.docType === 'FILE') {
         // 파일은 fileUrl이 있으면 새 창에서 열기
@@ -493,6 +618,41 @@ export default {
           }
         });
       }
+    },
+
+    // 스톤 상태 색상
+    getStoneStatusColor(status) {
+      const statusMap = {
+        'TODO': '#9e9e9e',
+        'IN_PROGRESS': '#2196f3',
+        'DONE': '#4caf50',
+        'BLOCKED': '#f44336',
+      };
+      return statusMap[status] || '#9e9e9e';
+    },
+
+    // 스톤 상태 라벨
+    getStoneStatusLabel(status) {
+      const labelMap = {
+        'TODO': '할 일',
+        'IN_PROGRESS': '진행 중',
+        'DONE': '완료',
+        'BLOCKED': '차단됨',
+      };
+      return labelMap[status] || status || '-';
+    },
+
+    // 참여자 목록 가져오기
+    getParticipantsList(item) {
+      // 실제 필드명: participantInfos (백엔드는 participants로 정의했지만 JSON에서는 participantInfos로 직렬화됨)
+      // participantInfo 객체 구조: { id, name, profileImageUrl }
+      const participants = item.participantInfos || item.participants || [];
+      
+      if (!Array.isArray(participants)) {
+        return [];
+      }
+      
+      return participants;
     },
   },
 };
@@ -876,5 +1036,35 @@ export default {
   font-weight: 600;
   color: #1d2129;
   letter-spacing: 0.3px;
+}
+
+/* 스톤 테이블 전용 스타일 */
+.participants-list {
+  position: relative;
+  min-height: 32px;
+}
+
+.participant-avatar {
+  border: 2px solid white;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.participant-avatar:hover {
+  transform: scale(1.1);
+  z-index: 20 !important;
+}
+
+.participant-more {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.status-chip {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
 }
 </style>
