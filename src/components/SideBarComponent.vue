@@ -18,6 +18,7 @@
         :class="{ 'selected': selectedWorkspace?.workspaceId === workspace.workspaceId }"
         @click="selectWorkspace(workspace)"
       >
+        <div class="workspace-circle"></div>
         <div class="workspace-name">{{ workspace.workspaceName }}</div>
       </div>
       <div v-if="workspaces.length === 0" class="workspace-empty">
@@ -26,7 +27,7 @@
       </div>
       <!-- 워크스페이스 생성 버튼 -->
       <div class="workspace-create-item" @click="createWorkspace">
-        <div class="workspace-create-icon">[+]</div>
+        <img src="@/assets/icons/project/plus.svg" alt="추가" class="workspace-create-icon" />
         <div class="workspace-create-text">워크스페이스 생성</div>
       </div>
     </div>
@@ -672,6 +673,9 @@ export default {
   cursor: pointer;
   border-bottom: 1px solid #333;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .workspace-item:hover {
@@ -684,6 +688,14 @@ export default {
 
 .workspace-item:last-child {
   border-bottom: none;
+}
+
+.workspace-circle {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: #FDF5EB;
+  flex-shrink: 0;
 }
 
 .workspace-name {
@@ -721,7 +733,7 @@ export default {
   cursor: pointer;
   border-top: 1px solid #333;
   transition: background-color 0.2s;
-  background: rgba(255, 221, 68, 0.1);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -729,16 +741,14 @@ export default {
 }
 
 .workspace-create-item:hover {
-  background: rgba(255, 221, 68, 0.2);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .workspace-create-icon {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
-  font-size: 16px;
-  line-height: 17px;
-  color: #FFDD44;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
+  filter: brightness(0) saturate(100%) invert(86%) sepia(61%) saturate(406%) hue-rotate(340deg) brightness(104%) contrast(101%);
 }
 
 .workspace-create-text {
@@ -746,7 +756,7 @@ export default {
   font-weight: 600;
   font-size: 14px;
   line-height: 17px;
-  color: #FFDD44;
+  color: #FFE364;
 }
 
 .copyright {
@@ -912,10 +922,14 @@ export default {
   cursor: pointer;
   border-top: 1px solid #333;
   transition: background-color 0.2s;
-  background: #000000;
+  background: transparent;
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.project-create-item:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .project-create-icon-wrapper {
@@ -925,10 +939,6 @@ export default {
   width: 12px;
   height: 12px;
   flex-shrink: 0;
-}
-
-.project-create-item:hover {
-  background: rgba(0, 0, 0, 0.8);
 }
 
 .project-create-icon {
@@ -947,7 +957,7 @@ export default {
   font-weight: 600;
   font-size: 14px;
   line-height: 17px;
-  color: #FFDD44;
+  color: #FFE364;
 }
 
 .storage-section {
