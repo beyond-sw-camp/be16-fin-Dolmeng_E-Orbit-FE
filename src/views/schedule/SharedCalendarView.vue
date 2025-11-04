@@ -144,6 +144,7 @@ import axios from "axios";
 import SearchUserModal from "@/components/modal/SearchUserModal.vue"; 
 import ScheduleDetailModal from "@/components/modal/ScheduleDetailModal.vue";
 import ManageSubscriptionModal from "@/components/modal/ManageSubscriptionModal.vue";
+import "@/assets/fullcalendar-custom.css";
 
 const isManageModalOpen = ref(false);
 
