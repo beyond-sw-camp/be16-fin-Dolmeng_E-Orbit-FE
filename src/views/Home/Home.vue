@@ -16,7 +16,10 @@
           <Card class="project-card">
             <template #header>
               <div class="card-header-content">
-                <h3 class="card-title">진행중인 프로젝트</h3>
+                <h3 class="card-title">
+                  <img src="/src/assets/icons/home/roadmap-svgrepo-com.svg" alt="프로젝트" class="title-icon" />
+                  진행중인 프로젝트
+                </h3>
                 <div class="card-actions">
                   <button class="add-button" @click="openProjectCreateModal">+ 프로젝트 추가</button>
                 </div>
@@ -40,7 +43,7 @@
                 <div v-else>
                   <div class="gantt-bar-wrapper" v-for="project in myProjects" :key="project.id">
                     <div class="gantt-bar" :style="project.style" @click="goToProject(project)">
-                      <div class="progress-fill" :style="{ width: project.progress + '%' }"></div>
+                      <div class="progress-fill" :style="{ width: project.progress + '%', backgroundColor: project.progressColor }"></div>
                       <div class="bar-content">
                         <div class="project-name">{{ project.name }}</div>
                         <div class="project-progress">{{ project.progress }}%</div>
@@ -59,7 +62,10 @@
             <Card class="chat-card h-full self-stretch">
               <template #header>
                 <div class="card-header-content">
-                  <h3 class="card-title">스톤 채팅방 목록</h3>
+                  <h3 class="card-title">
+                    <img src="/src/assets/icons/home/chat-email-envelope-8-svgrepo-com.svg" alt="채팅" class="title-icon" />
+                    스톤 채팅방 목록
+                  </h3>
                   <div class="card-actions hidden"></div>
                 </div>
               </template>
@@ -108,7 +114,10 @@
             <Card class="task-card h-full self-stretch">
               <template #header>
                 <div class="card-header-content">
-                  <h3 class="card-title">나의 Task</h3>
+                  <h3 class="card-title">
+                    <img src="/src/assets/icons/home/task-svgrepo-com.svg" alt="태스크" class="title-icon" />
+                    나의 Task
+                  </h3>
                 </div>
               </template>
               <div class="task-timeline-wrapper">
@@ -130,7 +139,7 @@
                   <div v-if="showTaskTodayLine" class="task-today-line" :style="{ left: taskTodayLinePosition }"></div>
                   
                   <!-- Task 바들 -->
-                  <div class="task-timeline-bars">
+                  <div class="task-timeline-bars" :style="taskBarsStyle">
                     <div class="task-bar-wrapper" v-for="task in pendingTasks" :key="task.id">
                       <div class="task-bar" :style="calculateTaskBarStyle(task)" @click="goToTask(task)">
                         <div class="task-bar-content">
@@ -153,13 +162,29 @@
         <Card class="docs-card min-h-0" h-full>
           <template #header>
             <div class="card-header-content">
-              <h3 class="card-title">나의 스톤 문서함</h3>
+              <h3 class="card-title">
+                <img src="/src/assets/icons/home/folder_1.svg" alt="문서함" class="title-icon" />
+                나의 스톤 문서함
+              </h3>
               <div class="card-actions">
-                <button class="icon-button" @click="collapseAllDocs" aria-label="모두 접기" title="모두 접기">
-                  <span class="icon-text">▼</span>
-                </button>
-                <button class="icon-button" @click="expandAllDocs" aria-label="모두 펼치기" title="모두 펼치기">
-                  <span class="icon-text">▲</span>
+                <button 
+                  class="icon-button" 
+                  @click="toggleAllDocs" 
+                  :aria-label="isAllDocsExpanded ? '모두 접기' : '모두 펼치기'" 
+                  :title="isAllDocsExpanded ? '모두 접기' : '모두 펼치기'"
+                >
+                  <img 
+                    v-if="isAllDocsExpanded"
+                    src="/src/assets/icons/home/arrow-collapse-vertical.svg"
+                    alt="모두 접기"
+                    class="icon"
+                  />
+                  <img 
+                    v-else
+                    src="/src/assets/icons/home/arrow-expand-vertical.svg"
+                    alt="모두 펼치기"
+                    class="icon"
+                  />
                 </button>
               </div>
             </div>
@@ -205,7 +230,7 @@
                   </button>
                   <span v-else class="docs-toggle-placeholder"></span>
                   <img
-                    :src="node.type === 'folder' ? '/src/assets/icons/home/folder-open.svg' : '/src/assets/icons/home/file-document.svg'"
+                    :src="node.type === 'folder' ? '/src/assets/icons/sidebar/project.svg' : '/src/assets/icons/home/folder-open.svg'"
                     alt="아이콘"
                     class="docs-icon"
                   />
@@ -238,7 +263,7 @@
                     >
                       <span class="docs-toggle-placeholder"></span>
                       <img
-                        src="/src/assets/icons/home/file-document.svg"
+                        src="/src/assets/icons/home/folder-open.svg"
                         alt="아이콘"
                         class="docs-icon"
                       />
@@ -314,7 +339,8 @@ export default {
       userDefault,
       docTreeState: {}, // 문서 트리 상태 (expanded 여부)
       dropTargetId: null, // DnD 드롭 타겟 ID
-      selectedNodeId: null // 키보드 포커스된 노드 ID
+      selectedNodeId: null, // 키보드 포커스된 노드 ID
+      isAllDocsExpanded: true // 문서함 전체 펼침/접힘 상태
     };
   },
   
@@ -420,10 +446,10 @@ export default {
     
     // Today 라인 표시 여부
     showTodayLine() {
-      if (this.myProjects.length === 0) return false;
+      if (this.pendingTasks.length === 0) return false;
       
       const today = new Date();
-      const range = this.getProjectDateRange();
+      const range = this.getTaskDateRange();
       
       return today >= range.start && today <= range.end;
     },
@@ -591,6 +617,14 @@ export default {
       });
       
       return result;
+    },
+    
+    // Task 바 영역 높이(행수 기반) - 데이터 적을 때는 낮게, 많을 때만 커짐
+    taskBarsStyle() {
+      const rowHeight = 60; // nth-child 오프셋과 동일한 행 간격
+      const rows = Math.max(this.pendingTasks.length, 1);
+      const minHeightPx = Math.max(rows * rowHeight, 120);
+      return { minHeight: `${minHeightPx}px` };
     }
   },
   
@@ -687,7 +721,8 @@ export default {
             
             return {
               ...project,
-              style: this.calculateProjectStyle(startDate, endDate, now)
+              style: this.calculateProjectStyle(startDate, endDate, now),
+              progressColor: this.getProjectColor(project.id)
             };
           });
         }
@@ -897,6 +932,8 @@ export default {
     // 프로젝트 페이지로 이동
     goToProject(project) {
       console.log('프로젝트로 이동:', project);
+      // 사이드바 프로젝트 메뉴 열기 이벤트 발생
+      window.dispatchEvent(new CustomEvent('openProjectDropdown'));
       this.$router.push({ path: '/project', query: { id: project.id } });
     },
     
@@ -1046,6 +1083,34 @@ export default {
       return lightColors[Math.abs(hash) % lightColors.length];
     },
     
+    // Project ID 기반 약간 진한 밝은 색상 생성
+    getProjectColor(projectId) {
+      // projectId를 숫자로 변환 (해시 함수)
+      let hash = 0;
+      const str = String(projectId);
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      
+      // 약간 진한 파스텔 색상 팔레트
+      const lightColors = [
+        '#FFCCCB', // 약간 진한 핑크
+        '#FFD699', // 약간 진한 주황
+        '#FFF380', // 약간 진한 노랑
+        '#C0F0C0', // 약간 진한 민트
+        '#C0E4FF', // 약간 진한 하늘
+        '#D6D6F5', // 약간 진한 라벤더
+        '#FFCCE5', // 약간 진한 장미
+        '#FFE6CC', // 약간 진한 살구
+        '#D4EED4', // 약간 진한 초록
+        '#E8D5F0', // 약간 진한 보라
+        '#CCE9FF', // 약간 진한 파랑
+        '#FFF59D', // 약간 진한 레몬
+      ];
+      
+      return lightColors[Math.abs(hash) % lightColors.length];
+    },
+    
     // Task 기간 포맷팅
     formatTaskPeriod(startTime, endTime) {
       const start = new Date(startTime);
@@ -1080,6 +1145,8 @@ export default {
       const project = this.myProjects.find(p => p.name === task.projectName);
       
       if (project && task.stoneId) {
+        // 사이드바 프로젝트 메뉴 열기 이벤트 발생
+        window.dispatchEvent(new CustomEvent('openProjectDropdown'));
         // 프로젝트 페이지로 이동하면서 stoneId 쿼리 파라미터로 전달
         this.$router.push({ 
           path: '/project', 
@@ -1186,6 +1253,16 @@ export default {
       } catch (e) {
         return '';
       }
+    },
+    
+    // 문서함 모두 접기/펼치기 토글
+    toggleAllDocs() {
+      if (this.isAllDocsExpanded) {
+        this.collapseAllDocs();
+      } else {
+        this.expandAllDocs();
+      }
+      this.isAllDocsExpanded = !this.isAllDocsExpanded;
     },
     
     // 문서함 모두 접기
@@ -1394,6 +1471,7 @@ export default {
 .dashboard {
   display: grid;
   grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto 1fr;
   gap: 24px;
   width: 100%;
   padding: 0 0 20px 0;
@@ -1409,9 +1487,12 @@ export default {
 }
 
 .dashboard-left {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr; /* 상단(프로젝트) 자동, 하단(채팅+Task) 남은 높이 */
   gap: 24px;
+  height: 100%;
+  min-height: 0;
+  grid-row: 1 / span 2; /* 대시보드 2행 전체 점유 (강제) */
 }
 
 @media (min-width: 1280px) {
@@ -1422,10 +1503,12 @@ export default {
 
 .dashboard-bottom {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) 2fr;
+  grid-template-columns: minmax(320px, 1.3fr) 1.7fr;
   gap: 24px;
-  align-items: start;
-  align-content: start;
+  align-items: stretch;
+  align-content: stretch;
+  flex: 1;
+  min-height: 650px;
 }
 
 @media (min-width: 1280px) {
@@ -1470,9 +1553,14 @@ export default {
 }
 
 /* 그리드 아이템 상단 정렬 */
-.grid.items-start > *,
-.dashboard-bottom > * {
+.grid.items-start > * {
   align-self: start;
+}
+
+/* 하단 좌측 카드들이 트랙 높이를 가득 채우도록 강제 */
+.dashboard-bottom > * {
+  align-self: stretch;
+  height: 100%;
 }
 
 /* 카드 제목 스타일 (CSS 변수는 Card.vue에서 전역 선언) */
@@ -1483,6 +1571,15 @@ export default {
   line-height: 28px;
   color: #1C0F0F;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .card-actions {
@@ -1512,8 +1609,8 @@ export default {
 }
 
 .icon-button .icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 .icon-text {
@@ -1551,7 +1648,8 @@ export default {
 
 /* 프로젝트 카드 */
 .project-card {
-  min-height: 0;
+  min-height: 360px; /* 강제 상승 */
+  border: 1px solid #E0E0E0;
 }
 
 
@@ -1642,7 +1740,7 @@ export default {
 .gantt-bars {
   position: relative;
   flex: 1;
-  min-height: 230px;
+  min-height: 320px; /* 강제 상승 */
   max-height: 500px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1698,9 +1796,8 @@ export default {
   left: 0;
   top: 0;
   height: 100%;
-  background: #FFE364;
   border-radius: 8px;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, background-color 0.3s ease;
   z-index: 1;
 }
 
@@ -1749,6 +1846,9 @@ export default {
 .chat-card {
   min-height: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #E0E0E0;
 }
 
 .dashboard-bottom > * {
@@ -1760,6 +1860,9 @@ export default {
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .chat-item {
@@ -1873,6 +1976,12 @@ export default {
 /* 문서 카드 */
 .docs-card {
   min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  border: 1px solid #E0E0E0;
 }
 
 
@@ -1884,22 +1993,11 @@ export default {
 }
 
 .docs-tree {
-  height: 100%;
+  flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
   position: relative;
   padding-left: 14px;
-}
-
-/* 가이드 레일 */
-.docs-tree::before {
-  content: "";
-  position: absolute;
-  left: 14px;
-  top: 0;
-  bottom: 0;
-  border-left: 1px dashed #e9e9ec;
-  z-index: 0;
 }
 
 .docs-list {
@@ -1978,6 +2076,8 @@ export default {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+  opacity: 0.7;
+  filter: brightness(1.2);
 }
 
 .docs-name {
@@ -2046,6 +2146,10 @@ export default {
 /* Task 카드 */
 .task-card {
   min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #E0E0E0;
 }
 
 /* 공통 메시지 스타일 */
@@ -2129,7 +2233,7 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden; /* 섹션 하단까지만 표시, 넘치는 오늘선 클립 */
 }
 
 /* Task 타임라인 헤더 */
@@ -2208,7 +2312,7 @@ export default {
 .task-timeline-bars {
   position: relative;
   flex: 1;
-  min-height: 230px;
+  min-height: 0; /* 동적 높이로 대체 */
   z-index: 1;
 }
 
