@@ -40,20 +40,22 @@
           <div class="text-body-2 grey--text">다른 검색어를 시도해보세요</div>
         </div>
 
-        <!-- 테이블 형식 (문서, 파일, 스톤 탭) -->
-        <div v-else-if="(activeTab === 'DOCUMENT' || activeTab === 'FILE' || activeTab === 'STONE')" class="table-results">
+        <!-- 테이블 형식 (문서, 파일, 스톤, 작업 탭) -->
+        <div v-else-if="(activeTab === 'DOCUMENT' || activeTab === 'FILE' || activeTab === 'STONE' || activeTab === 'TASK')" class="table-results" :data-active-tab="activeTab">
           <v-data-table
-            :headers="activeTab === 'STONE' ? stoneTableHeaders : tableHeaders"
+            :headers="activeTab === 'STONE' ? stoneTableHeaders : (activeTab === 'TASK' ? taskTableHeaders : tableHeaders)"
             :items="sortedTableResults"
             :sort-by="[{ key: sortBy, order: sortOrder }]"
             class="search-table elevation-0"
             :items-per-page="-1"
             :hide-default-footer="true"
-            @click:row="openResult"
+            @click:row="handleTableRowClick"
           >
             <template v-slot:header.name>
               <div class="d-flex align-center clickable-header" @click="handleSort('name')">
-                <span class="table-header-text">{{ activeTab === 'STONE' ? '스톤명' : '이름' }}</span>
+                <span class="table-header-text">
+                  {{ activeTab === 'STONE' ? '스톤명' : (activeTab === 'TASK' ? '작업명' : '이름') }}
+                </span>
                 <v-icon v-if="sortBy === 'name'" x-small class="ml-1">
                   {{ sortOrder === 'asc' ? 'mdi-menu-up' : 'mdi-menu-down' }}
                 </v-icon>
@@ -73,6 +75,9 @@
             <template v-if="activeTab === 'STONE'" v-slot:header.manager>
               <span class="table-header-text">스톤 담당자</span>
             </template>
+            <template v-if="activeTab === 'TASK'" v-slot:header.manager>
+              <span class="table-header-text">작업 담당자</span>
+            </template>
             <template v-if="activeTab === 'STONE'" v-slot:header.deadline>
               <div class="d-flex align-center clickable-header" @click="handleSort('deadline')">
                 <span class="table-header-text">마감일</span>
@@ -85,6 +90,17 @@
               <span class="table-header-text">참여자 목록</span>
             </template>
             <template v-if="activeTab === 'STONE'" v-slot:header.status>
+              <span class="table-header-text">상태</span>
+            </template>
+            <template v-if="activeTab === 'TASK'" v-slot:header.deadline>
+              <div class="d-flex align-center clickable-header" @click="handleSort('deadline')">
+                <span class="table-header-text">마감일</span>
+                <v-icon v-if="sortBy === 'deadline'" x-small class="ml-1">
+                  {{ sortOrder === 'asc' ? 'mdi-menu-up' : 'mdi-menu-down' }}
+                </v-icon>
+              </div>
+            </template>
+            <template v-if="activeTab === 'TASK'" v-slot:header.status>
               <span class="table-header-text">상태</span>
             </template>
             <template v-slot:header.size>
@@ -139,8 +155,8 @@
               <span>{{ formatFileSize(item.size) || '-' }}</span>
             </template>
 
-            <!-- 스톤 전용 슬롯 -->
-            <template v-if="activeTab === 'STONE'" v-slot:item.manager="{ item }">
+            <!-- 스톤/작업 전용 슬롯 -->
+            <template v-if="activeTab === 'STONE' || activeTab === 'TASK'" v-slot:item.manager="{ item }">
               <div class="d-flex align-center">
                 <v-avatar size="24" class="mr-2">
                   <v-img v-if="item.profileImageUrl" :src="item.profileImageUrl" alt="프로필" />
@@ -150,7 +166,7 @@
               </div>
             </template>
 
-            <template v-if="activeTab === 'STONE'" v-slot:item.deadline="{ item }">
+            <template v-if="activeTab === 'STONE' || activeTab === 'TASK'" v-slot:item.deadline="{ item }">
               <span>{{ formatDate(item.dateTime) }}</span>
             </template>
 
@@ -197,10 +213,21 @@
                 {{ getStoneStatusLabel(item.stoneStatus) }}
               </v-chip>
             </template>
+
+            <template v-if="activeTab === 'TASK'" v-slot:item.status="{ item }">
+              <v-chip
+                :color="getTaskStatusColor(item.isDone)"
+                size="small"
+                variant="flat"
+                class="status-chip"
+              >
+                {{ getTaskStatusLabel(item.isDone) }}
+              </v-chip>
+            </template>
           </v-data-table>
         </div>
 
-        <!-- 리스트 형식 (전체, 작업 탭) -->
+        <!-- 리스트 형식 (전체 탭) -->
         <div v-else class="results-list">
           <div 
             v-for="result in currentTabResults" 
@@ -306,8 +333,16 @@ export default {
         { text: '상태', value: 'status', width: '12%', sortable: false },
       ];
     },
+    taskTableHeaders() {
+      return [
+        { text: '작업명', value: 'name', width: '30%', sortable: true },
+        { text: '작업 담당자', value: 'manager', width: '25%', sortable: false },
+        { text: '마감일', value: 'deadline', width: '25%', sortable: true },
+        { text: '상태', value: 'status', width: '20%', sortable: false },
+      ];
+    },
     sortedTableResults() {
-      if (this.activeTab !== 'DOCUMENT' && this.activeTab !== 'FILE' && this.activeTab !== 'STONE') {
+      if (this.activeTab !== 'DOCUMENT' && this.activeTab !== 'FILE' && this.activeTab !== 'STONE' && this.activeTab !== 'TASK') {
         return this.currentTabResults;
       }
 
@@ -420,23 +455,25 @@ export default {
       return content.replace(/<em>/g, '<mark class="highlight-match">').replace(/<\/em>/g, '</mark>');
     },
 
-    // 문서 타입 아이콘
+    // 문서 타입 아이콘 (자동완성과 동일하게)
     getDocTypeIcon(docType) {
       const iconMap = {
         DOCUMENT: 'mdi-file-document-outline',
         FILE: 'mdi-file-outline',
         STONE: 'mdi-folder-star-outline',
+        PROJECT: 'mdi-folder-outline',
         TASK: 'mdi-folder-outline',
       };
       return iconMap[docType] || 'mdi-file-outline';
     },
 
-    // 문서 타입 아이콘 색상
+    // 문서 타입 아이콘 색상 (자동완성과 동일하게)
     getDocTypeIconColor(docType) {
       const colorMap = {
         DOCUMENT: '#1976d2',
         FILE: '#ff9800',
         STONE: '#9c27b0',
+        PROJECT: '#1976d2',
         TASK: '#1976d2',
       };
       return colorMap[docType] || '#757575';
@@ -549,6 +586,16 @@ export default {
       }
     },
 
+    // 테이블 행 클릭 핸들러
+    handleTableRowClick(event, item) {
+      // TASK 탭에서는 클릭해도 반응 없음
+      if (this.activeTab === 'TASK') {
+        return;
+      }
+      // 다른 탭은 기존 openResult 호출
+      this.openResult(event, item);
+    },
+
     // 검색 결과 열기
     openResult(event, item) {
       // v-data-table의 click:row 이벤트는 (event, item) 형태로 전달됨
@@ -579,8 +626,6 @@ export default {
             result
           });
         }
-      } else if (result.docType === 'TASK') {
-        this.$router.push({ path: '/project', query: { id: result.id } });
       } else if (result.docType === 'FILE') {
         // 파일은 fileUrl이 있으면 새 창에서 열기
         if (result.fileUrl) {
@@ -640,6 +685,28 @@ export default {
         'BLOCKED': '차단됨',
       };
       return labelMap[status] || status || '-';
+    },
+
+    // 작업 상태 색상 (isDone: boolean)
+    getTaskStatusColor(isDone) {
+      if (isDone === true) {
+        return '#4caf50'; // 완료 - 초록색
+      } else if (isDone === false) {
+        return '#2196f3'; // 진행 중 - 파란색
+      }
+      // null 또는 undefined인 경우
+      return '#9e9e9e'; // 미정 - 회색
+    },
+
+    // 작업 상태 라벨 (isDone: boolean)
+    getTaskStatusLabel(isDone) {
+      if (isDone === true) {
+        return '완료';
+      } else if (isDone === false) {
+        return '진행 중';
+      }
+      // null 또는 undefined인 경우
+      return '미정';
     },
 
     // 참여자 목록 가져오기
@@ -1003,6 +1070,16 @@ export default {
 .search-table :deep(tbody tr:hover) {
   background-color: #fafbfc;
   cursor: pointer;
+}
+
+/* 기본적으로 모든 행은 클릭 가능 */
+.search-table :deep(tbody tr) {
+  cursor: pointer;
+}
+
+/* TASK 탭에서는 클릭 불가이므로 커서를 default로 변경 */
+.table-results[data-active-tab="TASK"] .search-table :deep(tbody tr) {
+  cursor: default;
 }
 
 .search-table :deep(tbody tr:last-child td) {
