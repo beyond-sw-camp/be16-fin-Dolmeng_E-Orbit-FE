@@ -343,7 +343,7 @@
             <!-- 문서함 컨테이너 -->
             <div class="stone-drive-wrapper">
               <div class="stone-drive-container">
-                <DriveMain :stone-id="currentStoneData?.stoneId || currentStoneData?.id" />
+                <DriveMain v-if="currentStoneData?.stoneId || currentStoneData?.id" :stone-id="currentStoneData?.stoneId || currentStoneData?.id" />
               </div>
             </div>
           </div>
@@ -886,7 +886,8 @@ export default {
   computed: {
     // 현재 사용할 스톤 데이터 (stoneData가 있으면 사용, 없으면 stoneId로 로드)
     currentStoneData() {
-      return this.stoneData || this.loadedStoneData;
+      const data = this.stoneData || this.loadedStoneData;
+      return data;
     },
     
     // 채팅방 생성 체크박스 비활성화 여부
@@ -938,8 +939,14 @@ export default {
   methods: {
     // stoneId로 스톤 데이터 로드
     async loadStoneData(stoneId) {
+      console.log('🚀 [프로젝트 캘린더] loadStoneData 메서드 호출됨');
+      console.log('   - 입력된 stoneId:', stoneId);
+      console.log('   - 현재 isLoading:', this.isLoading);
+      
       try {
         this.isLoading = true;
+        console.log('   - isLoading을 true로 설정');
+        console.log('   - API 호출 시작: /workspace-service/stone/' + stoneId);
         
         // 스톤 상세 정보 조회 API 호출
         // const response = await fetch(`/api/stone/${stoneId}`, {
@@ -967,6 +974,45 @@ export default {
         // Postman 결과 구조와 동일하게 result로 래핑되어 있음
         const json = await response.json();
         this.loadedStoneData = json.result;
+
+        // 📊 프로젝트 캘린더에서 모달 열 때 데이터 로그 출력
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📅 [프로젝트 캘린더] 스톤 상세 모달 데이터 로드');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🔍 전체 API 응답:', json);
+        console.log('📦 로드된 스톤 데이터:', this.loadedStoneData);
+        
+        // 진행률 정보
+        const milestone = this.loadedStoneData?.milestone || this.loadedStoneData?.projectMilestone || 0;
+        console.log('📈 진행률 (milestone):', milestone, '%');
+        
+        // 담당자 정보
+        const manager = this.loadedStoneData?.stoneManagerName || this.loadedStoneData?.manager || '담당자 없음';
+        console.log('👤 담당자 (manager):', manager);
+        
+        // 참여자 목록
+        const participants = this.loadedStoneData?.stoneParticipantDtoList || [];
+        console.log('👥 참여자 목록 (stoneParticipantDtoList):', participants);
+        console.log('   - 참여자 수:', participants.length);
+        if (participants.length > 0) {
+          participants.forEach((p, index) => {
+            console.log(`   - 참여자 ${index + 1}:`, {
+              userId: p.userId,
+              participantName: p.participantName,
+              userEmail: p.userEmail
+            });
+          });
+        } else {
+          console.log('   - 참여자가 없습니다.');
+        }
+        
+        // 스톤 상태
+        console.log('📊 스톤 상태 (stoneStatus):', this.loadedStoneData?.stoneStatus);
+        
+        // 채팅방 생성 여부
+        console.log('💬 채팅방 생성 (chatCreation):', this.loadedStoneData?.chatCreation);
+        
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         // taskList도 세팅
         if (json.result?.taskResDtoList?.length) {
@@ -1985,12 +2031,56 @@ export default {
   watch: {
     // stoneId가 변경될 때 스톤 데이터 로드
     stoneId: {
-      handler(newStoneId) {
-        if (newStoneId && !this.stoneData) {
+      handler(newStoneId, oldStoneId) {
+        console.log('🔄 [프로젝트 캘린더] stoneId watch 핸들러 호출');
+        console.log('   - newStoneId:', newStoneId);
+        console.log('   - oldStoneId:', oldStoneId);
+        console.log('   - stoneData 존재 여부:', !!this.stoneData);
+        console.log('   - loadedStoneData 존재 여부:', !!this.loadedStoneData);
+        console.log('   - isVisible:', this.isVisible);
+        
+        // stoneId가 있고, stoneData나 loadedStoneData가 없고, 모달이 열려있을 때 데이터 로드
+        if (newStoneId && !this.stoneData && !this.loadedStoneData && this.isVisible) {
+          console.log('✅ [프로젝트 캘린더] stoneId가 설정되고 모달이 열려있음. loadStoneData 호출');
           this.loadStoneData(newStoneId);
+        } else if (newStoneId && !this.stoneData && !this.loadedStoneData && !this.isVisible) {
+          console.log('ℹ️ [프로젝트 캘린더] stoneId가 설정되었지만 모달이 아직 열리지 않음. isVisible이 true가 될 때 로드될 예정');
+        } else if (newStoneId && (this.stoneData || this.loadedStoneData)) {
+          console.log('ℹ️ [프로젝트 캘린더] stoneData 또는 loadedStoneData가 이미 존재하므로 loadStoneData 호출하지 않음');
+        } else {
+          console.log('⚠️ [프로젝트 캘린더] stoneId가 없거나 조건 불충족');
         }
       },
       immediate: true
+    },
+    
+    // isVisible이 변경될 때 로그 출력 및 데이터 로드
+    isVisible: {
+      handler(newValue, oldValue) {
+        console.log('🔄 [프로젝트 캘린더] isVisible 변경:', oldValue, '→', newValue);
+        console.log('   - stoneId:', this.stoneId);
+        console.log('   - stoneData:', this.stoneData);
+        console.log('   - loadedStoneData:', this.loadedStoneData);
+        console.log('   - currentStoneData:', this.currentStoneData);
+        
+        // 모달이 열릴 때 (isVisible이 true가 되고 stoneId가 있고 stoneData가 없을 때) 데이터 로드
+        if (newValue && this.stoneId && !this.stoneData && !this.loadedStoneData) {
+          console.log('✅ [프로젝트 캘린더] isVisible이 true가 되었고 stoneId가 있지만 데이터가 없음. loadStoneData 호출');
+          this.loadStoneData(this.stoneId);
+        }
+        
+        if (newValue && this.currentStoneData) {
+          console.log('📊 [프로젝트 캘린더] 모달이 열렸을 때 currentStoneData 확인:');
+          console.log('   - 진행률:', this.currentStoneData.milestone || this.currentStoneData.projectMilestone || 0, '%');
+          console.log('   - 담당자:', this.currentStoneData.manager || this.currentStoneData.stoneManagerName || '담당자 없음');
+          console.log('   - 참여자 목록:', this.currentStoneData.stoneParticipantDtoList || this.currentStoneData.participants || []);
+        } else if (newValue && !this.currentStoneData) {
+          console.log('⚠️ [프로젝트 캘린더] 모달이 열렸지만 currentStoneData가 없음');
+          console.log('   - stoneId:', this.stoneId);
+          console.log('   - stoneData:', this.stoneData);
+          console.log('   - loadedStoneData:', this.loadedStoneData);
+        }
+      }
     },
     
     // 스톤 데이터가 변경될 때 태스크 목록 다시 로드
@@ -2008,6 +2098,11 @@ export default {
     loadedStoneData: {
       handler(newStoneData) {
         if (newStoneData && (newStoneData.stoneId || newStoneData.id)) {
+          console.log('🔄 [프로젝트 캘린더] loadedStoneData 변경 감지');
+          console.log('   - 스톤 ID:', newStoneData.stoneId || newStoneData.id);
+          console.log('   - 진행률:', newStoneData.milestone || newStoneData.projectMilestone || 0, '%');
+          console.log('   - 담당자:', newStoneData.stoneManagerName || newStoneData.manager || '담당자 없음');
+          console.log('   - 참여자 목록:', newStoneData.stoneParticipantDtoList || []);
           this.loadTaskList();
         }
       },

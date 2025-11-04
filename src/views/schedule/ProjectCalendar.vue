@@ -4,6 +4,7 @@ import axios from "axios";
 import CalendarBase from "@/components/CalendarBase.vue";
 import StoneDetailModal from "@/views/Project/StoneDetailModal.vue";
 import { useRoute } from "vue-router";
+import { getStoneDetail } from "@/services/stoneService.js";
 
 const route = useRoute();
 const workspaceId = ref(
@@ -13,6 +14,8 @@ const workspaceId = ref(
 );
 const showModal = ref(false);
 const selectedStoneId = ref(null);
+const selectedStoneData = ref(null);
+const isLoadingStoneDetail = ref(false);
 const projectId = ref('');
 
 
@@ -25,12 +28,71 @@ const currentView = ref("dayGridMonth");
 const showSidebar = ref(false);
 const currentDate = ref(new Date());
 
-function openStoneModal(eventData) {
+async function openStoneModal(eventData) {
   console.log("🖥️[ProjectCalendar] 클릭:", eventData);
-  selectedStoneId.value = eventData.stoneId || eventData.id;
-  // workspaceId.value = eventData.workspaceId;
-  // projectId.value = eventData.projectId;
-  showModal.value = true;
+  const stoneId = eventData.stoneId || eventData.id;
+  
+  if (!stoneId) {
+    console.error("❌ 스톤 ID가 없습니다.");
+    return;
+  }
+  
+  try {
+    isLoadingStoneDetail.value = true;
+    selectedStoneId.value = stoneId;
+    
+    // 스톤 상세 정보 API 호출
+    const response = await getStoneDetail(stoneId);
+    
+    if (response.statusCode === 200) {
+      const stoneDetail = response.result;
+      
+      // 참여자 목록 처리
+      const participants = stoneDetail.stoneParticipantDtoList || [];
+      const participantNames = participants.map(p => p.participantName);
+      const participantsText = participantNames.length > 0 ? participantNames.join(', ') : '비어 있음';
+      
+      // API 응답 데이터를 모달에 맞는 형태로 변환
+      selectedStoneData.value = {
+        stoneId: stoneId,
+        stoneName: stoneDetail.stoneName,
+        startTime: stoneDetail.startTime,
+        endTime: stoneDetail.endTime,
+        manager: stoneDetail.stoneManagerName,
+        participants: participantsText,
+        documentLink: '바로가기',
+        chatCreation: stoneDetail.chatCreation,
+        stoneStatus: stoneDetail.stoneStatus,
+        stoneDescribe: stoneDetail.stoneDescribe,
+        milestone: stoneDetail.milestone || stoneDetail.projectMilestone || 0, // 진행률 추가
+        stoneParticipantDtoList: participants, // 참여자 원본 데이터도 포함
+        tasks: (stoneDetail.taskResDtoList || []).map((task, index) => ({
+          id: task.taskId || index + 1,
+          name: task.taskName || '태스크',
+          completed: task.taskStatus === 'COMPLETED' || false,
+          startTime: task.startTime || stoneDetail.startTime,
+          endTime: task.endTime || stoneDetail.endTime
+        })),
+        isProject: false
+      };
+      
+      console.log('📅 [ProjectCalendar] 스톤 데이터 로드 완료:', selectedStoneData.value);
+      console.log('   - 진행률:', selectedStoneData.value.milestone, '%');
+      console.log('   - 담당자:', selectedStoneData.value.manager);
+      console.log('   - 참여자 목록:', selectedStoneData.value.stoneParticipantDtoList);
+      
+      showModal.value = true;
+    } else {
+      console.error('❌ 스톤 상세 조회 실패:', response.statusMessage);
+      alert(response.statusMessage || '스톤 정보를 불러오는데 실패했습니다.');
+    }
+  } catch (error) {
+    console.error('❌ 스톤 상세 조회 API 호출 실패:', error);
+    const errorMessage = error.message || '스톤 정보를 불러오는데 실패했습니다.';
+    alert(errorMessage);
+  } finally {
+    isLoadingStoneDetail.value = false;
+  }
 }
 
 // // ✅ 모달 제어
@@ -147,9 +209,8 @@ function toggleVisibility(item) {
       <StoneDetailModal
         :is-visible="showModal"
         :key="selectedStoneId"
-        :stone-id="selectedStoneId"
+        :stone-data="selectedStoneData"
         :workspace-id="workspaceId"
-        :project-id="projectId"
         @close="showModal = false"
       />
     </div>
