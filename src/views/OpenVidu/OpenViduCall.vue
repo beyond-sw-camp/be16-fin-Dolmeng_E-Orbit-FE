@@ -9,6 +9,16 @@
           <div class="nickname">
             {{ displayName(singleViewStream, singleViewStream === publisher) }}
           </div>
+          <!-- camera overlay shown when screen sharing (either local sharing or viewing someone else's share) -->
+    <div v-if="cameraPreview && (isScreenShareEnabled || isMainStreamScreenShare)" 
+      class="camera-overlay" 
+      :class="{ speaking: isLocalSpeaking }"
+      :style="{ left: overlayX !== null ? overlayX + 'px' : 'auto', top: overlayY !== null ? overlayY + 'px' : 'auto', width: overlayWidth + 'px', height: overlayHeight + 'px' }"
+      @mousedown.left.prevent.stop="overlayMouseDown"
+      @click.stop
+      @mouseup.stop>
+            <video-stream :stream-manager="cameraPreview" />
+          </div>
         </div>
       </v-col>
     </v-row>
@@ -127,6 +137,17 @@ export default {
       outputVolume: 70, // 출력 음량 (0-100)
 
       isFullScreenMode: false,
+  // local camera preview used when screen sharing (not published)
+  cameraPreview: null,
+  // overlay position (px) relative to #main-video-container
+  overlayX: null,
+  overlayY: null,
+  overlayWidth: 260,
+  overlayHeight: 180,
+  overlayDragging: false,
+  _overlayDragStart: null,
+  _overlayPendingDrag: false,
+  _overlayMouseMoveHandler: null,
 
       // 아이콘 설정
       recordStart: recordFill, // 녹화 시작 아이콘
@@ -290,6 +311,28 @@ export default {
 
         return !isMain && !isMyPublisher;
       });
+    },
+    // is local user speaking (used for overlay highlight)
+    isLocalSpeaking() {
+      const cid = this.session?.connection?.connectionId;
+      if (!cid) return false;
+      return !!this.speakingMap[cid];
+    },
+    // whether the current single/main view is a screen share (from any user)
+    isMainStreamScreenShare() {
+      const sm = this.singleViewStream;
+      if (!sm || !sm.stream) return false;
+      const t = sm.stream.typeOfVideo || sm.stream.videoType || sm.stream.type;
+      if (!t) return false;
+      return String(t).toLowerCase().includes('screen');
+    },
+  },
+
+  watch: {
+    // when the main view changes, ensure local preview exists if viewing a screen share
+    singleViewStream: {
+      handler() { this._onMainStreamChanged(); },
+      immediate: true,
     },
   },
 
@@ -669,6 +712,14 @@ export default {
         this.speakingMap = {};
         this._pendingStreams = [];
         this._connectionClientMap = {};
+        // stop and clear any cameraPreview used for overlay
+        try {
+          if (this.cameraPreview) {
+            const media = (this.cameraPreview.stream && (this.cameraPreview.stream.getMediaStream ? this.cameraPreview.stream.getMediaStream() : this.cameraPreview.stream.stream)) || null;
+            if (media && media.getTracks) media.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+          }
+        } catch (e) { /* ignore */ }
+        this.cameraPreview = null;
         this.OV = null;
       }
     },
@@ -905,6 +956,145 @@ export default {
       }
     },
 
+    // Overlay helpers: initial positioning and drag handling
+    _setInitialOverlayPosition() {
+      try {
+        const container = document.getElementById('main-video-container');
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        // place at bottom-right with 16px margin
+        this.overlayX = Math.max(8, rect.width - this.overlayWidth - 16);
+        this.overlayY = Math.max(8, rect.height - this.overlayHeight - 16);
+      } catch (e) { console.debug('setInitialOverlayPosition error', e); }
+    },
+
+    async _onMainStreamChanged() {
+      try {
+        // If main stream is a screen share (someone is sharing) and we don't have a local preview,
+        // create one so the user sees their own camera as overlay while viewing.
+        if (this.isMainStreamScreenShare && !this.cameraPreview) {
+          await this._createLocalPreview();
+          this.$nextTick(() => this._setInitialOverlayPosition());
+        }
+
+        // If main stream is not a screen share and we also are not sharing, remove preview
+        if (!this.isMainStreamScreenShare && !this.isScreenShareEnabled && this.cameraPreview) {
+          this._destroyLocalPreview();
+        }
+      } catch (e) { console.debug('onMainStreamChanged error', e); }
+    },
+
+    async _createLocalPreview() {
+      if (this.cameraPreview) return;
+      try {
+        if (!this.OV) return;
+        this.cameraPreview = await this.OV.initPublisherAsync(undefined, {
+          audioSource: false,
+          videoSource: this.videoInput || undefined,
+          publishAudio: false,
+          publishVideo: true,
+          resolution: '320x240',
+          frameRate: 15,
+          mirror: true,
+        });
+      } catch (e) {
+        console.debug('createLocalPreview failed', e);
+        this.cameraPreview = null;
+      }
+    },
+
+    _destroyLocalPreview() {
+      try {
+        if (!this.cameraPreview) return;
+        try {
+          const media = (this.cameraPreview.stream && (this.cameraPreview.stream.getMediaStream ? this.cameraPreview.stream.getMediaStream() : this.cameraPreview.stream.stream)) || null;
+          if (media && media.getTracks) media.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+        } catch (e) { /* ignore */ }
+        this.cameraPreview = null;
+      } catch (e) { console.debug('destroyLocalPreview error', e); }
+    },
+
+    overlayMouseDown(event) {
+      // only left button
+      if (event.button !== 0) return;
+      // Start a "pending" drag: we don't actually move the overlay until the
+      // pointer moves past a small threshold. This prevents simple clicks from
+      // causing accidental relocations. The real drag only starts after the
+      // threshold is exceeded while the left button remains pressed.
+      const startX = event.clientX;
+      const startY = event.clientY;
+      this._overlayDragStart = { startX, startY, origX: this.overlayX || 0, origY: this.overlayY || 0 };
+      this._overlayPendingDrag = true;
+      this.overlayDragging = false;
+      // bind handlers so we can remove the exact references later
+      this._overlayMouseMoveHandler = (e) => this._onWindowMouseMove(e);
+      this._overlayMouseUpHandler = () => this._onWindowMouseUp();
+      window.addEventListener('mousemove', this._overlayMouseMoveHandler);
+      window.addEventListener('mouseup', this._overlayMouseUpHandler);
+      // prevent text selection while attempting to drag
+      event.preventDefault();
+    },
+
+    _onWindowMouseMove(evt) {
+      // If drag hasn't been initiated, ignore.
+      if (!this._overlayDragStart) return;
+      try {
+        // If left mouse button is not pressed anymore, cancel/finish drag.
+        if (typeof evt.buttons !== 'undefined' && (evt.buttons & 1) === 0) {
+          this._onWindowMouseUp();
+          return;
+        }
+
+        const dx = evt.clientX - this._overlayDragStart.startX;
+        const dy = evt.clientY - this._overlayDragStart.startY;
+
+        // If we're in the pending state, only start dragging after a small
+        // threshold (prevents clicks from moving the overlay). Threshold is
+        // distance squared (e.g. 5px -> 25).
+        const dist2 = dx * dx + dy * dy;
+        if (this._overlayPendingDrag) {
+          const threshold2 = 25;
+          if (dist2 < threshold2) return; // not enough movement yet
+          // Start actual dragging now
+          this.overlayDragging = true;
+          this._overlayPendingDrag = false;
+        }
+
+        if (!this.overlayDragging) return;
+
+        const newX = this._overlayDragStart.origX + dx;
+        const newY = this._overlayDragStart.origY + dy;
+        // constrain inside container
+        const container = document.getElementById('main-video-container');
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        // allow the overlay to be dragged so that up to half of it can hang outside
+        // i.e., permit positions from -overlayWidth/2 .. rect.width - overlayWidth/2
+        const halfW = Math.floor(this.overlayWidth / 2);
+        const halfH = Math.floor(this.overlayHeight / 2);
+        const minX = -halfW;
+        const maxX = rect.width - halfW;
+        const minY = -halfH;
+        const maxY = rect.height - halfH;
+        this.overlayX = Math.min(Math.max(minX, newX), maxX);
+        this.overlayY = Math.min(Math.max(minY, newY), maxY);
+      } catch (e) { /* ignore */ }
+    },
+
+    _onWindowMouseUp() {
+      this.overlayDragging = false;
+      this._overlayPendingDrag = false;
+      this._overlayDragStart = null;
+      if (this._overlayMouseMoveHandler) {
+        window.removeEventListener('mousemove', this._overlayMouseMoveHandler);
+        this._overlayMouseMoveHandler = null;
+      }
+      if (this._overlayMouseUpHandler) {
+        window.removeEventListener('mouseup', this._overlayMouseUpHandler);
+        this._overlayMouseUpHandler = null;
+      }
+    },
+
     // 5. 장치 변경 및 재게시 (Re-publishing)
     async changeDevice(deviceType, deviceId) {
       if (!this.publisher || !deviceId) return;
@@ -957,6 +1147,25 @@ export default {
       } else {
         // 화면 공유 시작
         try {
+          // Prepare a local camera preview (not published) so we can show it as an overlay
+          try {
+            if (this.OV) {
+              // create preview publisher but do NOT publish it to the session
+              this.cameraPreview = await this.OV.initPublisherAsync(undefined, {
+                audioSource: false,
+                videoSource: this.videoInput || undefined,
+                publishAudio: false,
+                publishVideo: true,
+                resolution: '320x240',
+                frameRate: 15,
+                mirror: true,
+              });
+            }
+          } catch (e) {
+            console.debug('cameraPreview init failed', e);
+            this.cameraPreview = null;
+          }
+
           const screenPublisher = await this.OV.initPublisherAsync(undefined, {
             videoSource: 'screen', // 'screen'을 사용하여 화면 공유 스트림 생성
             publishAudio: this.isAudioEnabled, // 마이크 오디오는 유지
@@ -974,7 +1183,8 @@ export default {
 
           this.isScreenShareEnabled = true;
           this.isVideoEnabled = true; // 화면 공유는 비디오가 켜진 상태로 간주
-
+          // Position overlay to bottom-right inside main container
+          this.$nextTick(() => this._setInitialOverlayPosition());
           // 화면 공유가 멈췄을 때의 이벤트 처리
           screenPublisher.on('streamDestroyed', event => {
             if (event.reason === 'screenStoppedByMediaApi') {
@@ -1012,6 +1222,21 @@ export default {
       await this.session.publish(cameraPublisher);
 
       this.isScreenShareEnabled = false;
+      // remove overlay positioning
+      this.overlayX = null;
+      this.overlayY = null;
+      // clean up camera preview (stop tracks and release)
+      try {
+        if (this.cameraPreview) {
+          try {
+            const media = (this.cameraPreview.stream && (this.cameraPreview.stream.getMediaStream ? this.cameraPreview.stream.getMediaStream() : this.cameraPreview.stream.stream)) || null;
+            if (media && media.getTracks) {
+              media.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+            }
+          } catch (e) { /* ignore */ }
+          this.cameraPreview = null;
+        }
+      } catch (e) { console.debug('cameraPreview cleanup error', e); }
     },
 
     // 7. 전체화면 토글
@@ -1158,7 +1383,9 @@ body,
   margin: auto;
   /* ❗이 요소가 닉네임의 position: absolute 기준점 역할을 합니다. */
   border-radius: 12px;
-  overflow: hidden;
+  /* allow overlay to extend outside the container so the small camera preview
+     can be dragged half-out (visual effect requested) */
+  overflow: visible;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
   transition: box-shadow 120ms ease, border-color 120ms ease;
 }
@@ -1199,7 +1426,8 @@ body,
   position: absolute;
   bottom: 5px;
   left: 5px;
-  z-index: 2;
+  /* Ensure nickname is always rendered above overlays and controls */
+  z-index: 10005;
   background-color: rgba(0, 0, 0, 0.6);
   color: white;
   padding: 2px 5px;
@@ -1226,6 +1454,23 @@ body,
 #main-video-container.speaking,
 .video-item.speaking {
   box-shadow: 0 0 0 3px rgba(137, 255, 97, 0.95), 0 0 24px rgba(137, 255, 97, 0.6);
+}
+
+/* camera overlay shown during screen share */
+.camera-overlay {
+  position: absolute;
+  z-index: 30;
+  right: auto;
+  bottom: auto;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  cursor: grab;
+  background: #000;
+}
+.camera-overlay:active { cursor: grabbing; }
+.camera-overlay.speaking {
+  box-shadow: 0 0 0 4px rgba(137,255,97,0.95), 0 0 20px rgba(137,255,97,0.5);
 }
 
 /* 6. 컨트롤바 스타일 */
@@ -1416,6 +1661,7 @@ body:fullscreen,
   color: #fff;
   padding: 5px 10px;
   border-radius: 4px;
-  z-index: 10000;
+  /* Keep fullscreen nickname above overlays */
+  z-index: 10005;
 }
 </style>
