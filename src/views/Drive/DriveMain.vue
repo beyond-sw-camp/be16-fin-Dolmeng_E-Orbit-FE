@@ -1663,62 +1663,20 @@ export default {
             this.currentFolderId = null;
             this.updateBreadcrumbs(null, response.result, rootType || this.currentRootType);
             
-            // 트리뷰는 항상 워크스페이스로 고정 - 다른 루트 문서함을 가더라도 트리뷰는 워크스페이스 유지
-            // 트리가 없거나 비어있을 때만 생성
-            if (!this.folderTree?.length) {
-              // 트리뷰는 항상 워크스페이스로 고정
-              const workspaceId = localStorage.getItem('selectedWorkspaceId');
-              if (workspaceId) {
-                try {
-                  const workspaceNameResponse = await driveService.getRootName('WORKSPACE', workspaceId);
-                  const workspaceRootName = workspaceNameResponse.result || workspaceNameResponse.name || '워크스페이스 문서함';
-                  const rootFolder = {
-                    id: 'root',
-                    name: workspaceRootName,
-                    rootType: 'WORKSPACE',
-                    rootName: workspaceRootName,
-                    rootId: workspaceId,
-                    children: [], // 빈 배열로 초기화 (토글 표시를 위해)
-                  };
-                  this.folderTree = [rootFolder];
-                  this.treeInitializedForKey = `WORKSPACE:${workspaceId}`;
-                  
-                  // 트리 재로딩 시에도 열려있던 토글 유지
-                  if (Array.isArray(this.prevOpenFolders) && this.prevOpenFolders.length) {
-                    this.openFolders = [...this.prevOpenFolders];
-                  }
-                } catch (error) {
-                  console.error('워크스페이스 트리 생성 실패:', error);
-                }
-              }
+            // 트리뷰는 projectId/stoneId가 있으면 해당 루트부터, 없으면 워크스페이스부터
+            // 같은 루트 내 이동 시 트리 재로딩을 건너뛰어 토글 상태 유지
+            if (this.treeInitializedForKey !== key || !this.folderTree?.length) {
+              await this.loadFolderTree();
+              this.treeInitializedForKey = key;
             }
             // 트리는 그대로 유지 (메인 콘텐츠만 업데이트)
           } else {
             this.items = [];
-            // 트리뷰는 항상 워크스페이스로 고정 - 트리가 없거나 비어있을 때만 생성
-            if (!this.folderTree?.length) {
-              const workspaceId = localStorage.getItem('selectedWorkspaceId');
-              if (workspaceId) {
-                try {
-                  const workspaceNameResponse = await driveService.getRootName('WORKSPACE', workspaceId);
-                  const workspaceRootName = workspaceNameResponse.result || workspaceNameResponse.name || '워크스페이스 문서함';
-                  this.folderTree = [{ 
-                    id: 'root', 
-                    name: workspaceRootName, 
-                    rootType: 'WORKSPACE',
-                    rootName: workspaceRootName,
-                    rootId: workspaceId,
-                    children: [] 
-                  }];
-                  this.treeInitializedForKey = `WORKSPACE:${workspaceId}`;
-                  // 트리 재로딩 시에도 열려있던 토글 유지
-                  if (Array.isArray(this.prevOpenFolders) && this.prevOpenFolders.length) {
-                    this.openFolders = [...this.prevOpenFolders];
-                  }
-                } catch (error) {
-                  console.error('워크스페이스 트리 생성 실패:', error);
-                }
-              }
+            // 트리뷰는 projectId/stoneId가 있으면 해당 루트부터, 없으면 워크스페이스부터
+            const key = `${rootType}:${rootId}`;
+            if (this.treeInitializedForKey !== key || !this.folderTree?.length) {
+              await this.loadFolderTree();
+              this.treeInitializedForKey = key;
             }
           }
         } catch (error) {
@@ -1756,44 +1714,104 @@ export default {
       }
     },
 
-    // 폴더 트리 로드 (폴더만) - 항상 워크스페이스로 고정
+    // 폴더 트리 로드 (폴더만)
+    // projectId가 있으면 프로젝트 루트부터, stoneId가 있으면 스톤 루트부터, 없으면 워크스페이스 루트부터
     async loadFolderTree() {
       try {
         this.loadingTree = true;
         
-        // 트리뷰는 항상 워크스페이스로 고정
-        const workspaceId = localStorage.getItem('selectedWorkspaceId');
-        if (!workspaceId) {
-          console.error('워크스페이스 ID가 없습니다.');
-          return;
+        let rootType, rootId, rootName, rootFolder, treeKey;
+        
+        // 프로젝트 문서함인 경우
+        if (this.projectId) {
+          rootType = 'PROJECT';
+          rootId = this.projectId;
+          const projectNameResponse = await driveService.getRootName('PROJECT', rootId);
+          rootName = projectNameResponse.result || projectNameResponse.name || '프로젝트 문서함';
+          treeKey = `PROJECT:${rootId}`;
+          
+          // 프로젝트 루트 노드 생성 (id는 없을 수 있으므로 rootType:rootId 형식 사용)
+          const projectRootId = `${rootType}:${rootId}`;
+          rootFolder = {
+            id: projectRootId,
+            name: rootName,
+            rootType: rootType,
+            rootName: rootName,
+            rootId: rootId,
+            isRoot: true,
+            children: [],
+          };
         }
-        
-        const workspaceNameResponse = await driveService.getRootName('WORKSPACE', workspaceId);
-        const workspaceRootName = workspaceNameResponse.result || workspaceNameResponse.name || '워크스페이스 문서함';
-        
-        const rootFolder = {
-          id: 'root',
-          name: workspaceRootName,
-          rootType: 'WORKSPACE',
-          rootName: workspaceRootName,
-          rootId: workspaceId,
-          // 초기에는 자식 미로딩. 사용자가 최상위 토글할 때 로드
-          children: [],
-        };
+        // 스톤 문서함인 경우
+        else if (this.stoneId) {
+          rootType = 'STONE';
+          rootId = String(this.stoneId);
+          const stoneNameResponse = await driveService.getRootName('STONE', rootId);
+          rootName = stoneNameResponse.result || stoneNameResponse.name || '스톤 문서함';
+          treeKey = `STONE:${rootId}`;
+          
+          // 스톤 루트 노드 생성
+          const stoneRootId = `${rootType}:${rootId}`;
+          rootFolder = {
+            id: stoneRootId,
+            name: rootName,
+            rootType: rootType,
+            rootName: rootName,
+            rootId: rootId,
+            isRoot: true,
+            children: [],
+          };
+        }
+        // 워크스페이스 문서함인 경우 (기본)
+        else {
+          const workspaceId = localStorage.getItem('selectedWorkspaceId');
+          if (!workspaceId) {
+            console.error('워크스페이스 ID가 없습니다.');
+            return;
+          }
+          rootType = 'WORKSPACE';
+          rootId = workspaceId;
+          const workspaceNameResponse = await driveService.getRootName('WORKSPACE', workspaceId);
+          rootName = workspaceNameResponse.result || workspaceNameResponse.name || '워크스페이스 문서함';
+          treeKey = `WORKSPACE:${workspaceId}`;
+          
+          rootFolder = {
+            id: 'root',
+            name: rootName,
+            rootType: rootType,
+            rootName: rootName,
+            rootId: rootId,
+            children: [],
+          };
+        }
 
         console.log('[DriveMain] loadFolderTree → rootFolder:', rootFolder);
         // 트리뷰는 고정 - 트리가 없거나 비어있을 때만 생성
         if (!this.folderTree?.length) {
           this.folderTree = [rootFolder];
-          this.treeInitializedForKey = `WORKSPACE:${workspaceId}`;
+          this.treeInitializedForKey = treeKey;
         } else {
-          // 트리가 있으면 워크스페이스 정보로 업데이트 (항상 워크스페이스로 고정)
-          const existingRoot = this.findNodeById(this.folderTree, 'root');
+          // 트리가 있으면 루트 정보로 업데이트
+          const rootNodeId = rootType === 'WORKSPACE' ? 'root' : `${rootType}:${rootId}`;
+          const existingRoot = this.findNodeById(this.folderTree, rootNodeId) || 
+                             (rootType !== 'WORKSPACE' ? this.findRootNodeBy(rootType, rootId) : null) ||
+                             this.findNodeById(this.folderTree, 'root');
+          
           if (existingRoot) {
-            existingRoot.name = workspaceRootName;
-            existingRoot.rootType = 'WORKSPACE';
-            existingRoot.rootName = workspaceRootName;
-            existingRoot.rootId = workspaceId;
+            existingRoot.name = rootName;
+            existingRoot.rootType = rootType;
+            existingRoot.rootName = rootName;
+            existingRoot.rootId = rootId;
+            if (rootType !== 'WORKSPACE') {
+              existingRoot.isRoot = true;
+              if (existingRoot.id !== rootNodeId) {
+                existingRoot.id = rootNodeId;
+              }
+            }
+          } else {
+            // 기존 루트를 찾을 수 없으면 새로 생성
+            this.folderTree = [rootFolder];
+            this.treeInitializedForKey = treeKey;
           }
         }
         // 트리 재로딩 시에도 열려있던 토글 유지
@@ -2385,48 +2403,52 @@ export default {
         return;
       }
       
-      // stoneId가 있으면 라우팅 대신 내부 상태만 업데이트
-      if (this.stoneId) {
-        if (item.id === 'root' || item.rootName) {
-          this.loadFolderContents(null, 'STONE', String(this.stoneId));
-        } else {
-          // 트리는 워크스페이스이지만 현재 문서함이 STONE이므로 STONE으로 이동하지 않음
-          // 대신 워크스페이스 폴더로 이동
-          this.$router.push({
-            name: 'driveFolder',
-            params: {
-              rootType: 'WORKSPACE',
-              rootId: workspaceId,
-              folderId: item.id
-            }
-          });
-        }
-        return;
-      }
-      
-      // projectId가 있으면 라우팅 대신 내부 상태만 업데이트
-      if (this.projectId) {
-        if (item.id === 'root' || item.rootName) {
-          this.loadFolderContents(null, 'PROJECT', this.projectId);
-        } else {
-          // 트리는 워크스페이스이지만 현재 문서함이 PROJECT이므로 PROJECT로 이동하지 않음
-          // 대신 워크스페이스 폴더로 이동
-          this.$router.push({
-            name: 'driveFolder',
-            params: {
-              rootType: 'WORKSPACE',
-              rootId: workspaceId,
-              folderId: item.id
-            }
-          });
-        }
-        return;
-      }
-      
-      // rootName이 있거나 id가 'root'면 해당 문서함으로 이동
+      // 루트 항목 클릭 처리
       if (item.id === 'root' || item.rootName || item.isRoot) {
-        // 루트 항목이고 rootType/rootId가 있으면 해당 문서함으로 이동
+        // 루트 항목이고 rootType/rootId가 있으면 처리
         if (item.isRoot && item.rootType && item.rootId) {
+          // stoneId가 있으면 라우팅 대신 내부 상태만 업데이트
+          if (this.stoneId) {
+            // 현재 스톤 문서함이면 내부 상태만 업데이트
+            if (item.rootType === 'STONE' && item.rootId === String(this.stoneId)) {
+              this.loadFolderContents(null, 'STONE', String(this.stoneId));
+              return;
+            }
+            // 다른 루트 항목이면 라우팅
+            this.$router.push({ 
+              name: 'driveRoot',
+              params: { 
+                rootType: item.rootType,
+                rootId: item.rootId
+              }
+            });
+            return;
+          }
+          
+          // projectId가 있으면 라우팅 대신 내부 상태만 업데이트
+          if (this.projectId) {
+            // 프로젝트 문서함 안에서 STONE/PROJECT 루트 항목 클릭 시 내부 상태만 업데이트
+            if (item.rootType === 'STONE' || item.rootType === 'PROJECT') {
+              this.loadFolderContents(null, item.rootType, item.rootId);
+              return;
+            }
+            // 현재 프로젝트 문서함이면 내부 상태만 업데이트
+            if (item.rootType === 'PROJECT' && item.rootId === this.projectId) {
+              this.loadFolderContents(null, 'PROJECT', this.projectId);
+              return;
+            }
+            // 다른 루트 항목이면 라우팅
+            this.$router.push({ 
+              name: 'driveRoot',
+              params: { 
+                rootType: item.rootType,
+                rootId: item.rootId
+              }
+            });
+            return;
+          }
+          
+          // projectId/stoneId가 없으면 라우팅
           this.$router.push({ 
             name: 'driveRoot',
             params: { 
@@ -2434,15 +2456,76 @@ export default {
               rootId: item.rootId
             }
           });
+          return;
+        }
+        
+        // stoneId가 있으면 라우팅 대신 내부 상태만 업데이트
+        if (this.stoneId) {
+          this.loadFolderContents(null, 'STONE', String(this.stoneId));
+          return;
+        }
+        
+        // projectId가 있으면 라우팅 대신 내부 상태만 업데이트
+        if (this.projectId) {
+          this.loadFolderContents(null, 'PROJECT', this.projectId);
+          return;
+        }
+        
+        // 워크스페이스 루트로 이동
+        this.$router.push({ 
+          name: 'driveRoot',
+          params: { 
+            rootType: 'WORKSPACE',
+            rootId: workspaceId
+          }
+        });
+        return;
+      }
+      
+      // 일반 폴더 클릭 처리
+      // stoneId가 있으면 라우팅 대신 내부 상태만 업데이트
+      if (this.stoneId) {
+        // 트리는 스톤이지만 현재 문서함이 STONE이므로 STONE으로 이동하지 않음
+        // 대신 워크스페이스 폴더로 이동
+        this.$router.push({
+          name: 'driveFolder',
+          params: {
+            rootType: 'WORKSPACE',
+            rootId: workspaceId,
+            folderId: item.id
+          }
+        });
+        return;
+      }
+      
+      // projectId가 있으면 라우팅 대신 내부 상태만 업데이트
+      if (this.projectId) {
+        // 트리뷰의 폴더를 클릭했을 때 - item에 rootType과 rootId가 있으면 해당 루트로 이동
+        if (item.rootType && item.rootId) {
+          // STONE이나 PROJECT 루트의 하위 폴더면 해당 문서함으로 이동
+          if (item.rootType === 'STONE' || item.rootType === 'PROJECT') {
+            this.$router.push({
+              name: 'driveFolder',
+              params: {
+                rootType: item.rootType,
+                rootId: item.rootId,
+                folderId: item.id
+              }
+            });
+          } else {
+            // 워크스페이스 폴더면 워크스페이스로 이동
+            this.$router.push({
+              name: 'driveFolder',
+              params: {
+                rootType: 'WORKSPACE',
+                rootId: workspaceId,
+                folderId: item.id
+              }
+            });
+          }
         } else {
-          // 아니면 워크스페이스 루트로 이동
-          this.$router.push({ 
-            name: 'driveRoot',
-            params: { 
-              rootType: 'WORKSPACE',
-              rootId: workspaceId
-            }
-          });
+          // rootType이 없으면 현재 프로젝트로 이동
+          this.loadFolderContents(item.id, 'PROJECT', this.projectId);
         }
         return;
       }
@@ -2718,6 +2801,48 @@ export default {
       if (item.isRoot || (!item.folderName && item.rootName)) {
         console.log('Navigating to root drive:', item.rootType, item.rootId);
         if (item.rootType && item.rootId) {
+          // stoneId가 있으면 라우팅 대신 내부 상태만 업데이트
+          if (this.stoneId) {
+            // 현재 스톤 문서함이면 내부 상태만 업데이트
+            if (item.rootType === 'STONE' && item.rootId === String(this.stoneId)) {
+              this.loadFolderContents(null, 'STONE', String(this.stoneId));
+              return;
+            }
+            // 다른 루트 항목이면 라우팅
+            this.$router.push({
+              name: 'driveRoot',
+              params: { 
+                rootType: item.rootType, 
+                rootId: item.rootId 
+              }
+            });
+            return;
+          }
+          
+          // projectId가 있으면 라우팅 대신 내부 상태만 업데이트
+          if (this.projectId) {
+            // 프로젝트 문서함 안에서 STONE/PROJECT 루트 항목 클릭 시 내부 상태만 업데이트
+            if (item.rootType === 'STONE' || item.rootType === 'PROJECT') {
+              this.loadFolderContents(null, item.rootType, item.rootId);
+              return;
+            }
+            // 현재 프로젝트 문서함이면 내부 상태만 업데이트
+            if (item.rootType === 'PROJECT' && item.rootId === this.projectId) {
+              this.loadFolderContents(null, 'PROJECT', this.projectId);
+              return;
+            }
+            // 다른 루트 항목이면 라우팅
+            this.$router.push({
+              name: 'driveRoot',
+              params: { 
+                rootType: item.rootType, 
+                rootId: item.rootId 
+              }
+            });
+            return;
+          }
+          
+          // projectId/stoneId가 없으면 라우팅
           this.$router.push({
             name: 'driveRoot',
             params: { 
@@ -2768,6 +2893,17 @@ export default {
       // STONE: 스톤 문서함으로 바로가기
       else if (item.type === 'STONE') {
         console.log('Navigating to STONE drive:', item.id);
+        // projectId가 있으면 프로젝트 문서함 안에서 내부 상태만 업데이트
+        if (this.projectId) {
+          this.loadFolderContents(null, 'STONE', item.id);
+          return;
+        }
+        // stoneId가 있으면 내부 상태만 업데이트
+        if (this.stoneId) {
+          this.loadFolderContents(null, 'STONE', String(this.stoneId));
+          return;
+        }
+        // 라우팅
         this.$router.push({
           name: 'driveRoot',
           params: { rootType: 'STONE', rootId: item.id }
@@ -2776,6 +2912,17 @@ export default {
       // PROJECT: 프로젝트 문서함으로 바로가기
       else if (item.type === 'PROJECT') {
         console.log('Navigating to PROJECT drive:', item.id);
+        // projectId가 있으면 프로젝트 문서함 안에서 내부 상태만 업데이트
+        if (this.projectId) {
+          this.loadFolderContents(null, 'PROJECT', item.id);
+          return;
+        }
+        // stoneId가 있으면 내부 상태만 업데이트
+        if (this.stoneId) {
+          this.loadFolderContents(null, 'STONE', String(this.stoneId));
+          return;
+        }
+        // 라우팅
         this.$router.push({
           name: 'driveRoot',
           params: { rootType: 'PROJECT', rootId: item.id }
