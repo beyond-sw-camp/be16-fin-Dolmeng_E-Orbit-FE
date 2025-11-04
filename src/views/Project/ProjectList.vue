@@ -53,7 +53,7 @@
     </div>
     
     <!-- 마일스톤 탭 -->
-    <div v-if="activeTab === 'milestone'">
+    <div v-if="activeTab === 'milestone'" :key="viewMode + ':' + (currentFocusedStoneId || 'none')">
       <!-- 전체스톤 버튼 - 포커스 모드일 때만 표시 -->
       <button 
         v-if="viewMode === 'focus' && focusedStoneStack.length > 0" 
@@ -973,6 +973,8 @@ export default {
       isPotentialClick: false,
       // 보기 모드: all | focus (localStorage에서 불러오기, 기본값: 'all')
       viewMode: localStorage.getItem('projectViewMode') || 'all',
+      // 전체보기 모드 방문 여부 (포커스 전환 시 간격 축소에 활용)
+      hasVisitedOverview: false,
       canvasWidth: 1000,
       canvasHeight: 600,
       stoneNodes: [],
@@ -1106,6 +1108,11 @@ export default {
     
     // 워크스페이스 ID 초기화
     this.currentWorkspaceId = localStorage.getItem('selectedWorkspaceId') || '';
+
+    // 새로고침 직후 초기 모드가 전체보기라면, 첫 포커스 전환에도 간격 축소가 적용되도록 플래그 세팅
+    if (this.viewMode === 'all') {
+      this.hasVisitedOverview = true;
+    }
     
     // 프로젝트 데이터는 watch에서 처리하므로 여기서는 이벤트 리스너만 등록
     // 프로젝트 라우트 변경 이벤트 리스너 추가
@@ -1229,13 +1236,28 @@ export default {
           // 전체보기 전환 시 포커스 스택 초기화하여 전체 표시
           this.focusedStoneStack = [];
           this.isPinned = false; // 전체보기 모드에서는 핀 상태 해제
+          // 전체보기 방문 플래그 설정
+          this.hasVisitedOverview = true;
         } else if (newMode === 'focus') {
           // 포커스 모드로 전환 시 핀된 뷰가 있으면 복원
           const projectId = this.$route.query.id;
           if (projectId) {
             this.restorePinnedView(projectId);
           }
+          // 전체보기를 한 번이라도 본 이후의 포커스 진입이면, 포커스 레이아웃 스냅샷을 초기화해
+          // 촘촘한 간격으로 새로 배치되도록 강제
+          if (this.hasVisitedOverview) {
+            this.layoutSnapshots.focus = {};
+            if (this.modeViewport && this.modeViewport.focus) {
+              this.modeViewport.focus = null;
+            }
+          }
         }
+        // 모드 전환 시 남아있는 UI 상태 초기화 (스냅샷 잔상 방지)
+        this.hoveredStoneId = null;
+        this.isPotentialClick = false;
+        this.isPanning = false;
+        this.panMode = false;
         this.$nextTick(() => {
           if (this.stones && this.stones.length > 0) {
             this.stoneNodes = this.convertStonesToNodes(this.stones);
@@ -2323,7 +2345,7 @@ export default {
       console.log('D3 데이터:', d3Data);
       
       // D3.js 트리 레이아웃 설정 - 가로로 넓게 배치 (width > height)
-      // 모드와 무관하게 동일 규칙으로 레이아웃 크기를 계산해 모드 전환에 따른 모양 변형을 방지
+      // 포커스 모드 전환 시, 이전에 전체보기를 한 번이라도 본 경우 간격을 다소 촘촘하게 적용
       const nodeCount = this.stoneNodes.length;
       const maxDepth = (typeof this.getTotalDepth === 'function') ? this.getTotalDepth() : 3;
       let layoutWidth = Math.max(1400, (this.canvasWidth || 1000) - 200);
@@ -2332,13 +2354,23 @@ export default {
       else if (nodeCount > 16) layoutWidth *= 1.5;
       else if (nodeCount > 10) layoutWidth *= 1.25;
       else if (nodeCount > 6) layoutWidth *= 1.1;
+
+      const compactFocus = (this.viewMode === 'focus') && !!this.hasVisitedOverview;
+      if (compactFocus) {
+        // 폭/높이를 더 줄여서 간격을 한층 더 촘촘하게 조정
+        layoutWidth *= 0.6;   // 가로 간격 강하게 축소
+        layoutHeight *= 0.7;  // 세로 간격도 추가 축소
+      }
       
       const tree = d3.tree()
         .size([layoutWidth, layoutHeight])
         .separation((a, b) => {
-          // 모드 전환과 무관하게 일정한 간격 유지
-          if (a.parent === b.parent) return 1.5;
-          return 1.8;
+          if (compactFocus) {
+            // 포커스(전체보기 경험 있음)에서는 간격을 더 촘촘하게
+            return a.parent === b.parent ? 0.7 : 1.0;
+          }
+          // 기본 간격
+          return a.parent === b.parent ? 1.5 : 1.8;
         });
       
       const root = d3.hierarchy(d3Data, d => d.children);
