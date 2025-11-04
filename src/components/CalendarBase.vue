@@ -20,6 +20,7 @@ onMounted(() => {
   }
 
   calendar = new FC.Calendar(calEl.value, {
+    headerToolbar: false,
     initialView: props.viewType || "dayGridMonth",
     ...(props.initialDate ? { initialDate: props.initialDate } : {}),
     events: props.events ?? [],
