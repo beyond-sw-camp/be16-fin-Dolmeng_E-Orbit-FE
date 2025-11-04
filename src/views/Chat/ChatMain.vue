@@ -262,6 +262,7 @@ export default {
 }
 .video-chat-split.with-chat {
   gap: 0;
+  padding-left: 24px;
 }
 .video-side {
   flex: 0 0 65%;
@@ -273,7 +274,7 @@ export default {
   height: 100%;
 }
 .video-side .v-col {
-  padding: 24px 0 24px 24px !important;
+  padding: 24px 0 24px 0 !important;
   height: 100%;
 }
 .chat-side-panel {
@@ -299,12 +300,13 @@ export default {
   border: 1px solid #E5E5E5;
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 64px - 80px);
-  height: 100%;
+  height: calc(100vh - 64px - 80px);
+  max-height: calc(100vh - 64px - 80px);
 }
 .video-chat-split.with-chat .video-call-card {
   margin: 24px 0 24px 0;
   height: calc(100vh - 64px - 80px);
+  max-height: calc(100vh - 64px - 80px);
 }
 .video-call-banner {
   height: 56px;
