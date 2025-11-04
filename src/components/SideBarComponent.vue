@@ -48,7 +48,7 @@
       </div>
       
       <!-- 내 일정 -->
-      <div class="nav-item" @click="navigateToSchedule">
+      <div class="nav-item" :class="{ active: currentRoute.startsWith('/schedule') }" @click="navigateToSchedule">
         <img src="@/assets/icons/sidebar/schedule.svg" alt="내 일정" class="nav-icon" />
         <div class="nav-text">내 일정</div>
       </div>
