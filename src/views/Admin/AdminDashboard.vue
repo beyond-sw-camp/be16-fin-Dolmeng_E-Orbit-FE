@@ -494,6 +494,12 @@ export default {
         if (response.data.statusCode === 200) {
           this.workspaceDetail = response.data.result;
           
+          // 스토어에서 스토리지 정보 가져오기 (사이드바에서 이미 로드된 데이터 활용)
+          const storageInfo = this.workspaceStore.getStorageInfo;
+          if (storageInfo && storageInfo.currentStorage !== undefined) {
+            this.workspaceDetail.currentStorage = storageInfo.currentStorage;
+          }
+          
           // workspaceStats 업데이트
           this.workspaceStats = {
             projects: response.data.result.projectCount,
