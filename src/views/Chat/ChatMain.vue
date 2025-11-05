@@ -511,6 +511,7 @@ export default {
 }
 .video-call-body {
   flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -4,20 +4,17 @@
     <!-- 포커스(단독) 뷰 또는 1인 접속 시 단독 뷰 -->
     <v-row v-if="focusedStreamManager || isAlone" class="main-video-row no-gutters">
       <v-col cols="12" md="12" class="main-video-area pa-0">
-        <div id="main-video-container" :class="{ speaking: isSpeaking(singleViewStream) }" @click="onSingleViewClick">
-          <video-stream :stream-manager="singleViewStream" />
+        <div id="main-video-container" :class="{ speaking: isSpeaking(singleViewStream), 'video-off': !isVideoActive(singleViewStream) }" @click="onSingleViewClick">
+          <video-stream 
+            v-if="isVideoActive(singleViewStream)"
+            :stream-manager="singleViewStream" 
+            :key="singleViewStream && singleViewStream.stream && singleViewStream.stream.streamId"
+          />
+          <div v-else class="video-placeholder">
+            <img :src="userDefaultIcon" class="default-user-icon" alt="사용자 아이콘" />
+          </div>
           <div class="nickname">
             {{ displayName(singleViewStream, singleViewStream === publisher) }}
-          </div>
-          <!-- camera overlay shown when screen sharing (either local sharing or viewing someone else's share) -->
-    <div v-if="cameraPreview && (isScreenShareEnabled || isMainStreamScreenShare)" 
-      class="camera-overlay" 
-      :class="{ speaking: isLocalSpeaking }"
-      :style="{ left: overlayX !== null ? overlayX + 'px' : 'auto', top: overlayY !== null ? overlayY + 'px' : 'auto', width: overlayWidth + 'px', height: overlayHeight + 'px' }"
-      @mousedown.left.prevent.stop="overlayMouseDown"
-      @click.stop
-      @mouseup.stop>
-            <video-stream :stream-manager="cameraPreview" />
           </div>
         </div>
       </v-col>
@@ -31,23 +28,21 @@
           <!-- (중앙 그룹) 토글 버튼들 -->
           <div class="left-controls d-flex justify-center align-center">
 
-            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleAudio" plain elevation="0">
-              <img :src="isAudioEnabled ? audioIconOn : audioIconOff" style="width:50px;height:50px;" />
-            </v-btn>
+            <div class="control-btn" @click="toggleAudio">
+              <img :src="isAudioEnabled ? audioIconOn : audioIconOff" class="control-icon" />
+            </div>
 
-            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleVideo" plain elevation="0">
-              <img :src="isVideoEnabled ? videoIconOn : videoIconOff" style="width:50px;height:50px;" />
-            </v-btn>
+            <div class="control-btn" @click="toggleVideo">
+              <img :src="isVideoEnabled ? videoIconOn : videoIconOff" class="control-icon" />
+            </div>
 
-            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="toggleScreenShare" plain
-              elevation="0">
-              <img :src="screenShareIcon" style="width:50px;height:50px;" />
-            </v-btn>
+            <div class="control-btn" @click="toggleScreenShare">
+              <img :src="screenShareIcon" class="control-icon" />
+            </div>
 
-            <v-btn fab width="60" height="60" color="transparent" class="mx-1" @click="leaveSession" plain
-              elevation="0">
-              <img :src="shutdownIcon" style="width:50px;height:50px;" />
-            </v-btn>
+            <div class="control-btn" @click="leaveSession">
+              <img :src="shutdownIcon" class="control-icon" />
+            </div>
           </div>
         </div>
       </div>
@@ -55,17 +50,31 @@
 
     <!-- 전체화면 버튼 (오른쪽 하단) -->
     <div class="fullscreen-button-overlay">
-      <v-btn fab width="48" height="48" color="transparent" class="fullscreen-btn" @click="toggleFullScreen" plain
-        elevation="0">
-        <img :src="isFullScreenMode ? fullScreenIconOut : fullScreenIconIn" style="width:36px;height:36px;" />
-      </v-btn>
+      <img 
+        :src="isFullScreenMode ? fullScreenIconOut : fullScreenIconIn" 
+        class="fullscreen-icon" 
+        @click="toggleFullScreen"
+        alt="전체화면 토글" 
+      />
     </div>
 
     <!-- 그리드(체스판) 레이아웃 -->
     <div v-if="!focusedStreamManager && !isAlone" class="grid-container" :style="gridStyle">
-      <div class="video-item" v-for="sm in gridParticipants" :key="sm.stream.connection.connectionId"
-        :class="{ speaking: isSpeaking(sm) }" @click="toggleFocus(sm)">
-        <video-stream :stream-manager="sm" />
+      <div 
+        class="video-item" 
+        v-for="sm in gridParticipants" 
+        :key="sm.stream.streamId"
+        :class="{ speaking: isSpeaking(sm), 'video-off': !isVideoActive(sm) }" 
+        @click="toggleFocus(sm)"
+      >
+        <video-stream 
+          v-if="isVideoActive(sm)"
+          :stream-manager="sm" 
+          :key="sm.stream.streamId"
+        />
+        <div v-else class="video-placeholder">
+          <img :src="userDefaultIcon" class="default-user-icon" alt="사용자 아이콘" />
+        </div>
         <div class="nickname">{{ displayName(sm, sm === publisher) }}</div>
       </div>
     </div>
@@ -88,6 +97,7 @@ import shareScreenFill from '@/assets/icons/OpenVidu/share-box-fill.svg';
 import shutDownLine from '@/assets/icons/OpenVidu/shut-down-line.svg';
 import fullScreeenIn from '@/assets/icons/OpenVidu/fullscreen-line.svg';
 import fullScreeenOut from '@/assets/icons/OpenVidu/fullscreen-exit-line.svg';
+import userDefaultIcon from '@/assets/icons/chat/user_defualt_reverse.svg';
 
 
 export default {
@@ -131,6 +141,7 @@ export default {
       isAudioEnabled: true, // 오디오 토글 상태
       isVideoEnabled: true, // 비디오 토글 상태
       isScreenShareEnabled: false, // 화면 공유 상태
+      wasVideoEnabledBeforeScreenShare: true, // 화면 공유 시작 전 비디오 상태 저장
 
       devices: [], // 장치 목록
       audioInput: null, // 선택된 오디오 입력 장치 ID
@@ -170,6 +181,9 @@ export default {
       fullScreenIconOut: fullScreeenOut, // 전체화면 종료 아이콘
 
       shutdownIcon: shutDownLine, // 종료 아이콘
+      
+      userDefaultIcon: userDefaultIcon, // 기본 사용자 아이콘
+      
       // 새로고침/강제 리로드 관련
       _beforeUnloadBound: null,
       _refreshStorageKey: 'ov_refresh_count',
@@ -728,14 +742,6 @@ export default {
         this.speakingMap = {};
         this._pendingStreams = [];
         this._connectionClientMap = {};
-        // stop and clear any cameraPreview used for overlay
-        try {
-          if (this.cameraPreview) {
-            const media = (this.cameraPreview.stream && (this.cameraPreview.stream.getMediaStream ? this.cameraPreview.stream.getMediaStream() : this.cameraPreview.stream.stream)) || null;
-            if (media && media.getTracks) media.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
-          }
-        } catch (e) { /* ignore */ }
-        this.cameraPreview = null;
         this.OV = null;
       }
     },
@@ -963,6 +969,24 @@ export default {
       if (!cid) return false;
       return !!this.speakingMap[cid];
     },
+    
+    // 비디오가 활성화되어 있는지 확인
+    isVideoActive(streamManager) {
+      if (!streamManager || !streamManager.stream) return false;
+
+      const s = streamManager.stream;
+
+      // OpenVidu가 아예 꺼졌다고 알려주면 (videoActive === false) 무조건 꺼진 걸로 취급
+      if (s.videoActive === false) return false;
+
+      // 로컬 퍼블리셔는 내 토글 상태까지 같이 보자
+      if (streamManager === this.publisher) {
+        return this.isVideoEnabled;
+      }
+
+      // 원격은 videoActive만 보면 됨 (위에서 false인 경우 걸러짐)
+      return true;
+    },
 
     // 4. 장치 목록 가져오기 및 초기화
     async getDevices() {
@@ -993,49 +1017,15 @@ export default {
     },
 
     async _onMainStreamChanged() {
-      try {
-        // If main stream is a screen share (someone is sharing) and we don't have a local preview,
-        // create one so the user sees their own camera as overlay while viewing.
-        if (this.isMainStreamScreenShare && !this.cameraPreview) {
-          await this._createLocalPreview();
-          this.$nextTick(() => this._setInitialOverlayPosition());
-        }
-
-        // If main stream is not a screen share and we also are not sharing, remove preview
-        if (!this.isMainStreamScreenShare && !this.isScreenShareEnabled && this.cameraPreview) {
-          this._destroyLocalPreview();
-        }
-      } catch (e) { console.debug('onMainStreamChanged error', e); }
+      // 화면 공유 관련 오버레이 기능 제거됨
     },
 
     async _createLocalPreview() {
-      if (this.cameraPreview) return;
-      try {
-        if (!this.OV) return;
-        this.cameraPreview = await this.OV.initPublisherAsync(undefined, {
-          audioSource: false,
-          videoSource: this.videoInput || undefined,
-          publishAudio: false,
-          publishVideo: true,
-          resolution: '320x240',
-          frameRate: 15,
-          mirror: true,
-        });
-      } catch (e) {
-        console.debug('createLocalPreview failed', e);
-        this.cameraPreview = null;
-      }
+      // 카메라 프리뷰 오버레이 기능 제거됨
     },
 
     _destroyLocalPreview() {
-      try {
-        if (!this.cameraPreview) return;
-        try {
-          const media = (this.cameraPreview.stream && (this.cameraPreview.stream.getMediaStream ? this.cameraPreview.stream.getMediaStream() : this.cameraPreview.stream.stream)) || null;
-          if (media && media.getTracks) media.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
-        } catch (e) { /* ignore */ }
-        this.cameraPreview = null;
-      } catch (e) { console.debug('destroyLocalPreview error', e); }
+      // 카메라 프리뷰 오버레이 기능 제거됨
     },
 
     overlayMouseDown(event) {
@@ -1171,24 +1161,8 @@ export default {
       } else {
         // 화면 공유 시작
         try {
-          // Prepare a local camera preview (not published) so we can show it as an overlay
-          try {
-            if (this.OV) {
-              // create preview publisher but do NOT publish it to the session
-              this.cameraPreview = await this.OV.initPublisherAsync(undefined, {
-                audioSource: false,
-                videoSource: this.videoInput || undefined,
-                publishAudio: false,
-                publishVideo: true,
-                resolution: '320x240',
-                frameRate: 15,
-                mirror: true,
-              });
-            }
-          } catch (e) {
-            console.debug('cameraPreview init failed', e);
-            this.cameraPreview = null;
-          }
+          // 화면 공유 시작 전 비디오 상태 저장
+          this.wasVideoEnabledBeforeScreenShare = this.isVideoEnabled;
 
           const screenPublisher = await this.OV.initPublisherAsync(undefined, {
             videoSource: 'screen', // 'screen'을 사용하여 화면 공유 스트림 생성
@@ -1207,13 +1181,19 @@ export default {
 
           this.isScreenShareEnabled = true;
           this.isVideoEnabled = true; // 화면 공유는 비디오가 켜진 상태로 간주
-          // Position overlay to bottom-right inside main container
-          this.$nextTick(() => this._setInitialOverlayPosition());
           // 화면 공유가 멈췄을 때의 이벤트 처리
-          screenPublisher.on('streamDestroyed', event => {
-            if (event.reason === 'screenStoppedByMediaApi') {
-              console.log('사용자가 직접 화면 공유를 중지했습니다.');
-              this.stopScreenShare(true); // 재귀 호출 방지용 플래그
+          screenPublisher.on('streamDestroyed', (event) => {
+            console.log('📺 screenPublisher streamDestroyed, reason =', event.reason);
+            
+            // 👉 아직도 화면 공유 퍼블리셔가 현재 publisher일 때만 처리
+            if (this.publisher === screenPublisher && this.isScreenShareEnabled) {
+              this.stopScreenShare(true);
+            } else {
+              console.log('⚠️ old screenPublisher streamDestroyed 무시', {
+                currentPublisherId: this.publisher?.stream?.streamId,
+                screenPublisherId: screenPublisher?.stream?.streamId,
+                isScreenShareEnabled: this.isScreenShareEnabled,
+              });
             }
           });
 
@@ -1225,42 +1205,67 @@ export default {
     },
 
     async stopScreenShare(internalStop = false) {
-      if (!this.isScreenShareEnabled && !internalStop) return;
+      if (!this.OV || !this.session) return;
 
-      // 기존 화면 공유 Publisher 연결 해제
-      this.session.unpublish(this.publisher);
+      // ✅ 한 번 처리된 이후엔, internalStop이든 뭐든 그냥 무시
+      if (!this.isScreenShareEnabled) {
+        console.log('🟡 stopScreenShare 호출됐지만 이미 화면 공유는 해제됨. internalStop =', internalStop);
+        return;
+      }
 
-      // 카메라 Publisher로 복귀
-      const cameraPublisher = await this.OV.initPublisherAsync(undefined, {
-        audioSource: this.audioInput,
-        videoSource: this.videoInput,
-        publishAudio: this.isAudioEnabled,
-        publishVideo: this.isVideoEnabled,
-        resolution: '640x480',
-        frameRate: 30,
-        mirror: true,
-      });
+      console.log('🔄 화면 공유 중지 시작... internalStop =', internalStop);
 
-      this.publisher = cameraPublisher;
-      this.mainStreamManager = cameraPublisher;
-      await this.session.publish(cameraPublisher);
-
+      // 여기서 바로 false로 내려버리면 레이스 컨디션도 줄어듦
       this.isScreenShareEnabled = false;
-      // remove overlay positioning
-      this.overlayX = null;
-      this.overlayY = null;
-      // clean up camera preview (stop tracks and release)
+
+      const oldPublisher = this.publisher;
+
       try {
-        if (this.cameraPreview) {
+        // 1️⃣ 새 카메라 publisher 준비
+        const cameraPublisher = await this.OV.initPublisherAsync(undefined, {
+          audioSource: this.audioInput || undefined,
+          videoSource: this.videoInput || undefined,
+          publishAudio: this.isAudioEnabled,
+          publishVideo: true,
+          resolution: '640x480',
+          frameRate: 30,
+          mirror: true,
+        });
+
+        // 2️⃣ 기존 퍼블리셔 언퍼블리시 (화면공유용 publisher여야 정상)
+        if (oldPublisher) {
           try {
-            const media = (this.cameraPreview.stream && (this.cameraPreview.stream.getMediaStream ? this.cameraPreview.stream.getMediaStream() : this.cameraPreview.stream.stream)) || null;
-            if (media && media.getTracks) {
-              media.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
-            }
-          } catch (e) { /* ignore */ }
-          this.cameraPreview = null;
+            await this.session.unpublish(oldPublisher);
+          } catch (e) {
+            console.debug('unpublish old publisher error', e);
+          }
         }
-      } catch (e) { console.debug('cameraPreview cleanup error', e); }
+
+        // 3️⃣ 카메라 publisher publish + 상태 교체
+        await this.session.publish(cameraPublisher);
+
+        this.publisher = cameraPublisher;
+        this.mainStreamManager = cameraPublisher;
+        this.isVideoEnabled = true;
+
+        console.log('🔍 카메라 스트림 상태:', {
+          hasVideo: cameraPublisher?.stream?.hasVideo,
+          videoActive: cameraPublisher?.stream?.videoActive,
+          videoTracks: cameraPublisher?.stream
+            ?.getMediaStream()
+            ?.getVideoTracks()
+            ?.map(t => ({
+              id: t.id,
+              readyState: t.readyState,
+              enabled: t.enabled,
+            })),
+        });
+
+        console.log('✅ 화면 공유 중지 완료, 카메라 복귀');
+      } catch (error) {
+        console.error('❌ stopScreenShare 오류:', error);
+        alert('카메라로 복귀하는 중 오류가 발생했습니다: ' + error.message);
+      }
     },
 
     // 7. 전체화면 토글
@@ -1405,8 +1410,10 @@ body,
 
 .openvidu-container.embedded .grid-container {
   width: 100%;
-  padding: 12px 16px 96px;
-  flex: 1 1 auto;
+  height: auto;
+  max-height: calc(100% - 96px);
+  padding: 12px 16px 0;
+  box-sizing: border-box;
 }
 
 .openvidu-container.embedded .main-video-row {
@@ -1537,7 +1544,30 @@ body,
 /* 말하기 감지 시 하이라이트 (연두색) */
 #main-video-container.speaking,
 .video-item.speaking {
-  box-shadow: 0 0 0 3px rgba(137, 255, 97, 0.95), 0 0 24px rgba(137, 255, 97, 0.6);
+  box-shadow: 0 0 0 3px rgba(129, 199, 132, 0.95), 0 0 24px rgba(129, 199, 132, 0.6);
+}
+
+/* 비디오가 꺼진 상태 */
+#main-video-container.video-off,
+.video-item.video-off {
+  background-color: #2A2828;
+}
+
+/* 비디오 플레이스홀더 */
+.video-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #2A2828;
+  border-radius: inherit;
+}
+
+.default-user-icon {
+  width: 80px;
+  height: 80px;
+  opacity: 0.9;
 }
 
 /* camera overlay shown during screen share */
@@ -1554,7 +1584,7 @@ body,
 }
 .camera-overlay:active { cursor: grabbing; }
 .camera-overlay.speaking {
-  box-shadow: 0 0 0 4px rgba(137,255,97,0.95), 0 0 20px rgba(137,255,97,0.5);
+  box-shadow: 0 0 0 4px rgba(129, 199, 132, 0.95), 0 0 20px rgba(129, 199, 132, 0.5);
 }
 .camera-overlay :deep(video) {
   border-radius: 8px;
@@ -1573,23 +1603,42 @@ body,
   justify-content: center;
 }
 
-/* ---- 버튼 포커스/클릭 시 파란 외곽선 제거 (접근성 필요 시 조절) ---- */
-/* 컨트롤바 내부 버튼에만 적용 */
-:deep(.control-bar .v-btn) {
-  box-shadow: none !important;
+/* 컨트롤 버튼 - 동그란 배경 */
+.control-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
-:deep(.control-bar .v-btn:focus),
-:deep(.control-bar .v-btn:active),
-:deep(.control-bar .v-btn:focus-visible) {
-  outline: none !important;
-  box-shadow: none !important;
+.control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
-/* 사파리의 기본 -webkit-focus-ring-color 제거 */
-:deep(.control-bar button:focus),
-:deep(.control-bar button:focus-visible) {
-  outline: none !important;
+.control-btn:active {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: scale(0.95);
+}
+
+/* 컨트롤 아이콘 스타일 */
+.control-icon {
+  width: 50px !important;
+  height: 50px !important;
+  min-width: 50px;
+  min-height: 50px;
+  max-width: 50px;
+  max-height: 50px;
+  pointer-events: none;
+  user-select: none;
+  display: block;
 }
 
 .control-bar {
@@ -1617,6 +1666,7 @@ body,
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 12px;
 }
 
 /* 전체화면 버튼 - 오른쪽 하단 */
@@ -1628,21 +1678,22 @@ body,
   pointer-events: auto;
 }
 
-.fullscreen-btn {
-  background-color: transparent !important;
-  box-shadow: none !important;
+.fullscreen-icon {
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  user-select: none;
 }
 
-.fullscreen-btn:hover {
-  background-color: transparent !important;
-  opacity: 0.7;
+.fullscreen-icon:hover {
+  transform: scale(1.1);
+  opacity: 0.8;
 }
 
-.fullscreen-btn:focus,
-.fullscreen-btn:focus-visible,
-.fullscreen-btn:active {
-  outline: none !important;
-  box-shadow: none !important;
+.fullscreen-icon:active {
+  transform: scale(0.95);
+  opacity: 0.6;
 }
 
 /* === Zoom 스타일 그리드 컨테이너 === */
@@ -1781,5 +1832,17 @@ body:fullscreen,
   border-radius: 4px;
   /* Keep fullscreen nickname above overlays */
   z-index: 10005;
+}
+
+/* 8. 전체화면에서 비디오 꺼진 상태 */
+:fullscreen #main-video-container.video-off,
+.openvidu-container:fullscreen #main-video-container.video-off {
+  background-color: #2A2828;
+}
+
+:fullscreen .default-user-icon,
+.openvidu-container:fullscreen .default-user-icon {
+  width: 120px;
+  height: 120px;
 }
 </style>

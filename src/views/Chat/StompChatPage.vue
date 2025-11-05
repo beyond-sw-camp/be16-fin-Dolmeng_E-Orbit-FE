@@ -1118,7 +1118,7 @@ import axios from 'axios';
   content: "";
   position: absolute;
   top: 100%;
-  left: 50%;
+  left: 90px;
   transform: translateX(-50%);
   border: 6px solid transparent;
   border-top-color: rgba(0, 0, 0, 0.85);
