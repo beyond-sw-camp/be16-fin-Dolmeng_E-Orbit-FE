@@ -343,7 +343,7 @@
             <!-- 문서함 컨테이너 -->
             <div class="stone-drive-wrapper">
               <div class="stone-drive-container">
-                <DriveMain v-if="currentStoneData?.stoneId || currentStoneData?.id" :stone-id="currentStoneData?.stoneId || currentStoneData?.id" />
+                <DriveMain v-if="currentStoneData?.stoneId || currentStoneData?.id" :stone-id="currentStoneData?.stoneId || currentStoneData?.id" :disable-routing="true" />
               </div>
             </div>
           </div>
@@ -478,21 +478,21 @@
             ></textarea>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">
+          <div class="form-group form-group-inline">
+            <label class="form-label form-label-inline">
               채팅방 생성
               <span v-if="isChatCreationDisabled" class="disabled-text">(이미 채팅방이 생성되어 있습니다)</span>
+              <div class="checkbox-wrapper">
+                <input 
+                  type="checkbox" 
+                  class="form-checkbox" 
+                  v-model="editForm.createChat"
+                  id="editCreateChat"
+                  :disabled="isChatCreationDisabled"
+                />
+                <label for="editCreateChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
+              </div>
             </label>
-            <div class="checkbox-wrapper">
-              <input 
-                type="checkbox" 
-                class="form-checkbox" 
-                v-model="editForm.createChat"
-                id="editCreateChat"
-                :disabled="isChatCreationDisabled"
-              />
-              <label for="editCreateChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
-            </div>
           </div>
         </div>
         
@@ -556,7 +556,7 @@
                     <circle cx="12" cy="7" r="4" stroke="#F4CE53" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                   <span class="assignee-name" :class="{ 'empty': !taskForm.assigneeName }">
-                    {{ taskForm.assigneeName || '담당자를 선택하세요' }}
+                    {{ taskForm.assigneeName || '스톤 참여자 목록에서 담당자를 선택하세요' }}
                   </span>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3191,6 +3191,17 @@ export default {
   margin-bottom: 20px;
 }
 
+.edit-stone-modal .form-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-stone-modal .form-group-inline .form-label {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
 .edit-stone-modal .form-label {
   display: block;
   font-family: 'Pretendard', sans-serif;
@@ -3199,6 +3210,21 @@ export default {
   line-height: 17px;
   color: #374151;
   margin-bottom: 8px;
+}
+
+.edit-stone-modal .form-label.form-label-inline {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.edit-stone-modal .form-label-inline .disabled-text {
+  margin-right: 0;
+}
+
+.edit-stone-modal .form-label-inline .checkbox-wrapper {
+  margin-left: 0;
 }
 
 .edit-stone-modal .form-input {
@@ -3519,40 +3545,40 @@ export default {
   cursor: not-allowed;
 }
 
-.delete-btn {
+.delete-modal-actions .delete-btn {
   padding: 10px 20px;
-  background: #EF4444;
-  border: none;
+  background: #EF4444 !important;
+  border: none !important;
   border-radius: 8px;
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
   font-family: 'Pretendard', sans-serif;
   font-weight: 800;
   font-size: 14px;
   line-height: 20px;
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   cursor: pointer;
   transition: all 0.2s ease;
   width: 120px;
   height: 40px;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  opacity: 1;
+  opacity: 1 !important;
 }
 
-.delete-btn:hover:not(:disabled) {
-  background: #DC2626;
+.delete-modal-actions .delete-btn:hover:not(:disabled) {
+  background: #DC2626 !important;
   transform: translateY(-1px);
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.15);
 }
 
-.delete-btn:active:not(:disabled) {
+.delete-modal-actions .delete-btn:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.delete-btn:disabled {
-  background: #9CA3AF;
+.delete-modal-actions .delete-btn:disabled {
+  background: #9CA3AF !important;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -4930,8 +4956,8 @@ export default {
     gap: 15px;
   }
   
-  .cancel-btn,
-  .delete-btn {
+  .delete-modal-actions .cancel-btn,
+  .delete-modal-actions .delete-btn {
     width: 100%;
   }
 }
