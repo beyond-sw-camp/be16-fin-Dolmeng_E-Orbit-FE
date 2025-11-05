@@ -478,21 +478,21 @@
             ></textarea>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">
+          <div class="form-group form-group-inline">
+            <label class="form-label form-label-inline">
               채팅방 생성
               <span v-if="isChatCreationDisabled" class="disabled-text">(이미 채팅방이 생성되어 있습니다)</span>
+              <div class="checkbox-wrapper">
+                <input 
+                  type="checkbox" 
+                  class="form-checkbox" 
+                  v-model="editForm.createChat"
+                  id="editCreateChat"
+                  :disabled="isChatCreationDisabled"
+                />
+                <label for="editCreateChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
+              </div>
             </label>
-            <div class="checkbox-wrapper">
-              <input 
-                type="checkbox" 
-                class="form-checkbox" 
-                v-model="editForm.createChat"
-                id="editCreateChat"
-                :disabled="isChatCreationDisabled"
-              />
-              <label for="editCreateChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
-            </div>
           </div>
         </div>
         
@@ -556,7 +556,7 @@
                     <circle cx="12" cy="7" r="4" stroke="#F4CE53" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                   <span class="assignee-name" :class="{ 'empty': !taskForm.assigneeName }">
-                    {{ taskForm.assigneeName || '담당자를 선택하세요' }}
+                    {{ taskForm.assigneeName || '스톤 참여자 목록에서 담당자를 선택하세요' }}
                   </span>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3191,6 +3191,17 @@ export default {
   margin-bottom: 20px;
 }
 
+.edit-stone-modal .form-group-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-stone-modal .form-group-inline .form-label {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
 .edit-stone-modal .form-label {
   display: block;
   font-family: 'Pretendard', sans-serif;
@@ -3199,6 +3210,21 @@ export default {
   line-height: 17px;
   color: #374151;
   margin-bottom: 8px;
+}
+
+.edit-stone-modal .form-label.form-label-inline {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.edit-stone-modal .form-label-inline .disabled-text {
+  margin-right: 0;
+}
+
+.edit-stone-modal .form-label-inline .checkbox-wrapper {
+  margin-left: 0;
 }
 
 .edit-stone-modal .form-input {

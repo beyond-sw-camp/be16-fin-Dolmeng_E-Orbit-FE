@@ -603,21 +603,21 @@
             ></textarea>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">
+          <div class="form-group form-group-inline">
+            <label class="form-label form-label-inline">
               채팅방 생성
               <span v-if="isChatCreationDisabled" class="disabled-text">(이미 채팅방이 생성되어 있습니다)</span>
+              <div class="checkbox-wrapper">
+                <input 
+                  type="checkbox" 
+                  class="form-checkbox" 
+                  v-model="newStone.createChat"
+                  id="createChat"
+                  :disabled="isChatCreationDisabled"
+                />
+                <label for="createChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
+              </div>
             </label>
-            <div class="checkbox-wrapper">
-              <input 
-                type="checkbox" 
-                class="form-checkbox" 
-                v-model="newStone.createChat"
-                id="createChat"
-                :disabled="isChatCreationDisabled"
-              />
-              <label for="createChat" class="checkbox-label" :class="{ 'disabled': isChatCreationDisabled }"></label>
-            </div>
           </div>
         </div>
         
@@ -6362,6 +6362,18 @@ export default {
   gap: 8px;
 }
 
+.form-group-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group-inline .form-label {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
 .form-label {
   font-family: 'Pretendard', sans-serif;
   font-style: normal;
@@ -6370,6 +6382,21 @@ export default {
   line-height: 17px;
   color: #374151;
   margin-bottom: 6px;
+}
+
+.form-label.form-label-inline {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.form-label-inline .disabled-text {
+  margin-right: 0;
+}
+
+.form-label-inline .checkbox-wrapper {
+  margin-left: 0;
 }
 
 .form-input {
