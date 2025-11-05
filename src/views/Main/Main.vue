@@ -68,6 +68,7 @@
             </v-card-text>
             <v-card-actions>
               <v-btn variant="flat" color="primary" :to="'/workspace/test'">워크스페이스 테스트</v-btn>
+              <v-btn variant="flat" color="primary" :to="'/project/dashboardTemp'">프로젝트 대시보드 테스트</v-btn>
             </v-card-actions>
           </v-card>
         </v-col>
