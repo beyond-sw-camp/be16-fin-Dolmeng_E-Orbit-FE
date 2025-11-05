@@ -6307,6 +6307,15 @@ export default {
   cursor: pointer;
   font-weight: 600;
   transition: background 0.2s;
+  width: 80px;
+  height: 40px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .user-select-modal-footer .btn-confirm:hover {
@@ -6321,6 +6330,15 @@ export default {
   cursor: pointer;
   font-weight: 500;
   transition: background 0.2s;
+  width: 80px;
+  height: 40px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .user-select-modal-footer .close-btn:hover {
