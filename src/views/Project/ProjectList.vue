@@ -582,6 +582,7 @@
                 readonly
               />
               <button 
+                v-if="!isPersonalWorkspace"
                 type="button"
                 class="btn-select-user"
                 @click="openUserSelectModal('participants')"
@@ -983,6 +984,7 @@ import arrowUpIcon from '@/views/Project/arrow-up.svg';
 import arrowDownIcon from '@/views/Project/arrow-down.svg';
 import { searchWorkspaceParticipants, getStoneDetail } from '@/services/stoneService.js';
 import { showSnackbar } from '@/services/snackbar.js';
+import { useWorkspaceStore } from '@/stores/workspace';
 import pinIcon from '@/assets/icons/project/pin.svg';
 import pinOutlineIcon from '@/assets/icons/project/pin-outline.svg';
 import OrbitGantt from "@/components/project/OrbitGantt.vue";
@@ -1137,6 +1139,12 @@ export default {
     };
   },
   computed: {
+    workspaceStore() {
+      return useWorkspaceStore();
+    },
+    isPersonalWorkspace() {
+      return this.workspaceStore.isPersonalWorkspace;
+    },
     // 채팅방 생성 체크박스 비활성화 여부
     isChatCreationDisabled() {
       // 프로젝트에 이미 채팅방이 생성되어 있으면 비활성화
@@ -2989,6 +2997,19 @@ export default {
       this.newStone.startTime = todayStr;
       this.newStone.endTime = todayStr;
       
+      // 개인 워크스페이스일 때 본인을 담당자와 참여자로 자동 설정
+      if (this.isPersonalWorkspace) {
+        // 담당자는 이미 loadCurrentUserInfo에서 설정됨
+        // 참여자도 본인 이름으로 설정
+        this.newStone.participants = this.currentUser.name || '김을빗';
+        // 참여자 ID 리스트는 createStone에서 설정됨
+        this.confirmedParticipants = [];
+      } else {
+        // 일반 워크스페이스일 때는 기존 참여자 초기화
+        this.newStone.participants = '';
+        this.confirmedParticipants = [];
+      }
+      
       this.showCreateStoneModal = true;
       console.log('모달 상태:', this.showCreateStoneModal);
     },
@@ -3464,10 +3485,45 @@ export default {
         const projectId = this.$route.query.id;
         const userId = localStorage.getItem('id');
         
-        // 참여자 ID 리스트 생성 (API 전송용) - Proxy 문제 해결을 위해 명시적으로 배열 복제
-        const participantIds = this.confirmedParticipants 
-          ? Array.from(this.confirmedParticipants) 
-          : [];
+        // 개인 워크스페이스일 때 본인을 참여자로 자동 설정
+        let participantIds = [];
+        if (this.isPersonalWorkspace) {
+          // 워크스페이스 참여자 목록에서 본인 찾아서 ID 설정
+          try {
+            const workspaceId = this.currentWorkspaceId;
+            const response = await axios.get(
+              `http://localhost:8080/workspace-service/workspace/${workspaceId}/participants`,
+              {
+                headers: {
+                  'X-User-Id': userId
+                },
+                params: {
+                  page: 0,
+                  size: 100
+                }
+              }
+            );
+            
+            if (response.data.statusCode === 200) {
+              const result = response.data.result;
+              const participants = result.content || result || [];
+              const currentParticipant = participants.find(
+                p => p.userId === userId && !p.deleted
+              );
+              if (currentParticipant) {
+                // API는 UUID 형식의 userId를 기대함
+                participantIds = [currentParticipant.userId];
+              }
+            }
+          } catch (error) {
+            console.error('개인 워크스페이스 참여자 ID 로드 실패:', error);
+          }
+        } else {
+          // 일반 워크스페이스일 때는 선택된 참여자 사용
+          participantIds = this.confirmedParticipants 
+            ? Array.from(this.confirmedParticipants) 
+            : [];
+        }
         
         const stoneData = {
           parentStoneId: this.selectedParentStone.id,
@@ -3588,6 +3644,56 @@ export default {
       // 스톤 생성 시에는 기존 참여자 초기화
       if (!this.selectedStoneForParticipants) {
         this.allSelectedUsers = [];
+        
+        // 개인 워크스페이스일 때 본인을 자동으로 선택
+        if (this.isPersonalWorkspace && type === 'participants') {
+          try {
+            const currentUserId = localStorage.getItem('id');
+            const workspaceId = this.currentWorkspaceId;
+            
+            // 워크스페이스 참여자 목록에서 본인 찾기
+            const response = await axios.get(
+              `http://localhost:8080/workspace-service/workspace/${workspaceId}/participants`,
+              {
+                headers: {
+                  'X-User-Id': currentUserId
+                },
+                params: {
+                  page: 0,
+                  size: 100
+                }
+              }
+            );
+            
+            if (response.data.statusCode === 200) {
+              const result = response.data.result;
+              const participants = result.content || result || [];
+              const currentParticipant = participants.find(
+                p => p.userId === currentUserId && !p.deleted
+              );
+              
+              if (currentParticipant) {
+                // 본인을 선택된 사용자 목록에 추가
+                // API는 UUID 형식의 userId를 기대하므로 userId 사용
+                this.allSelectedUsers = [{
+                  id: currentParticipant.userId, // UUID 형식
+                  userId: currentParticipant.userId,
+                  name: currentParticipant.userName,
+                  email: currentParticipant.userEmail || '',
+                  group: '본인'
+                }];
+                
+                // 참여자 ID 리스트에도 UUID 형식으로 추가
+                this.confirmedParticipants = [currentParticipant.userId];
+                
+                // 참여자 이름도 업데이트
+                this.newStone.participants = currentParticipant.userName;
+              }
+            }
+          } catch (error) {
+            console.error('개인 워크스페이스 참여자 자동 선택 실패:', error);
+          }
+        }
       }
       
       // 사용자 그룹 목록 로드
