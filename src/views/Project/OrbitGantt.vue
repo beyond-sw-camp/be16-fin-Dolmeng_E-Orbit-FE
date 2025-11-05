@@ -510,6 +510,8 @@ watch(
   flex-direction: column;
   height: auto;
 }
+
+/* === 상단 툴바 === */
 .gantt-toolbar {
   display: flex;
   justify-content: space-between;
@@ -529,6 +531,8 @@ watch(
 .btn:hover {
   background: #f7f7f7;
 }
+
+/* === 스크롤 === */
 .gantt-scroll {
   flex: 1;
   overflow-x: auto;
@@ -538,10 +542,14 @@ watch(
   cursor: grab;
   position: relative;
 }
+
+/* === 비어있는 상태 === */
 .empty {
   padding: 24px;
   color: #888;
 }
+
+/* === 헤더 === */
 .axis-month-bg {
   fill: #f3f3f3;
 }
@@ -563,34 +571,84 @@ watch(
 .axis-month-bg.odd {
   fill: #fbb980;
 }
+
+/* === 행 === */
 .grid-row.even {
   fill: #fff;
 }
 .grid-row.odd {
   fill: #fcfcfc;
 }
+
+/* === 바 스타일 (주요 수정 부분) === */
+.bar {
+  fill: #fffbe5; /* Orbit 블루톤 (상위 스톤 기본색) */
+  stroke: rgba(76, 154, 255, 0.4);
+  stroke-width: 0.8;
+  rx: 6;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+  transition: fill 0.2s ease, transform 0.2s ease;
+}
+.bar:hover {
+  fill: #d3e4ff;
+  transform: scale(1.01);
+}
+
+/* 진행률 바 */
+.bar-progress {
+  fill: #ffff4c;
+  opacity: 0.9;
+}
+
+/* 텍스트 */
 .bar-label {
   fill: #333;
   font-size: 12px;
+  font-weight: 500;
   pointer-events: none;
 }
+
+/* 접기 아이콘 */
 .collapse-icon {
   font-size: 12px;
   fill: #888;
 }
+
+/* === 연결선 === */
+.dep-link {
+  stroke: #cfd3d8;
+  stroke-width: 1.2;
+  fill: none;
+  opacity: 0.8;
+}
+
+/* === 오늘 === */
 .today-line {
-  stroke: #ffb400;
+  stroke: #4c9aff;
   stroke-width: 2;
   stroke-dasharray: 4 4;
+  opacity: 0.9;
 }
-.dep-link {
-  stroke: #ccc;
-  stroke-width: 1.4;
+.today-dashed-line {
+  stroke: #4c9aff;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  opacity: 0.9;
+}
+.today-circle {
   fill: none;
+  stroke: #4c9aff;
+  stroke-width: 2;
 }
+.axis-day-text.today-text {
+  fill: #4c9aff;
+  font-weight: 700;
+}
+
+/* === 툴팁 === */
 .tooltip {
   position: fixed;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid #e5e5e5;
   border-radius: 8px;
   padding: 8px 12px;
@@ -598,6 +656,7 @@ watch(
   font-size: 12px;
   color: #333;
   z-index: 9999;
+  backdrop-filter: blur(4px);
 }
 .tooltip .t-name {
   font-weight: 600;
@@ -608,28 +667,9 @@ watch(
   justify-content: space-between;
   gap: 10px;
 }
-
-.today-dashed-line {
-  stroke: #4c9aff; /* 파란색 (Jira 느낌) */
-  stroke-width: 1.5;
-  stroke-dasharray: 4 4;
-  opacity: 0.9;
-}
-
-.today-circle {
-  fill: none;
-  stroke: #4c9aff;
-  stroke-width: 2;
-}
-
-.axis-day-text.today-text {
-  fill: #4c9aff;
-  font-weight: 700;
-}
 .tooltip .today-mark {
   color: #4c9aff;
   font-weight: 600;
   margin-top: 4px;
 }
-
 </style>
