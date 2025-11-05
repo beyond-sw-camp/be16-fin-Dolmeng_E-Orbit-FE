@@ -90,6 +90,7 @@
                     <div class="chat-title">
                       <span class="chat-name">{{ room.roomName }}</span>
                       <span class="chat-count">({{ room.participantCount }})</span>
+                      <span v-if="room.isVideoCallActive" class="video-call-indicator"></span>
                     </div>
                     <div class="chat-subtitle">
                       {{ (room.messageType === 'FILE' && !room.lastMessage) ? '파일이 전송되었습니다.' : (room.lastMessage || '메시지가 없습니다.') }}
@@ -551,12 +552,24 @@ export default {
     sortedChatRooms() {
       return this.chatRooms.map(room => {
         const summary = this.summariesByRoomId[room.roomId] || {};
+        
+        // isVideoCallActive 계산
+        let isVideoCallActive = room.isVideoCallActive ?? false;
+        
+        // summary에 messageType이 있으면 그걸로 업데이트
+        if (summary.messageType === 'VIDEO_CALL_START') {
+          isVideoCallActive = true;
+        } else if (summary.messageType === 'VIDEO_CALL_END') {
+          isVideoCallActive = false;
+        }
+        
         return {
           ...room,
           lastMessage: summary.lastMessage ?? room.lastMessage,
           lastSendTime: summary.lastSendTime ?? room.lastSendTime,
           unreadCount: summary.unreadCount ?? room.unreadCount,
           messageType: summary.messageType ?? room.messageType,
+          isVideoCallActive: isVideoCallActive,
         };
       }).sort((a, b) => {
         const parse = (t) => {
@@ -1919,6 +1932,27 @@ export default {
   font-weight: 400;
   font-size: 11px;
   color: #9E9E9E;
+}
+
+.video-call-indicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #EF5350;
+  border-radius: 50%;
+  margin-left: 4px;
+  animation: videoIndicatorPulse 2s ease-in-out infinite;
+}
+
+@keyframes videoIndicatorPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
 }
 
 .chat-subtitle {
