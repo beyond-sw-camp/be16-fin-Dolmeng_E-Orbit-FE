@@ -3545,40 +3545,40 @@ export default {
   cursor: not-allowed;
 }
 
-.delete-btn {
+.delete-modal-actions .delete-btn {
   padding: 10px 20px;
-  background: #EF4444;
-  border: none;
+  background: #EF4444 !important;
+  border: none !important;
   border-radius: 8px;
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
   font-family: 'Pretendard', sans-serif;
   font-weight: 800;
   font-size: 14px;
   line-height: 20px;
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   cursor: pointer;
   transition: all 0.2s ease;
   width: 120px;
   height: 40px;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  opacity: 1;
+  opacity: 1 !important;
 }
 
-.delete-btn:hover:not(:disabled) {
-  background: #DC2626;
+.delete-modal-actions .delete-btn:hover:not(:disabled) {
+  background: #DC2626 !important;
   transform: translateY(-1px);
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.15);
 }
 
-.delete-btn:active:not(:disabled) {
+.delete-modal-actions .delete-btn:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.delete-btn:disabled {
-  background: #9CA3AF;
+.delete-modal-actions .delete-btn:disabled {
+  background: #9CA3AF !important;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -4956,8 +4956,8 @@ export default {
     gap: 15px;
   }
   
-  .cancel-btn,
-  .delete-btn {
+  .delete-modal-actions .cancel-btn,
+  .delete-modal-actions .delete-btn {
     width: 100%;
   }
 }
