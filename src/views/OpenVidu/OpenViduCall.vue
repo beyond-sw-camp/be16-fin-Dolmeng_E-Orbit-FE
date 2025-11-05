@@ -142,6 +142,11 @@ export default {
       isVideoEnabled: true, // 비디오 토글 상태
       isScreenShareEnabled: false, // 화면 공유 상태
       wasVideoEnabledBeforeScreenShare: true, // 화면 공유 시작 전 비디오 상태 저장
+      
+      // replaceTrack 방식 전환을 위한 상태
+      _camVideoTrack: null, // 초기 카메라 비디오 트랙 저장
+      _screenStream: null, // 화면 공유 스트림 저장
+      _replacing: false, // 전환 중 중복 호출 방지
 
       devices: [], // 장치 목록
       audioInput: null, // 선택된 오디오 입력 장치 ID
@@ -547,6 +552,11 @@ export default {
 
   await this.session.publish(this.publisher);
   this.mainStreamManager = this.publisher;
+  
+  // ✅ 초기 카메라 비디오 트랙 저장
+  this._camVideoTrack =
+    this.publisher?.stream?.getMediaStream()?.getVideoTracks()?.[0] || null;
+  
   // Ensure publisher's own connectionId maps to myUserName for immediate UI display
   try {
     const pubCid = this.publisher?.stream?.connection?.connectionId || this.session?.connection?.connectionId;
@@ -742,6 +752,12 @@ export default {
         this.speakingMap = {};
         this._pendingStreams = [];
         this._connectionClientMap = {};
+        
+        // 화면공유 스트림 정리
+        try { this._screenStream?.getTracks()?.forEach(t => t.stop()); } catch {}
+        this._screenStream = null;
+        this._camVideoTrack = null;
+        
         this.OV = null;
       }
     },
@@ -1141,6 +1157,10 @@ export default {
         this.mainStreamManager = newPublisher;
         await this.session.publish(newPublisher);
 
+        // ✅ 새 퍼블리셔 비디오 트랙 다시 저장
+        this._camVideoTrack =
+          this.publisher?.stream?.getMediaStream()?.getVideoTracks()?.[0] || null;
+
         // 장치 ID 상태 업데이트
         if (deviceType === 'audio') this.audioInput = deviceId;
         if (deviceType === 'video') this.videoInput = deviceId;
@@ -1155,116 +1175,86 @@ export default {
 
     // 6. 화면 공유 토글
     async toggleScreenShare() {
+      if (this._replacing) return;
       if (this.isScreenShareEnabled) {
-        // 화면 공유 중지: 원래 카메라로 되돌림
-        await this.stopScreenShare();
-      } else {
-        // 화면 공유 시작
-        try {
-          // 화면 공유 시작 전 비디오 상태 저장
-          this.wasVideoEnabledBeforeScreenShare = this.isVideoEnabled;
+        return this.stopScreenShare(); // 아래 함수
+      }
 
-          const screenPublisher = await this.OV.initPublisherAsync(undefined, {
-            videoSource: 'screen', // 'screen'을 사용하여 화면 공유 스트림 생성
-            publishAudio: this.isAudioEnabled, // 마이크 오디오는 유지
-            publishVideo: true, // 비디오는 화면 공유 스트림으로 대체
-            mirror: false,
-          });
+      try {
+        this._replacing = true;
 
-          // OpenVidu 세션에서 기존 Publisher 연결 해제
-          this.session.unpublish(this.publisher);
+        // 1) 화면 공유 미디어 얻기
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        if (!screenTrack) throw new Error('No screen video track');
 
-          // 새로운 화면 공유 Publisher로 교체 및 게시
-          this.publisher = screenPublisher;
-          this.mainStreamManager = screenPublisher;
-          await this.session.publish(screenPublisher);
+        // 2) 화면 공유 종료(툴바에서 stop) 대응
+        screenTrack.onended = () => this.stopScreenShare(true);
 
-          this.isScreenShareEnabled = true;
-          this.isVideoEnabled = true; // 화면 공유는 비디오가 켜진 상태로 간주
-          // 화면 공유가 멈췄을 때의 이벤트 처리
-          screenPublisher.on('streamDestroyed', (event) => {
-            console.log('📺 screenPublisher streamDestroyed, reason =', event.reason);
-            
-            // 👉 아직도 화면 공유 퍼블리셔가 현재 publisher일 때만 처리
-            if (this.publisher === screenPublisher && this.isScreenShareEnabled) {
-              this.stopScreenShare(true);
-            } else {
-              console.log('⚠️ old screenPublisher streamDestroyed 무시', {
-                currentPublisherId: this.publisher?.stream?.streamId,
-                screenPublisherId: screenPublisher?.stream?.streamId,
-                isScreenShareEnabled: this.isScreenShareEnabled,
-              });
-            }
-          });
-
-        } catch (error) {
-          console.error('화면 공유 시작 오류:', error);
-          this.isScreenShareEnabled = false;
+        // 3) 카메라 → 화면공유 트랙 교체 (퍼블리셔는 그대로)
+        //   최신 OV에선 Promise, 구버전은 콜백 방식 모두 지원
+        const maybePromise = this.publisher.replaceTrack(screenTrack);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          await maybePromise;
         }
+
+        // 4) 상태 업데이트
+        this._screenStream = screenStream;
+        this.isScreenShareEnabled = true;
+        this.isVideoEnabled = true; // 화면공유는 비디오 ON 취급
+        
+        console.log('✅ 화면 공유 시작 완료');
+      } catch (e) {
+        console.error('화면 공유 시작 오류:', e);
+        this.isScreenShareEnabled = false;
+        // 화면 공유 권한 거부 등으로 열렸다면 정리
+        try { this._screenStream?.getTracks()?.forEach(t => t.stop()); } catch {}
+        this._screenStream = null;
+      } finally {
+        this._replacing = false;
       }
     },
 
-    async stopScreenShare(internalStop = false) {
-      if (!this.OV || !this.session) return;
-
-      // ✅ 한 번 처리된 이후엔, internalStop이든 뭐든 그냥 무시
+    // 화면 공유 중지 → 카메라 트랙으로 복귀
+    async stopScreenShare(internal = false) {
+      if (this._replacing) return;
       if (!this.isScreenShareEnabled) {
-        console.log('🟡 stopScreenShare 호출됐지만 이미 화면 공유는 해제됨. internalStop =', internalStop);
+        console.log('🟡 이미 화면공유 해제 상태. internal =', internal);
         return;
       }
 
-      console.log('🔄 화면 공유 중지 시작... internalStop =', internalStop);
-
-      // 여기서 바로 false로 내려버리면 레이스 컨디션도 줄어듦
-      this.isScreenShareEnabled = false;
-
-      const oldPublisher = this.publisher;
-
       try {
-        // 1️⃣ 새 카메라 publisher 준비
-        const cameraPublisher = await this.OV.initPublisherAsync(undefined, {
-          audioSource: this.audioInput || undefined,
-          videoSource: this.videoInput || undefined,
-          publishAudio: this.isAudioEnabled,
-          publishVideo: true,
-          resolution: '640x480',
-          frameRate: 30,
-          mirror: true,
-        });
+        this._replacing = true;
 
-        // 2️⃣ 기존 퍼블리셔 언퍼블리시 (화면공유용 publisher여야 정상)
-        if (oldPublisher) {
-          try {
-            await this.session.unpublish(oldPublisher);
-          } catch (e) {
-            console.debug('unpublish old publisher error', e);
-          }
+        // 카메라 트랙이 죽어있으면 재획득
+        if (!this._camVideoTrack || this._camVideoTrack.readyState === 'ended') {
+          const cam = await navigator.mediaDevices.getUserMedia({
+            video: this.videoInput ? { deviceId: { exact: this.videoInput } } : true,
+            audio: false,
+          });
+          this._camVideoTrack = cam.getVideoTracks()[0];
         }
 
-        // 3️⃣ 카메라 publisher publish + 상태 교체
-        await this.session.publish(cameraPublisher);
-
-        this.publisher = cameraPublisher;
-        this.mainStreamManager = cameraPublisher;
+        // 화면공유 → 카메라 트랙 교체 (퍼블리셔 유지)
+        const maybePromise = this.publisher.replaceTrack(this._camVideoTrack);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          await maybePromise;
+        }
+        
+        console.log('✅ 카메라 트랙 복귀 완료');
+      } catch (e) {
+        console.error('카메라 복귀 오류:', e);
+        alert('카메라로 복귀하는 중 오류가 발생했습니다: ' + e.message);
+      } finally {
+        // 화면공유 스트림 정리
+        try { this._screenStream?.getTracks()?.forEach(t => t.stop()); } catch {}
+        this._screenStream = null;
+        this.isScreenShareEnabled = false;
         this.isVideoEnabled = true;
-
-        console.log('🔍 카메라 스트림 상태:', {
-          hasVideo: cameraPublisher?.stream?.hasVideo,
-          videoActive: cameraPublisher?.stream?.videoActive,
-          videoTracks: cameraPublisher?.stream
-            ?.getMediaStream()
-            ?.getVideoTracks()
-            ?.map(t => ({
-              id: t.id,
-              readyState: t.readyState,
-              enabled: t.enabled,
-            })),
-        });
-
-        console.log('✅ 화면 공유 중지 완료, 카메라 복귀');
-      } catch (error) {
-        console.error('❌ stopScreenShare 오류:', error);
-        alert('카메라로 복귀하는 중 오류가 발생했습니다: ' + error.message);
+        this._replacing = false;
       }
     },
 

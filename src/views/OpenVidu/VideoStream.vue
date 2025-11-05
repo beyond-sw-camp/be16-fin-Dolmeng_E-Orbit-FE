@@ -1,86 +1,37 @@
 
 <template>
   <div class="video-stream">
-    <video
-      ref="video"
-      autoplay
-      playsinline
-      muted
-    />
+    <video ref="video" autoplay playsinline></video>
   </div>
 </template>
 
 <script>
 export default {
   name: 'VideoStream',
-  props: {
-    streamManager: {
-      type: Object,
-      required: false,
-      default: null,
-    },
-  },
+  props: { streamManager: Object },
+  mounted() { this.attach(this.streamManager); },
+  beforeUnmount() { this.detach(this.streamManager); },
   watch: {
-    streamManager: {
-      immediate: true,
-      handler(newVal, oldVal) {
-        // 이전 스트림에서 비디오 엘리먼트 떼기 (가능한 경우)
-        if (oldVal && this.$refs.video && typeof oldVal.removeVideoElement === 'function') {
-          try {
-            oldVal.removeVideoElement(this.$refs.video);
-          } catch (e) {
-            console.debug('removeVideoElement error:', e);
-          }
-        }
-        this.attachStream(newVal);
-      },
-    },
-  },
-  mounted() {
-    this.attachStream(this.streamManager);
-  },
-  beforeUnmount() {
-    if (this.streamManager && this.$refs.video && typeof this.streamManager.removeVideoElement === 'function') {
-      try {
-        this.streamManager.removeVideoElement(this.$refs.video);
-      } catch (e) {
-        console.debug('removeVideoElement beforeUnmount error:', e);
-      }
+    streamManager(newSm, oldSm) {
+      if (oldSm) this.detach(oldSm);
+      if (newSm) this.attach(newSm);
     }
   },
   methods: {
-    attachStream(sm) {
-      if (!this.$refs.video) return;
-
-      // 스트림이 없으면 비디오 끊기
-      if (!sm || !sm.stream) {
-        this.$refs.video.srcObject = null;
-        return;
-      }
-
-      // OpenVidu 공식 방법: addVideoElement 사용
-      if (typeof sm.addVideoElement === 'function') {
-        try {
-          sm.addVideoElement(this.$refs.video);
-          return;
-        } catch (e) {
-          console.error('addVideoElement error:', e);
-        }
-      }
-
-      // 혹시 addVideoElement가 없는 버전일 경우를 대비한 폴백
-      try {
-        const mediaStream =
-          sm.stream.getMediaStream && sm.stream.getMediaStream();
-        if (mediaStream) {
-          this.$refs.video.srcObject = mediaStream;
-        }
-      } catch (e) {
-        console.error('fallback attachStream error:', e);
-      }
+    attach(sm) {
+      if (!sm || !this.$refs.video) return;
+      // ✅ 이미 붙어있으면 중복 방지
+      const already = (sm.videos || []).some(v => v.video === this.$refs.video);
+      if (!already) sm.addVideoElement(this.$refs.video);
+      // console.log('New video element associated to ', sm);
     },
-  },
-};
+    detach(sm) {
+      try {
+        if (sm && this.$refs.video) sm.removeVideoElement(this.$refs.video);
+      } catch (e) { /* no-op */ }
+    }
+  }
+}
 </script>
 
 <style scoped>
