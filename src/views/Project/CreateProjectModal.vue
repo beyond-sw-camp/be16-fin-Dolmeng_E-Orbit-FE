@@ -69,19 +69,6 @@
               </option>
             </select>
           </div>
-          
-          <div class="form-field">
-            <label class="form-label">채팅방 생성</label>
-            <div class="checkbox-group">
-              <input 
-                v-model="formData.createChat" 
-                type="checkbox" 
-                class="checkbox-input"
-                id="createChat"
-              />
-              <label for="createChat" class="checkbox-label">프로젝트와 함께 채팅방 생성</label>
-            </div>
-          </div>
         </div>
         
         <div class="modal-actions">
@@ -115,8 +102,7 @@ export default {
         endDate: '',
         objective: '',
         description: '',
-        managerId: '',
-        createChat: false
+        managerId: ''
       },
       participants: [],
       isLoading: false
@@ -164,8 +150,7 @@ export default {
         endDate: '',
         objective: '',
         description: '',
-        managerId: '',
-        createChat: false
+        managerId: ''
       };
     },
     async loadParticipants() {
@@ -251,7 +236,7 @@ export default {
           projectObjective: this.formData.objective || '',
           projectDescription: this.formData.description || '',
           projectManagerId: this.formData.managerId,
-          chatCreation: this.formData.createChat
+          chatCreation: false
         };
 
         const response = await axios.post(
