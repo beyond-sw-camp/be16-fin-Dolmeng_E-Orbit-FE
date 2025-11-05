@@ -125,10 +125,83 @@
           </div>
         </div>
 
-        <!-- 차트 7: 완료 추이 -->
+        <!-- 차트 7: 요약 카드 (2행 4번째) -->
+        <div class="chart-card summary-cards-container">
+          <div class="summary-grid">
+            <!-- 카드 1: 평균 태스크 완료 시간 -->
+            <div class="summary-card-item summary-card-1">
+              <div class="summary-icon-box summary-icon-1">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">평균 태스크 완료 시간</div>
+                <div class="summary-value">1.2 일</div>
+              </div>
+            </div>
+            
+            <!-- 카드 2: 지연 태스크 수 -->
+            <div class="summary-card-item summary-card-2">
+              <div class="summary-icon-box summary-icon-2">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">지연 태스크 수</div>
+                <div class="summary-value">13 개</div>
+              </div>
+            </div>
+            
+            <!-- 카드 3: 문서 총 개수 -->
+            <div class="summary-card-item summary-card-3">
+              <div class="summary-icon-box summary-icon-3">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L18.7071 8.70711C18.8946 8.89464 19 9.149 19 9.41421V19C19 20.1046 18.1046 21 17 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">문서 총 개수</div>
+                <div class="summary-value">24 개</div>
+              </div>
+            </div>
+            
+            <!-- 카드 4: 문서 총 용량 -->
+            <div class="summary-card-item summary-card-4">
+              <div class="summary-icon-box summary-icon-4">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V9L14 4H7C5.89543 4 5 4.89543 5 6V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14 4V9H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M9 13H15M9 17H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">문서 총 용량</div>
+                <div class="summary-value">1.8 GB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 차트 8: 완료 추이 -->
         <div class="chart-card chart-wide">
-          <div class="chart-header">
+          <div class="chart-header chart-header-with-options">
             <h3 class="chart-title">스톤/태스크 완료 추이</h3>
+            <div class="chart-options">
+              <button 
+                v-for="(option, index) in trendPeriodOptions" 
+                :key="option.value"
+                class="period-btn" 
+                :class="[
+                  { active: trendPeriod === option.value },
+                  index % 2 === 0 ? 'period-btn-green' : 'period-btn-blue'
+                ]"
+                @click="trendPeriod = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
           </div>
           <!-- ✅ 가로 스크롤 가능한 래퍼 + 내부 width 고정 -->
           <div class="chart-body chart-body-scroll">
@@ -139,107 +212,12 @@
                 width="100%"
                 height="350"
                 :options="completionTrendChartOptions"
-                :series="completionTrendChartSeries"
+                :series="filteredCompletionTrendChartSeries"
               />
             </div>
           </div>
         </div>
 
-        <!-- 차트 8: AI 예상 완료일 -->
-        <div class="chart-card chart-wide ai-card">
-          <div class="chart-header">
-            <h3 class="chart-title">AI 예상 완료일</h3>
-          </div>
-          <div class="chart-body ai-card-content">
-            <p class="ai-placeholder ai-loading-text">
-              AI가 프로젝트의 예상 완료일을 계산하고 있습니다<span class="ai-dot ai-dot-1">.</span><span class="ai-dot ai-dot-2">.</span><span class="ai-dot ai-dot-3">.</span>
-            </p>
-          </div>
-        </div>
-
-        <!-- 차트 9: 프로젝트 인사이트 -->
-        <div class="chart-card chart-wide">
-          <div class="chart-header">
-            <h3 class="chart-title">프로젝트 인사이트</h3>
-          </div>
-          <div class="chart-body insights-body">
-            <div class="insight-item">
-              <div class="insight-label">평균 태스크 완료 시간</div>
-              <div class="insight-value">-</div>
-            </div>
-            <div class="insight-item">
-              <div class="insight-label">지연 태스크 수</div>
-              <div class="insight-value">-</div>
-            </div>
-            <div class="insight-item">
-              <div class="insight-label">문서 개수 / 문서 용량</div>
-              <div class="insight-value">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 통계 카드 영역 -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon progress-icon">
-            <div class="progress-circle">
-              <svg viewBox="0 0 36 36" class="circular-chart">
-                <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path 
-                  class="circle" 
-                  :stroke-dasharray="`${projectStats.progress}, 100`"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                />
-              </svg>
-              <span class="progress-text">{{ projectStats.progress }}%</span>
-            </div>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ projectStats.progress }}%</div>
-            <div class="stat-label">프로젝트 진행률</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon stone-icon">
-            <img src="@/assets/icons/project/stones_1.svg" alt="스톤" />
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ projectStats.totalStones }}</div>
-            <div class="stat-label">총 스톤 수</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon task-icon">
-            <img src="@/assets/icons/home/file-document.svg" alt="Task" />
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ projectStats.totalTasks }}</div>
-            <div class="stat-label">총 태스크 수</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon completed-stone-icon">
-            <img src="@/assets/icons/project/stones_1.svg" alt="완료된 스톤" />
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ projectStats.completedStones }} / {{ projectStats.totalStones }}</div>
-            <div class="stat-label">완료된 스톤 수</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon completed-task-icon">
-            <img src="@/assets/icons/home/file-document.svg" alt="완료된 Task" />
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ projectStats.completedTasks }} / {{ projectStats.totalTasks }}</div>
-            <div class="stat-label">완료된 태스크 수</div>
-          </div>
-        </div>
       </div>
 
       <!-- 인원 현황 영역 -->
@@ -292,6 +270,8 @@ export default {
         predictedCompletionTrend: [],
         riskFactors: []
       },
+      // 완료 추이 기간 필터
+      trendPeriod: 'all',
       // 더미 데이터 (완료 추이)
       completionTrendData: {
         projectStartDate: "2025-10-01",
@@ -766,6 +746,115 @@ export default {
       ];
     },
     
+    // 기간 필터링된 완료 추이 데이터
+    filteredCompletionTrendChartSeries() {
+      const today = new Date(this.completionTrendData.today);
+      let cutoffDate;
+      
+      switch(this.trendPeriod) {
+        case '3days':
+          cutoffDate = new Date(today);
+          cutoffDate.setDate(today.getDate() - 3);
+          break;
+        case '1week':
+          cutoffDate = new Date(today);
+          cutoffDate.setDate(today.getDate() - 7);
+          break;
+        case '2weeks':
+          cutoffDate = new Date(today);
+          cutoffDate.setDate(today.getDate() - 14);
+          break;
+        case '1month':
+          cutoffDate = new Date(today);
+          cutoffDate.setMonth(today.getMonth() - 1);
+          break;
+        case '2months':
+          cutoffDate = new Date(today);
+          cutoffDate.setMonth(today.getMonth() - 2);
+          break;
+        case '3months':
+          cutoffDate = new Date(today);
+          cutoffDate.setMonth(today.getMonth() - 3);
+          break;
+        case '6months':
+          cutoffDate = new Date(today);
+          cutoffDate.setMonth(today.getMonth() - 6);
+          break;
+        case 'all':
+        default:
+          cutoffDate = new Date(this.completionTrendData.projectStartDate);
+          break;
+      }
+      
+      // 스톤 완료 데이터 필터링
+      const stoneData = this.completionTrendData.stoneCompletedList
+        .filter(item => new Date(item.date) >= cutoffDate)
+        .map(item => ({
+          x: new Date(item.date).getTime(),
+          y: item.count
+        }));
+      
+      // 태스크 완료 데이터 필터링
+      const taskData = this.completionTrendData.taskCompletedList
+        .filter(item => new Date(item.date) >= cutoffDate)
+        .map(item => ({
+          x: new Date(item.date).getTime(),
+          y: item.count
+        }));
+      
+      return [
+        {
+          name: '스톤 완료',
+          data: stoneData
+        },
+        {
+          name: '태스크 완료',
+          data: taskData
+        }
+      ];
+    },
+    
+    // 완료 추이 기간 옵션 (동적 생성)
+    trendPeriodOptions() {
+      const start = new Date(this.completionTrendData.projectStartDate);
+      const end = new Date(this.completionTrendData.today);
+      const diffMs = end - start;
+      const dayMs = 1000 * 60 * 60 * 24;
+      const totalDays = diffMs > 0 ? Math.floor(diffMs / dayMs) + 1 : 1;
+      
+      const options = [];
+      
+      // 전체 기간에 따라 적절한 옵션 생성
+      if (totalDays <= 7) {
+        // 1주일 이하 프로젝트
+        options.push({ value: '3days', label: '최근 3일' });
+        options.push({ value: '1week', label: '전체 (7일)' });
+      } else if (totalDays <= 30) {
+        // 1달 이하 프로젝트
+        options.push({ value: '1week', label: '최근 1주일' });
+        options.push({ value: '2weeks', label: '최근 2주일' });
+      } else if (totalDays <= 90) {
+        // 3개월 이하 프로젝트
+        options.push({ value: '1week', label: '최근 1주일' });
+        options.push({ value: '1month', label: '최근 1달' });
+        options.push({ value: '2months', label: '최근 2달' });
+      } else if (totalDays <= 180) {
+        // 6개월 이하 프로젝트
+        options.push({ value: '1month', label: '최근 1달' });
+        options.push({ value: '3months', label: '최근 3달' });
+      } else {
+        // 6개월 이상 프로젝트
+        options.push({ value: '1month', label: '최근 1달' });
+        options.push({ value: '3months', label: '최근 3달' });
+        options.push({ value: '6months', label: '최근 6달' });
+      }
+      
+      // 전체는 항상 마지막에 추가
+      options.push({ value: 'all', label: '전체' });
+      
+      return options;
+    },
+    
     // ✅ 추이 차트 가로 길이 계산 (기간 기반)
     trendChartWidth() {
       // 프로젝트 기간 기준으로 일 수 계산
@@ -1038,7 +1127,8 @@ export default {
           show: false
         }
       };
-    }
+    },
+    
   },
   
   
@@ -1397,7 +1487,7 @@ export default {
 }
 
 /* 넓은 카드 (8번 이후만 적용) */
-.chart-card.chart-wide:nth-child(n+8) {
+.chart-card.chart-wide {
   grid-column: 1 / -1 !important;
   width: 100% !important;
   min-height: 450px;
@@ -1405,16 +1495,70 @@ export default {
   box-sizing: border-box;
 }
 
-/* 7번 카드 (완료 추이)는 2행에 배치 */
-.chart-card:nth-child(7) {
-  grid-column: span 3;
-  min-height: 400px;
-  max-height: 400px;
-}
-
 .chart-header {
   margin-bottom: 20px;
   padding-bottom: 0;
+}
+
+.chart-header-with-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chart-options {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.period-btn {
+  padding: 6px 12px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.period-btn:focus {
+  outline: none;
+}
+
+.period-btn:hover {
+  background: #F9FAFB;
+  border-color: #D1D5DB;
+}
+
+/* 초록색 버튼 (짝수 인덱스: 0, 2, 4...) */
+.period-btn-green.active {
+  background: #81C784;
+  border-color: #81C784;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.period-btn-green:hover:not(.active) {
+  background: rgba(129, 199, 132, 0.1);
+  border-color: #81C784;
+}
+
+/* 파란색 버튼 (홀수 인덱스: 1, 3, 5...) */
+.period-btn-blue.active {
+  background: #64B5F6;
+  border-color: #64B5F6;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.period-btn-blue:hover:not(.active) {
+  background: rgba(100, 181, 246, 0.1);
+  border-color: #64B5F6;
 }
 
 .chart-title {
@@ -1639,6 +1783,122 @@ export default {
   font-size: 14px;
   color: #999999;
   text-align: center;
+}
+
+/* Placeholder 텍스트 */
+.placeholder-text {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #999999;
+  text-align: center;
+  margin: 0;
+}
+
+/* 요약 카드 컨테이너 (2행 4번째) */
+.summary-cards-container {
+  padding: 14px !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 8px;
+  height: 100%;
+}
+
+.summary-card-item {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 16px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.summary-card-1 {
+  background: #fff3e0;
+}
+
+.summary-card-2 {
+  background: #e3f2fd;
+}
+
+.summary-card-3 {
+  background: #e8f5e9;
+}
+
+.summary-card-4 {
+  background: #f3e5f5;
+}
+
+.summary-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 아이콘 박스 공통 스타일 */
+.summary-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.summary-icon-1 {
+  background: #f59e0b;
+  color: #FFFFFF;
+}
+
+.summary-icon-2 {
+  background: #3b82f6;
+  color: #FFFFFF;
+}
+
+.summary-icon-3 {
+  background: #10b981;
+  color: #FFFFFF;
+}
+
+.summary-icon-4 {
+  background: #a855f7;
+  color: #FFFFFF;
+}
+
+/* 공통 스타일 */
+.summary-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.summary-label {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666666;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.summary-value {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1C0F0F;
+  text-align: left;
+  line-height: 1.2;
 }
 
 /* 인사이트 항목 스타일 */
