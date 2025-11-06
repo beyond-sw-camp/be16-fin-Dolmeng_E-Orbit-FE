@@ -120,6 +120,9 @@ export default {
     },
     workspaceStore() {
       return useWorkspaceStore();
+    },
+    isPersonalWorkspace() {
+      return this.workspaceStore.isPersonalWorkspace;
     }
   },
   watch: {
@@ -183,13 +186,15 @@ export default {
           // API 응답이 페이지네이션을 사용하는 경우
           this.participants = result.content || result || [];
           
-          // 기본적으로 자신을 담당자로 선택
-          const currentUserId = localStorage.getItem('id');
-          const currentParticipant = this.participants.find(
-            p => p.userId === currentUserId && !p.deleted
-          );
-          if (currentParticipant) {
-            this.formData.managerId = currentParticipant.workspaceParticipantId;
+          // 개인 워크스페이스일 때만 자신을 담당자로 자동 선택
+          if (this.isPersonalWorkspace) {
+            const currentUserId = localStorage.getItem('id');
+            const currentParticipant = this.participants.find(
+              p => p.userId === currentUserId && !p.deleted
+            );
+            if (currentParticipant) {
+              this.formData.managerId = currentParticipant.workspaceParticipantId;
+            }
           }
         }
       } catch (error) {

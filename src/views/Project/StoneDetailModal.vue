@@ -143,7 +143,7 @@
             </div>
             <div class="info-value-with-action">
               <span class="info-value" :class="{ 'empty-value': !currentStoneData?.manager || currentStoneData?.manager === '김올빗' }">{{ currentStoneData?.manager || '김올빗' }}</span>
-              <button class="edit-user-btn" @click="editManager" title="담당자 수정">
+              <button v-if="!isPersonalWorkspace" class="edit-user-btn" @click="editManager" title="담당자 수정">
                 <div class="icon-with-plus">
                   <!-- 담당자 아이콘 -->
                   <svg width="16" height="16" viewBox="0 0 24 24" :fill="currentStoneData?.manager && currentStoneData?.manager !== '김올빗' ? '#F4CE53' : '#666666'" xmlns="http://www.w3.org/2000/svg">
@@ -168,7 +168,7 @@
             </div>
             <div class="info-value-with-action">
               <span class="info-value" :class="{ 'empty-value': !currentStoneData?.participants || currentStoneData?.participants === '비어 있음' }">{{ currentStoneData?.participants || '비어 있음' }}</span>
-              <button class="edit-user-btn" @click="editParticipants" title="참여자 수정">
+              <button v-if="!isPersonalWorkspace" class="edit-user-btn" @click="editParticipants" title="참여자 수정">
                 <div class="icon-with-plus">
                   <!-- 참여자 아이콘 -->
                   <svg width="16" height="16" viewBox="0 0 24 24" :fill="currentStoneData?.participants && currentStoneData?.participants !== '비어 있음' ? '#F4CE53' : '#666666'" xmlns="http://www.w3.org/2000/svg">
@@ -281,7 +281,12 @@
                   <div class="task-period">{{ formatDateRange(task.startTime, task.endTime) }}</div>
                 </div>
                   <div class="task-assignee">
-                    <div class="assignee-info" @click="openTaskAssigneeEditModal(task)" title="담당자 변경">
+                    <div 
+                      class="assignee-info" 
+                      :class="{ 'disabled': isPersonalWorkspace }"
+                      @click="isPersonalWorkspace ? null : openTaskAssigneeEditModal(task)" 
+                      title="담당자 변경"
+                    >
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="#F4CE53" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z" />
                       </svg>
@@ -549,7 +554,11 @@
           <div class="form-group">
             <label class="form-label">담당자</label>
             <div class="assignee-section">
-              <div class="assignee-display" @click="openTaskAssigneeModal">
+              <div 
+                class="assignee-display" 
+                :class="{ 'disabled': isPersonalWorkspace }"
+                @click="handleAssigneeClick"
+              >
                 <div class="assignee-info">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="#F4CE53" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -559,7 +568,7 @@
                     {{ taskForm.assigneeName || '스톤 참여자 목록에서 담당자를 선택하세요' }}
                   </span>
                 </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg v-if="!isPersonalWorkspace" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M6 9L12 15L18 9" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </div>
@@ -787,6 +796,7 @@
 import { deleteStone, modifyStoneManager, searchWorkspaceParticipants, modifyStone, getTaskList, createTask, getStoneParticipantList, modifyTask, deleteTask, completeTask, cancelTask, completeStone } from '@/services/stoneService.js';
 import axios from 'axios';
 import { showSnackbar } from '@/services/snackbar.js';
+import { useWorkspaceStore } from '@/stores/workspace';
 import TaskDeleteConfirmModal from '@/components/modal/TaskDeleteConfirmModal.vue';
 import TaskCompleteConfirmModal from '@/components/modal/TaskCompleteConfirmModal.vue';
 import TaskCancelConfirmModal from '@/components/modal/TaskCancelConfirmModal.vue';
@@ -890,6 +900,12 @@ export default {
     }
   },
   computed: {
+    workspaceStore() {
+      return useWorkspaceStore();
+    },
+    isPersonalWorkspace() {
+      return this.workspaceStore.isPersonalWorkspace;
+    },
     // 현재 사용할 스톤 데이터 (stoneData가 있으면 사용, 없으면 stoneId로 로드)
     currentStoneData() {
       const data = this.stoneData || this.loadedStoneData;
@@ -1390,7 +1406,7 @@ export default {
       this.openTaskAddModal()
     },
     
-    openTaskAddModal() {
+    async openTaskAddModal() {
       console.log('=== 태스크 추가 모달 열기 ===');
       console.log('현재 stoneData:', this.stoneData);
       
@@ -1398,8 +1414,33 @@ export default {
       this.taskForm = {
         title: '',
         startDate: this.formatDateForInput(this.currentStoneData?.startTime),
-        endDate: this.formatDateForInput(this.currentStoneData?.endTime)
+        endDate: this.formatDateForInput(this.currentStoneData?.endTime),
+        assigneeId: null,
+        assigneeUserId: null,
+        assigneeName: ''
       };
+      
+      // 개인 워크스페이스일 때 본인을 담당자로 자동 설정
+      if (this.isPersonalWorkspace) {
+        try {
+          // 스톤 참여자 목록 조회 (개인 워크스페이스이므로 본인만 있을 것)
+          await this.loadAvailableTaskAssignees();
+          
+          // 본인을 담당자로 자동 선택
+          const currentUserId = localStorage.getItem('id');
+          const currentAssignee = this.availableTaskAssignees.find(
+            assignee => assignee.userId === currentUserId
+          );
+          
+          if (currentAssignee) {
+            this.taskForm.assigneeId = currentAssignee.id;
+            this.taskForm.assigneeUserId = currentAssignee.userId;
+            this.taskForm.assigneeName = currentAssignee.name;
+          }
+        } catch (error) {
+          console.error('개인 워크스페이스 담당자 자동 설정 실패:', error);
+        }
+      }
       
       console.log('초기화된 taskForm:', this.taskForm);
       this.showTaskAddModal = true;
@@ -1415,6 +1456,12 @@ export default {
         assigneeUserId: null,
         assigneeName: ''
       };
+    },
+    
+    handleAssigneeClick() {
+      if (!this.isPersonalWorkspace) {
+        this.openTaskAssigneeModal();
+      }
     },
     
     async openTaskAssigneeModal() {
@@ -2923,6 +2970,15 @@ export default {
   background: rgba(244, 206, 83, 0.15);
 }
 
+.task-assignee .assignee-info.disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.task-assignee .assignee-info.disabled:hover {
+  background: transparent;
+}
+
 .task-assignee .assignee-name {
   font-family: 'Pretendard', sans-serif;
   font-weight: 500;
@@ -4408,6 +4464,16 @@ export default {
 .assignee-display:hover {
   border-color: #F4CE53;
   background: #FFFBEB;
+}
+
+.assignee-display.disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.assignee-display.disabled:hover {
+  background-color: #FFFFFF;
+  border-color: #E5E7EB;
 }
 
 .assignee-display .assignee-info {
