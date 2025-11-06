@@ -70,12 +70,24 @@
             
             <!-- 액션 메뉴 -->
             <div v-if="activeActionMenu === group.accessGroupId" class="action-dropdown" @click.stop>
-              <div class="action-item" @click="editGroup(group)">수정하기</div>
-              <div class="action-item" @click="manageMembers(group)">사용자 추가/제거</div>
+              <div 
+                class="action-item" 
+                :class="{ 'disabled': isDefaultGroup(group.accessGroupName) }"
+                @click="!isDefaultGroup(group.accessGroupName) && editGroup(group)"
+              >
+                수정하기
+              </div>
+              <div 
+                class="action-item" 
+                :class="{ 'disabled': isDefaultGroup(group.accessGroupName) }"
+                @click="!isDefaultGroup(group.accessGroupName) && manageMembers(group)"
+              >
+                사용자 추가/제거
+              </div>
               <div 
                 class="action-item delete" 
-                :class="{ 'disabled': group.accessGroupName === '일반 유저 그룹' || group.accessGroupName === '관리자 그룹' }"
-                @click="deleteGroup(group)"
+                :class="{ 'disabled': isDefaultGroup(group.accessGroupName) }"
+                @click="!isDefaultGroup(group.accessGroupName) && deleteGroup(group)"
               >
                 삭제하기
               </div>
@@ -142,7 +154,7 @@
 
       <!-- 회원 관리 -->
       <div v-if="activeTab === 'member'" class="tab-content">
-        <MemberManagement />
+        <MemberManagement ref="memberManagement" @open-invite-modal="openInviteMemberModal" @open-delete-modal="openDeleteMemberModal" />
       </div>
 
       <!-- 워크스페이스 관리 -->
@@ -292,6 +304,20 @@
       @users-updated="handleUsersUpdated"
     />
     
+    <!-- 회원 초대 모달 -->
+    <InviteMemberModal
+      v-if="showInviteMemberModal"
+      @close="closeInviteMemberModal"
+      @invited="handleMemberInvited"
+    />
+    
+    <!-- 회원 삭제 모달 -->
+    <DeleteMemberModal
+      v-if="showDeleteMemberModal"
+      @close="closeDeleteMemberModal"
+      @deleted="handleMemberDeleted"
+    />
+    
   </div>
 </template>
 
@@ -305,6 +331,8 @@ import StoneTreeNode from './StoneTreeNode.vue';
 import MilestoneForest from '@/components/MilestoneForest.vue';
 import ConfirmModal from '@/components/modal/ConfirmModal.vue';
 import AddPermissionGroupUsersModal from '@/components/modal/AddPermissionGroupUsersModal.vue';
+import InviteMemberModal from './InviteMember.vue';
+import DeleteMemberModal from './DeleteMembers.vue';
 import { showSnackbar } from '@/services/snackbar.js';
 
 export default {
@@ -316,7 +344,9 @@ export default {
     StoneTreeNode,
     MilestoneForest,
     ConfirmModal,
-    AddPermissionGroupUsersModal
+    AddPermissionGroupUsersModal,
+    InviteMemberModal,
+    DeleteMemberModal
   },
   data() {
     return {
@@ -364,6 +394,12 @@ export default {
       // 권한 그룹 사용자 추가/제거 모달 관련
       showAddPermissionGroupUsersModal: false,
       selectedPermissionGroupId: null,
+      
+      // 회원 초대 모달 관련
+      showInviteMemberModal: false,
+      
+      // 회원 삭제 모달 관련
+      showDeleteMemberModal: false,
       
       // 사용자 그룹 관련 데이터
       groupSearchQuery: '',
@@ -599,16 +635,19 @@ export default {
     },
     
     editGroup(group) {
+      // 기본 그룹 수정 불가
+      if (this.isDefaultGroup(group.accessGroupName)) {
+        return;
+      }
+      
       // 권한 그룹 수정 페이지로 이동
       this.$router.push(`/admin/edit-permission-group/${group.accessGroupId}`);
       this.activeActionMenu = null;
     },
     
     manageMembers(group) {
-      // 관리자 그룹만 변경 불가
-      if (group.accessGroupName === '관리자 그룹') {
-        alert('관리자 그룹은 변경할 수 없습니다.');
-        this.activeActionMenu = null;
+      // 기본 그룹 변경 불가
+      if (this.isDefaultGroup(group.accessGroupName)) {
         return;
       }
       
@@ -621,6 +660,50 @@ export default {
     handleUsersUpdated() {
       // 사용자 업데이트 후 권한 그룹 목록 새로고침
       this.loadPermissionGroups();
+    },
+    
+    // 회원 초대 모달 열기
+    openInviteMemberModal() {
+      this.showInviteMemberModal = true;
+    },
+    
+    // 회원 초대 모달 닫기
+    closeInviteMemberModal() {
+      this.showInviteMemberModal = false;
+    },
+    
+    // 회원 초대 완료 후 처리
+    handleMemberInvited() {
+      this.closeInviteMemberModal();
+      // 회원 목록 새로고침
+      this.$nextTick(() => {
+        const memberManagement = this.$refs.memberManagement;
+        if (memberManagement && memberManagement.loadMembers) {
+          memberManagement.loadMembers();
+        }
+      });
+    },
+    
+    // 회원 삭제 모달 열기
+    openDeleteMemberModal() {
+      this.showDeleteMemberModal = true;
+    },
+    
+    // 회원 삭제 모달 닫기
+    closeDeleteMemberModal() {
+      this.showDeleteMemberModal = false;
+    },
+    
+    // 회원 삭제 완료 후 처리
+    handleMemberDeleted() {
+      this.closeDeleteMemberModal();
+      // 회원 목록 새로고침
+      this.$nextTick(() => {
+        const memberManagement = this.$refs.memberManagement;
+        if (memberManagement && memberManagement.loadMembers) {
+          memberManagement.loadMembers();
+        }
+      });
     },
     
     deleteGroup(group) {
@@ -784,7 +867,7 @@ export default {
         );
         
         if (response.data.statusCode === 200) {
-          alert('워크스페이스명이 성공적으로 변경되었습니다.');
+          showSnackbar('워크스페이스명이 성공적으로 변경되었습니다.', { color: 'success' });
           
           // 워크스페이스 스토어 업데이트
           const currentWorkspace = this.workspaceStore.getCurrentWorkspace;
@@ -801,11 +884,15 @@ export default {
           // 워크스페이스 상세 정보 새로고침
           await this.loadWorkspaceDetail();
         } else {
-          alert('워크스페이스명 변경에 실패했습니다.');
+          showSnackbar(response.data.statusMessage || '워크스페이스명 변경에 실패했습니다.', { color: 'error' });
         }
       } catch (error) {
         console.error('워크스페이스명 변경 실패:', error);
-        alert('워크스페이스명 변경 중 오류가 발생했습니다.');
+        if (error.response && error.response.data && error.response.data.statusMessage) {
+          showSnackbar(error.response.data.statusMessage, { color: 'error' });
+        } else {
+          showSnackbar('워크스페이스명 변경 중 오류가 발생했습니다.', { color: 'error' });
+        }
       }
     },
     
@@ -2095,6 +2182,16 @@ export default {
 
 .action-item.delete {
   color: #FF4444;
+}
+
+.action-item.disabled {
+  color: #CCCCCC;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.action-item.disabled:hover {
+  background: transparent;
 }
 
 .action-item.delete.disabled {
