@@ -393,7 +393,11 @@
             <template v-slot:no-data>
               <div class="empty-folder-container">
                 <div class="empty-folder-content">
-                  <v-icon size="96" color="grey lighten-2" class="empty-folder-icon">mdi-folder-open-outline</v-icon>
+                  <img 
+                    src="@/assets/images/empty-folder.svg" 
+                    alt="빈 폴더" 
+                    class="empty-folder-image"
+                  />
                   <div class="empty-folder-title">폴더가 비어있습니다</div>
                   <div class="empty-folder-subtitle">파일을 여기에 드래그 인 드롭하거나 <br>'신규' 버튼을 사용하세요</div>
                 </div>
@@ -4993,6 +4997,13 @@ export default {
   height: 64px;
 }
 
+/* 툴바 title Pretendard 폰트 */
+.main-content-col :deep(.v-toolbar-title),
+.main-content-col :deep(.v-toolbar .text-h6) {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Malgun Gothic', sans-serif !important;
+  font-weight: 600 !important;
+}
+
 .folder-tree-card,
 .main-content-card {
   height: 100%;
@@ -5011,10 +5022,13 @@ export default {
 }
 
 .drive-root-title {
-  font-size: 18px !important; /* override utility classes */
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif !important;
+  font-size: 19px !important; /* override utility classes */
+  font-weight: 500;
+  letter-spacing: -0.3px;
   margin: 0;
+  color: #1a1a1a;
+  line-height: 1.4;
 }
 
 .folder-tree :deep(.v-treeview-node__root) {
@@ -5212,6 +5226,20 @@ export default {
 
 .drive-table :deep(tbody tr:hover) {
   background-color: #f5f5f5 !important;
+}
+
+/* 빈 폴더 상태일 때 hover 효과 비활성화 */
+.drive-table :deep(tbody tr:has(.empty-folder-container)),
+.drive-table :deep(tbody tr:has(.empty-folder-container):hover) {
+  background-color: transparent !important;
+  cursor: default !important;
+}
+
+/* :has() 미지원 브라우저를 위한 대체 방법 */
+.drive-table :deep(.empty-folder-container),
+.drive-table :deep(.empty-folder-container:hover),
+.drive-table :deep(.empty-folder-container *) {
+  pointer-events: none;
 }
 
 .clickable-row {
@@ -5721,6 +5749,7 @@ export default {
   white-space: nowrap;
   max-width: 200px;
   display: inline-block;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Malgun Gothic', sans-serif !important;
 }
 
 /* 브레드크럼 컨테이너 overflow 처리 */
@@ -5732,6 +5761,7 @@ export default {
   min-width: 0;
   overflow: hidden;
   max-width: 200px;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans KR', 'Malgun Gothic', sans-serif !important;
 }
 
 .upload-zone {
@@ -5880,6 +5910,8 @@ export default {
   justify-content: center;
   min-height: 400px;
   padding: 48px 24px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .empty-folder-content {
@@ -5890,6 +5922,15 @@ export default {
 .empty-folder-icon {
   margin-bottom: 24px;
   opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.empty-folder-image {
+  width: 280px;
+  height: auto;
+  max-width: 100%;
+  margin-bottom: 24px;
+  opacity: 0.9;
   transition: opacity 0.3s ease;
 }
 
