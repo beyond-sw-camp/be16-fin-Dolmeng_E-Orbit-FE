@@ -32,7 +32,16 @@
             @update:open="onTreeOpenUpdate"
           >
             <template v-slot:prepend="{ item }">
-              <v-icon :color="getTreeItemIconColor(item)">
+              <img 
+                v-if="isTreeItemImage(item)" 
+                :src="getTreeItemIconImage(item)" 
+                class="tree-item-icon-image"
+                alt=""
+              />
+              <v-icon 
+                v-else 
+                :color="getTreeItemIconColor(item)"
+              >
                 {{ getTreeItemIcon(item) }}
               </v-icon>
             </template>
@@ -291,7 +300,17 @@
                 @dragleave="onDragLeave"
                 @drop="onDrop($event, item)"
               >
-                <v-icon :color="getItemIconColor(item)" class="mr-3">
+                <img 
+                  v-if="isItemImage(item)" 
+                  :src="getItemIconImage(item)" 
+                  class="item-icon-image mr-3"
+                  alt=""
+                />
+                <v-icon 
+                  v-else 
+                  :color="getItemIconColor(item)" 
+                  class="mr-3"
+                >
                   {{ getItemIcon(item) }}
                 </v-icon>
                 <span class="item-name">
@@ -418,7 +437,19 @@
     <v-dialog v-model="renameDialog" max-width="520" scroll-strategy="block">
       <v-card class="rename-dialog-card">
         <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2" :color="getItemIconColor(renameItem || {})">{{ getItemIcon(renameItem || {}) }}</v-icon>
+          <img 
+            v-if="isItemImage(renameItem || {})" 
+            :src="getItemIconImage(renameItem || {})" 
+            class="item-icon-image mr-2"
+            alt=""
+          />
+          <v-icon 
+            v-else 
+            class="mr-2" 
+            :color="getItemIconColor(renameItem || {})"
+          >
+            {{ getItemIcon(renameItem || {}) }}
+          </v-icon>
           <div>
             <div class="text-subtitle-1 font-weight-600">이름 변경</div>
             <div class="text-caption grey--text text--darken-1 text-truncate" style="max-width: 360px;">
@@ -457,7 +488,19 @@
     <v-dialog v-model="deleteDialog" max-width="520" scroll-strategy="block">
       <v-card class="delete-dialog-card">
         <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2" color="error">{{ getItemIcon(deleteItem || {}) }}</v-icon>
+          <img 
+            v-if="isItemImage(deleteItem || {})" 
+            :src="getItemIconImage(deleteItem || {})" 
+            class="item-icon-image mr-2"
+            alt=""
+          />
+          <v-icon 
+            v-else 
+            class="mr-2" 
+            color="error"
+          >
+            {{ getItemIcon(deleteItem || {}) }}
+          </v-icon>
           <div>
             <div class="text-subtitle-1 font-weight-600">삭제 확인</div>
             <div class="text-caption grey--text text--darken-1 text-truncate" style="max-width: 360px;">
@@ -524,7 +567,19 @@
     <v-dialog v-model="infoDialog" max-width="600" scroll-strategy="block">
       <v-card class="info-dialog-card">
         <v-card-title class="d-flex align-center pa-4">
-          <v-icon class="mr-3" :color="getItemIconColor(infoItem || {})" size="28">
+          <img 
+            v-if="isItemImage(infoItem || {})" 
+            :src="getItemIconImage(infoItem || {})" 
+            class="item-icon-image mr-3"
+            style="width: 28px; height: 28px;"
+            alt=""
+          />
+          <v-icon 
+            v-else 
+            class="mr-3" 
+            :color="getItemIconColor(infoItem || {})" 
+            size="28"
+          >
             {{ getItemIcon(infoItem || {}) }}
           </v-icon>
           <div class="flex-grow-1">
@@ -732,6 +787,8 @@
 <script>
 import driveService from '@/services/driveService';
 import { showSnackbar } from '@/services/snackbar';
+import workspaceLogo from '@/assets/icons/logo/1_2.svg';
+import projectIcon from '@/assets/icons/sidebar/project.svg';
 
 export default {
   name: "DriveMain",
@@ -2744,21 +2801,39 @@ export default {
       }
     },
 
+    // 트리 아이템이 이미지를 사용하는지 확인
+    isTreeItemImage(item) {
+      if (item.rootName || item.id === 'root' || item.isRoot) {
+        const rootType = item.rootType || this.currentRootType;
+        return rootType === 'WORKSPACE' || rootType === 'PROJECT';
+      }
+      return false;
+    },
+
+    // 트리 아이템 이미지 경로
+    getTreeItemIconImage(item) {
+      if (item.rootName || item.id === 'root' || item.isRoot) {
+        const rootType = item.rootType || this.currentRootType;
+        if (rootType === 'WORKSPACE') {
+          return workspaceLogo;
+        } else if (rootType === 'PROJECT') {
+          return projectIcon;
+        }
+      }
+      return null;
+    },
+
     // 트리 아이템 아이콘 (rootType에 따라 분리)
     getTreeItemIcon(item) {
       // rootName이 있거나 isRoot 플래그가 있으면 루트 경로
       if (item.rootName || item.id === 'root' || item.isRoot) {
         const rootType = item.rootType || this.currentRootType;
-        // rootType에 따라 아이콘 분리
+        // rootType에 따라 아이콘 분리 (STONE만 아이콘 사용)
         switch (rootType) {
-          case 'WORKSPACE':
-            return 'mdi-account-group-outline';
-          case 'PROJECT':
-            return 'mdi-clipboard-list-outline';
           case 'STONE':
-            return 'mdi-archive-outline';
+            return 'mdi-flag'; // 마일스톤 아이콘 (깃발)
           default:
-            return 'mdi-account-group-outline';
+            return 'mdi-folder'; // 이미지 사용하는 경우 기본값
         }
       }
       // 일반 폴더
@@ -2770,17 +2845,11 @@ export default {
       // rootName이 있거나 isRoot 플래그가 있으면 루트 경로
       if (item.rootName || item.id === 'root' || item.isRoot) {
         const rootType = item.rootType || this.currentRootType;
-        // rootType에 따라 색상 분리
-        switch (rootType) {
-          case 'WORKSPACE':
-            return 'primary';
-          case 'PROJECT':
-            return 'green darken-1';
-          case 'STONE':
-            return 'purple darken-1';
-          default:
-            return 'primary';
+        // 모든 루트 타입을 검정색으로 통일
+        if (rootType === 'WORKSPACE' || rootType === 'PROJECT' || rootType === 'STONE') {
+          return '#000000';
         }
+        return '#000000';
       }
       // 일반 폴더
       return 'amber darken-2';
@@ -2808,18 +2877,54 @@ export default {
       return labelMap[filterType] || '전체';
     },
 
+    // 아이템이 이미지를 사용하는지 확인
+    isItemImage(item) {
+      // 테이블에서 type이 STONE/PROJECT인 경우
+      if (item.type === 'STONE' || item.type === 'PROJECT') {
+        return item.type === 'PROJECT';
+      }
+      
+      // folderName이 없고 rootName이 있는 루트 항목
+      if (item.isRoot || (!item.folderName && item.rootName)) {
+        const rootType = item.rootType;
+        return rootType === 'WORKSPACE' || rootType === 'PROJECT';
+      }
+      
+      return false;
+    },
+
+    // 아이템 이미지 경로
+    getItemIconImage(item) {
+      // 테이블에서 type이 STONE/PROJECT인 경우
+      if (item.type === 'STONE' || item.type === 'PROJECT') {
+        if (item.type === 'PROJECT') {
+          return projectIcon;
+        }
+      }
+      
+      // folderName이 없고 rootName이 있는 루트 항목
+      if (item.isRoot || (!item.folderName && item.rootName)) {
+        const rootType = item.rootType;
+        if (rootType === 'WORKSPACE') {
+          return workspaceLogo;
+        } else if (rootType === 'PROJECT') {
+          return projectIcon;
+        }
+      }
+      
+      return null;
+    },
+
     // 아이템 아이콘
     getItemIcon(item) {
       // 테이블에서 type이 STONE/PROJECT인 경우 (type이 rootType 역할)
       if (item.type === 'STONE' || item.type === 'PROJECT') {
         const rootType = item.type; // 테이블에서는 type이 rootType
         switch (rootType) {
-          case 'PROJECT':
-            return 'mdi-clipboard-list-outline';
           case 'STONE':
-            return 'mdi-archive-outline';
+            return 'mdi-flag'; // 마일스톤 아이콘 (깃발)
           default:
-            return 'mdi-account-group-outline';
+            return 'mdi-folder'; // 이미지 사용하는 경우 기본값
         }
       }
       
@@ -2827,14 +2932,10 @@ export default {
       if (item.isRoot || (!item.folderName && item.rootName)) {
         const rootType = item.rootType;
         switch (rootType) {
-          case 'WORKSPACE':
-            return 'mdi-account-group-outline';
-          case 'PROJECT':
-            return 'mdi-clipboard-list-outline';
           case 'STONE':
-            return 'mdi-archive-outline';
+            return 'mdi-flag'; // 마일스톤 아이콘 (깃발)
           default:
-            return 'mdi-account-group-outline';
+            return 'mdi-folder'; // 이미지 사용하는 경우 기본값
         }
       }
       
@@ -2899,30 +3000,18 @@ export default {
     getItemIconColor(item) {
       // 테이블에서 type이 STONE/PROJECT인 경우 (type이 rootType 역할)
       if (item.type === 'STONE' || item.type === 'PROJECT') {
-        const rootType = item.type; // 테이블에서는 type이 rootType
-        switch (rootType) {
-          case 'PROJECT':
-            return 'green darken-1';
-          case 'STONE':
-            return 'purple darken-1';
-          default:
-            return 'primary';
-        }
+        // 모든 루트 타입을 검정색으로 통일
+        return '#000000';
       }
       
       // folderName이 없고 rootName이 있는 루트 항목 (기존 로직)
       if (item.isRoot || (!item.folderName && item.rootName)) {
         const rootType = item.rootType;
-        switch (rootType) {
-          case 'WORKSPACE':
-            return 'primary';
-          case 'PROJECT':
-            return 'green darken-1';
-          case 'STONE':
-            return 'purple darken-1';
-          default:
-            return 'primary';
+        // 모든 루트 타입을 검정색으로 통일
+        if (rootType === 'WORKSPACE' || rootType === 'PROJECT' || rootType === 'STONE') {
+          return '#000000';
         }
+        return '#000000';
       }
       
       if (item.type === 'folder') return 'amber darken-2';
@@ -5176,6 +5265,21 @@ export default {
 
 .clickable-row:hover .item-name {
   color: #1976d2;
+}
+
+/* 이미지 아이콘 스타일 */
+.tree-item-icon-image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.item-icon-image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 /* 필터 버튼 스타일 */
