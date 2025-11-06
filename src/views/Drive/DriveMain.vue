@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="drive-container pa-0">
+  <v-container fluid class="drive-container" :class="{ 'pa-0': !projectId, 'project-drive-container': projectId }">
     <div class="drive-layout">
       <!-- Left Sidebar - Folder Tree -->
       <div 
@@ -4949,13 +4949,35 @@ export default {
 
 .drive-container {
   height: calc(100vh - 64px);
-  background-color: #fafafa;
+  background-color: #F5F5F5;
+}
+
+/* 프로젝트 문서함 전용 컨테이너 스타일 - v-container 공간 활용 */
+.drive-container.project-drive-container {
+  padding: 20px 45px 30px 45px !important;
+  background-color: #F5F5F5;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: calc(100vh - 64px);
+}
+
+/* 프로젝트 문서함일 때 v-container의 기본 패딩 제거하고 커스텀 패딩 적용 */
+.drive-container.project-drive-container.v-container--fluid {
+  padding-left: 45px !important;
+  padding-right: 45px !important;
+  padding-top: 20px !important;
+  padding-bottom: 30px !important;
 }
 
 .drive-layout {
   display: flex;
   height: calc(100vh - 64px);
   width: 100%;
+}
+
+/* 프로젝트 문서함 전용 레이아웃 스타일 - 높이만 조정 (gap 없음) */
+.drive-container.project-drive-container .drive-layout {
+  height: calc(100vh - 64px - 50px); /* 상하 패딩 20px + 30px = 50px */
 }
 
 .sidebar-col {
@@ -4966,6 +4988,15 @@ export default {
   flex-shrink: 0;
   transition: width 0.1s ease;
   box-shadow: 1px 0 2px rgba(0, 0, 0, 0.02);
+}
+
+/* 프로젝트 문서함 전용 사이드바 스타일 - 카드 형태 */
+.drive-container.project-drive-container .sidebar-col {
+  border-radius: 8px 0 0 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  max-height: calc(100vh - 64px - 50px);
+  border-right: none;
+  background-color: #ffffff;
 }
 
 .resizer {
@@ -4994,12 +5025,71 @@ export default {
   box-shadow: -1px 0 2px rgba(0, 0, 0, 0.02);
 }
 
+/* 프로젝트 문서함 전용 메인 컨텐츠 스타일 - 카드 형태 (트리뷰와 붙어있음) */
+.drive-container.project-drive-container .main-content-col {
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  max-height: calc(100vh - 64px - 50px);
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+/* 프로젝트 문서함 전용 메인 컨텐츠 카드 - 바닥 부분 자연스럽게 */
+.drive-container.project-drive-container .main-content-card {
+  border-radius: 0 8px 8px 0;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 프로젝트 문서함 전용 테이블 래퍼 - 바닥까지 자연스럽게 */
+.drive-container.project-drive-container .table-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0 0 8px 0;
+}
+
+/* 프로젝트 문서함 전용 테이블 컨테이너 - 바닥 처리 */
+.drive-container.project-drive-container .table-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.drive-container.project-drive-container .table-container :deep(.v-data-table) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0 0 8px 0;
+}
+
+.drive-container.project-drive-container .table-container :deep(.v-data-table__wrapper) {
+  flex: 1;
+  border-radius: 0 0 8px 0;
+  overflow: hidden;
+}
+
+.drive-container.project-drive-container .table-container :deep(.v-data-table__wrapper table) {
+  border-radius: 0 0 8px 0;
+}
+
 /* Ensure the toolbar height matches the sidebar header */
 .main-content-col :deep(.v-toolbar) {
   min-height: 64px;
   height: 64px;
   border-bottom: 1px solid #f0f0f0;
   background: linear-gradient(to bottom, #ffffff, #fafafa);
+}
+
+/* 프로젝트 문서함 전용 툴바 스타일 */
+.drive-container.project-drive-container .main-content-col :deep(.v-toolbar) {
+  background: #ffffff;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 0 20px;
 }
 
 /* 툴바 title Pretendard 폰트 */
