@@ -137,7 +137,7 @@
               </div>
               <div class="summary-info">
                 <div class="summary-label">평균 태스크 완료 시간</div>
-                <div class="summary-value">1.2 일</div>
+                <div class="summary-value">{{ formattedAvgTaskTime }}</div>
               </div>
             </div>
             
@@ -150,7 +150,7 @@
               </div>
               <div class="summary-info">
                 <div class="summary-label">지연 태스크 수</div>
-                <div class="summary-value">13 개</div>
+                <div class="summary-value">{{ summaryStats.lazyTaskCount }} 개</div>
               </div>
             </div>
             
@@ -163,7 +163,7 @@
               </div>
               <div class="summary-info">
                 <div class="summary-label">문서 총 개수</div>
-                <div class="summary-value">24 개</div>
+                <div class="summary-value">{{ summaryStats.totalDocumentCount }} 개</div>
               </div>
             </div>
             
@@ -178,7 +178,7 @@
               </div>
               <div class="summary-info">
                 <div class="summary-label">문서 총 용량</div>
-                <div class="summary-value">1.8 GB</div>
+                <div class="summary-value">{{ formattedDocumentSize }}</div>
               </div>
             </div>
           </div>
@@ -262,6 +262,13 @@ export default {
         progress: 0,
         totalTasks: 0,
         completedTasks: 0
+      },
+      // Summary 카드 데이터
+      summaryStats: {
+        avgTaskCompletedTime: 0,
+        lazyTaskCount: 0,
+        totalDocumentCount: 0,
+        totalDocumentSize: 0
       },
       // AI 분석 데이터
       isAIDataLoading: true,
@@ -706,6 +713,23 @@ export default {
   },
   
   computed: {
+    // Summary 카드 포맷팅
+    formattedAvgTaskTime() {
+      const time = this.summaryStats.avgTaskCompletedTime || 0;
+      return time.toFixed(1) + ' 일';
+    },
+    formattedDocumentSize() {
+      const sizeInBytes = this.summaryStats.totalDocumentSize || 0;
+      if (sizeInBytes === 0) return '0 B';
+      
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const k = 1024;
+      const i = Math.floor(Math.log(sizeInBytes) / Math.log(k));
+      const size = (sizeInBytes / Math.pow(k, i)).toFixed(1);
+      
+      return size + ' ' + units[i];
+    },
+    
     progressChartSeries() {
       const progress = this.projectStats.progress || 0;
       const remaining = 100 - progress;
@@ -1191,10 +1215,69 @@ export default {
           // 태스크 통계
           this.projectStats.totalTasks = dashboardData.totalTaskCount || 0;
           this.projectStats.completedTasks = dashboardData.completedTaskCount || 0;
+          
+          // Summary 카드 데이터
+          this.summaryStats.avgTaskCompletedTime = dashboardData.avgTaskCompletedTime || 0;
+          this.summaryStats.lazyTaskCount = dashboardData.lazyTasklist ? dashboardData.lazyTasklist.length : 0;
+          
+          // 문서 통계
+          if (dashboardData.elementCountAndSizeResDto) {
+            const docData = dashboardData.elementCountAndSizeResDto;
+            this.summaryStats.totalDocumentCount = (docData.fileCount || 0) + (docData.documentCount || 0);
+            this.summaryStats.totalDocumentSize = docData.totalSize || 0;
+          }
+          
+          // 완료 추이 데이터 처리
+          this.processCompletionTrendData(
+            dashboardData.completedStoneList || [],
+            dashboardData.completedTaskList || []
+          );
         }
       } catch (error) {
         console.error('대시보드 통계 로딩 실패:', error);
       }
+    },
+    
+    processCompletionTrendData(completedStoneList, completedTaskList) {
+      // 날짜별로 완료된 스톤 수 집계
+      const stoneCountMap = {};
+      completedStoneList.forEach(stone => {
+        if (stone.stoneCompletedDay) {
+          const date = stone.stoneCompletedDay.split('T')[0]; // "2025-11-05"
+          stoneCountMap[date] = (stoneCountMap[date] || 0) + 1;
+        }
+      });
+      
+      // 날짜별로 완료된 태스크 수 집계
+      const taskCountMap = {};
+      completedTaskList.forEach(task => {
+        if (task.taskCompletedDay) {
+          const date = task.taskCompletedDay.split('T')[0]; // "2025-11-05"
+          taskCountMap[date] = (taskCountMap[date] || 0) + 1;
+        }
+      });
+      
+      // 배열로 변환하여 날짜순 정렬
+      this.completionTrendData.stoneCompletedList = Object.entries(stoneCountMap)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      this.completionTrendData.taskCompletedList = Object.entries(taskCountMap)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      // 프로젝트 시작일과 오늘 날짜 설정 (추이 차트 범위 계산용)
+      const allDates = [
+        ...Object.keys(stoneCountMap),
+        ...Object.keys(taskCountMap)
+      ].sort();
+      
+      if (allDates.length > 0) {
+        this.completionTrendData.projectStartDate = allDates[0];
+        this.completionTrendData.today = new Date().toISOString().split('T')[0];
+      }
+      
+      console.log('📊 완료 추이 데이터 처리 완료:', this.completionTrendData);
     },
     
     async loadAIAnalysis() {
@@ -1217,8 +1300,8 @@ export default {
           
           console.log('📥 AI 데이터 수신 완료, 분석 중...');
           
-          // 4초 지연 - AI가 분석하는 느낌
-          await new Promise(resolve => setTimeout(resolve, 4000));
+          // 1초 지연 - AI가 분석하는 느낌
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
           this.aiAnalysisData.analysisReport = aiData.analysisReport || null;
           this.aiAnalysisData.predictedCompletionTrend = aiData.predictedCompletionTrend || [];
