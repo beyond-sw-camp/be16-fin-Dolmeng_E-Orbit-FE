@@ -82,11 +82,12 @@ export default {
 
 .card-header {
   flex-shrink: 0;
-  border-bottom: 0;
+  border-bottom: 4px solid #FFE364;
   padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: transparent;
 }
 
 .card-body {
