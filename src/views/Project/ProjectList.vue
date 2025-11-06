@@ -983,8 +983,8 @@ import arrowDownIcon from '@/views/Project/arrow-down.svg';
 import { searchWorkspaceParticipants, getStoneDetail } from '@/services/stoneService.js';
 import { showSnackbar } from '@/services/snackbar.js';
 import { useWorkspaceStore } from '@/stores/workspace';
-import pinIcon from '@/assets/icons/Project/pin.svg';
-import pinOutlineIcon from '@/assets/icons/Project/pin-outline.svg';
+import pinIcon from '@/assets/icons/project/pin.svg';
+import pinOutlineIcon from '@/assets/icons/project/pin-outline.svg';
 import OrbitGantt from "@/views/Project/OrbitGantt.vue";
 
 export default {
