@@ -33,7 +33,7 @@ jobs:
           aws-region: "ap-northeast-2"
 
       - name: deploy to s3
-        run: aws s3 cp ./dist s3://www.orbitflow.store/ --recursive
+        run: aws s3 cp ./dist s3://orbitflow/ --recursive
 
       - name: invalidate cloudfront
         run: aws cloudfront create-invalidation --distribution-id E3LBQLTYDGP8AN --paths "/*"
