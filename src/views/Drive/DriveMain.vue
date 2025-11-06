@@ -5099,6 +5099,23 @@ export default {
   font-weight: 600 !important;
 }
 
+/* 스톤 문서함(간소화 모드) 툴바 타이틀 - 더 많은 이름 표시 */
+.main-content-col :deep(.v-toolbar-title) {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 200px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 16px;
+}
+
+/* 간소화 모드일 때 spacer 최소화하고 타이틀 공간 확대 */
+.main-content-col :deep(.v-toolbar .v-spacer) {
+  flex: 0 0 auto;
+  min-width: 16px;
+}
+
 .folder-tree-card,
 .main-content-card {
   height: 100%;
