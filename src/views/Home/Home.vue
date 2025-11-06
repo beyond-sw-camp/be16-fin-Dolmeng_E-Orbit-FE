@@ -17,7 +17,7 @@
             <template #header>
               <div class="card-header-content">
                 <h3 class="card-title">
-                  <img src="/src/assets/icons/home/roadmap-svgrepo-com.svg" alt="프로젝트" class="title-icon" />
+                  <img src="/src/assets/icons/home/project-management.svg" alt="프로젝트" class="title-icon" />
                   진행중인 프로젝트
                 </h3>
                 <div class="card-actions">
@@ -164,7 +164,7 @@
           <template #header>
             <div class="card-header-content">
               <h3 class="card-title">
-                <img src="/src/assets/icons/home/folder_1.svg" alt="문서함" class="title-icon" />
+                <img src="/src/assets/icons/home/files-and-folder.svg" alt="문서함" class="title-icon" />
                 나의 스톤 문서함
               </h3>
               <div class="card-actions">

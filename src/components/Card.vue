@@ -86,6 +86,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: #E3F2FD;
 }
 
 .card-body {
