@@ -16,7 +16,7 @@ jobs:
         with: 
           node-version: '22'
 
-      # run은 개발자가 직접 작업을 정의
+      # run은 개발자가 직접 작업을 정의1
       - name: npm install
         working-directory: .
         run : npm install 
