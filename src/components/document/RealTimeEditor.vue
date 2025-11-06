@@ -908,6 +908,8 @@ onMounted(async () => {
     extensions: [
       StarterKit.configure({
         // Bold와 Italic이 제대로 작동하도록 명시적으로 활성화
+        bulletList: false,
+        orderedList: false,
       }),
       UniqueIdExtension,
       TextAlign.configure({
