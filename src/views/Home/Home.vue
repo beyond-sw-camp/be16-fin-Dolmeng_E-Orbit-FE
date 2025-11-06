@@ -1548,7 +1548,7 @@ export default {
   display: grid;
   grid-template-columns: 2fr 1fr;
   grid-template-rows: auto 1fr;
-  gap: 24px;
+  gap: 16px;
   width: 100%;
   padding: 0 0 20px 0;
   height: calc(100% - 50px);
@@ -1558,14 +1558,14 @@ export default {
 
 @media (min-width: 1280px) {
   .dashboard {
-    gap: 32px;
+    gap: 20px;
   }
 }
 
 .dashboard-left {
   display: grid;
   grid-template-rows: auto 1fr; /* 상단(프로젝트) 자동, 하단(채팅+Task) 남은 높이 */
-  gap: 24px;
+  gap: 16px;
   height: 100%;
   min-height: 0;
   grid-row: 1 / span 2; /* 대시보드 2행 전체 점유 (강제) */
@@ -1573,14 +1573,14 @@ export default {
 
 @media (min-width: 1280px) {
   .dashboard-left {
-    gap: 32px;
+    gap: 20px;
   }
 }
 
 .dashboard-bottom {
   display: grid;
   grid-template-columns: minmax(320px, 1.3fr) 1.7fr;
-  gap: 24px;
+  gap: 16px;
   align-items: stretch;
   align-content: stretch;
   flex: 1;
@@ -1589,7 +1589,7 @@ export default {
 
 @media (min-width: 1280px) {
   .dashboard-bottom {
-    gap: 32px;
+    gap: 20px;
   }
 }
 
@@ -1645,7 +1645,7 @@ export default {
   font-weight: var(--card-title-weight, 700);
   font-size: var(--card-title-size, 18px);
   line-height: 28px;
-  color: #1C0F0F;
+  color: #000000;
   margin: 0;
   display: flex;
   align-items: center;
@@ -1656,6 +1656,7 @@ export default {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+  filter: brightness(0);
 }
 
 .card-actions {
@@ -1687,6 +1688,7 @@ export default {
 .icon-button .icon {
   width: 24px;
   height: 24px;
+  filter: brightness(0);
 }
 
 .icon-text {
@@ -1696,7 +1698,7 @@ export default {
 }
 
 .add-button {
-  background: #2A2828;
+  background: #000000;
   border-radius: 8px;
   border: none;
   color: #FFFFFF;
@@ -1710,7 +1712,7 @@ export default {
 }
 
 .add-button:hover {
-  background: #3A3838;
+  background: #1A1A1A;
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
@@ -2559,7 +2561,7 @@ export default {
   z-index: 2;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
   min-width: 60px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: var(--brand-chart, #5BA8FF);
@@ -2568,7 +2570,7 @@ export default {
 .task-bar:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow, 0 6px 20px rgba(0,0,0,.06));
-  filter: brightness(1.1);
+  opacity: 0.85;
 }
 
 .task-bar-content {
@@ -2725,10 +2727,11 @@ export default {
   border-radius: 8px;
   background: #FFFFFF;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
 }
 
 .task-item:hover {
+  background: #F5F5F5 !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   transform: translateX(2px);
   cursor: pointer;
