@@ -1,0 +1,264 @@
+warning: in the working copy of 'src/views/Project/ProjectList.vue', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/views/Project/ProjectList.vue b/src/views/Project/ProjectList.vue[m
+[1mnew file mode 100644[m
+[1mindex 0000000..836acad[m
+[1m--- /dev/null[m
+[1m+++ b/src/views/Project/ProjectList.vue[m
+[36m@@ -0,0 +1,2855 @@[m
+[32m+[m[32m<template>[m
+[32m+[m[32m  <div class="project-container">[m
+[32m+[m[32m    <!-- 프로젝트 헤더 (바디 안의 헤더) -->[m
+[32m+[m[32m    <div class="project-header">[m
+[32m+[m[32m      <div class="title-wrapper">[m
+[32m+[m[32m        <h1 class="project-title">{{ projectName }}</h1>[m
+[32m+[m[32m        <svg class="edit-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">[m
+[32m+[m[32m          <path d="M10.5 1.5L12.5 3.5L11 5L9 3L10.5 1.5Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>[m
+[32m+[m[32m          <path d="M9 3L11 5L4.5 11.5L1 13L2.5 9.5L9 3Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>[m
+[32m+[m[32m        </svg>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m      <!-- 프로젝트 정보 (제목 오른쪽) -->[m
+[32m+[m[32m      <div class="project-info">[m
+[32m+[m[32m        <div class="date-info">[m
+[32m+[m[32m          <svg class="calendar-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">[m
+[32m+[m[32m            <path d="M12.6667 2.66667H3.33333C2.59695 2.66667 2 3.26362 2 4V13.3333C2 14.0697 2.59695 14.6667 3.33333 14.6667H12.6667C13.403 14.6667 14 14.0697 14 13.3333V4C14 3.26362 13.403 2.66667 12.6667 2.66667Z" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>[m
+[32m+[m[32m            <path d="M10.6667 1.33333V4" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>[m
+[32m+[m[32m            <path d="M5.33333 1.33333V4" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>[m
+[32m+[m[32m            <path d="M2 6.66667H14" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>[m
+[32m+[m[32m          </svg>[m
+[32m+[m[32m          <span class="date-range">2025.09.12 - 2025.11.12</span>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <div class="project-owner">[m
+[32m+[m[32m          <svg class="user-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">[m
+[32m+[m[32m            <path d="M8 8C10.2091 8 12 6.20914 12 4C12 1.79086 10.2091 0 8 0C5.79086 0 4 1.79086 4 4C4 6.20914 5.79086 8 8 8Z" fill="#666666"/>[m
+[32m+[m[32m            <path d="M8 10C3.58172 10 0 13.5817 0 18H16C16 13.5817 12.4183 10 8 10Z" fill="#666666"/>[m
+[32m+[m[32m          </svg>[m
+[32m+[m[32m          <span class="owner-name">김을빗</span>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[41m    [m
+[32m+[m[32m    <!-- 프로젝트 설명 -->[m
+[32m+[m[32m    <div class="project-description-section">[m
+[32m+[m[32m      <p class="project-description-text">{{ projectDescription }}</p>[m
+[32m+[m[32m    </div>[m
+[32m+[m[41m    [m
+[32m+[m[32m    <!-- 탭 메뉴 -->[m
+[32m+[m[32m    <div class="tab-section">[m
+[32m+[m[32m      <div class="tab-menu">[m
+[32m+[m[32m        <div class="tab-item" :class="{ active: activeTab === 'milestone' }" @click="activeTab = 'milestone'">[m
+[32m+[m[32m          마일스톤[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <div class="tab-item" :class="{ active: activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">[m
+[32m+[m[32m          대시보드[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <div class="tab-item" :class="{ active: activeTab === 'gantt' }" @click="activeTab = 'gantt'">[m
+[32m+[m[32m          간트차트[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <div class="tab-item" :class="{ active: activeTab === 'documents' }" @click="activeTab = 'documents'">[m
+[32m+[m[32m          문서함[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[41m    [m
+[32m+[m[32m    <!-- 마일스톤 탭 -->[m
+[32m+[m[32m    <div v-if="activeTab === 'milestone'">[m
+[32m+[m[32m      <!-- 마일스톤 캔버스 -->[m
+[32m+[m[32m      <div[m[41m [m
+[32m+[m[32m        class="milestone-canvas"[m[41m [m
+[32m+[m[32m        :class="{[m[41m [m
+[32m+[m[32m          panning: isPanning,[m
+[32m+[m[32m          'pan-mode': interactionMode === 'pan',[m
+[32m+[m[32m          'click-mode': interactionMode === 'click'[m
+[32m+[m[32m        }"[m
+[32m+[m[32m        ref="milestoneCanvas"[m
+[32m+[m[32m      >[m
+[32m+[m[32m        <div v-if="loading" class="loading-container">[m
+[32m+[m[32m          <p class="loading-text">스톤 목록을 불러오는 중...</p>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <template v-else>[m
+[32m+[m[32m        <!-- SVG 캔버스 -->[m
+[32m+[m[32m        <svg[m[41m [m
+[32m+[m[32m          class="milestone-svg"[m[41m [m
+[32m+[m[32m          :width="canvasWidth"[m[41m [m
+[32m+[m[32m          :height="canvasHeight"[m
+[32m+[m[32m          @wheel="onWheel"[m
+[32m+[m[32m          @mousedown="onMouseDown"[m
+[32m+[m[32m          @mousemove="onMouseMove"[m
+[32m+[m[32m          @mouseup="onMouseUp"[m
+[32m+[m[32m          @mouseleave="onMouseUp"[m
+[32m+[m[32m        >[m
+[32m+[m[32m          <!-- 확대/축소 그룹 -->[m
+[32m+[m[32m          <g :transform="`translate(${translate.x}, ${translate.y}) scale(${scale})`">[m
+[32m+[m[32m        <!-- 연결선들 -->[m
+[32m+[m[32m          <g v-for="connection in connections" :key="connection.id" class="connection-line">[m
+[32m+[m[32m            <line[m[41m [m
+[32m+[m[32m              :x1="connection.x1"[m[41m [m
+[32m+[m[32m              :y1="connection.y1"[m[41m [m
+[32m+[m[32m              :x2="connection.x2"[m[41m [m
+[32m+[m[32m              :y2="connection.y2"[m
+[32m+[m[32m              :stroke="connection.isFromRoot ? 'url(#rootConnectionGradient)' : 'url(#connectionGradient)'"[m
+[32m+[m[32m              :class="connection.isFromRoot ? 'root-connection-line' : 'milestone-line'"[m
+[32m+[m[32m            />[m
+[32m+[m[32m          </g>[m
+[32m+[m[41m        [m
+[32m+[m[32m        <!-- 스톤 노드들 -->[m
+[32m+[m[32m            <g v-for="stone in stoneNodes" :key="stone.id" class="stone-group">[m
+[32m+[m[32m              <!-- 도넛형 진척도 스톤 -->[m
+[32m+[m[32m              <g class="donut-stone" :class="{ 'root-stone': stone.isRoot }" @click="onStoneClick(stone, $event)">[m
+[32m+[m[32m                <!-- 루트 스톤 배경 그라데이션 -->[m
+[32m+[m[32m                <defs v-if="stone.isRoot">[m
+[32m+[m[32m                  <radialGradient id="rootStoneGradient" cx="30%" cy="30%">[m
+[32m+[m[32m                    <stop offset="0%" style="stop-color:#FFF4C3;stop-opacity:1" />[m
+[32m+[m[32m                    <stop offset="50%" style="stop-color:#FFD580;stop-opacity:1" />[m
+[32m+[m[32m                    <stop offset="100%" style="stop-color:#FFB300;stop-opacity:1" />[m
+[32m+[m[32m                  </radialGradient>[m
+[32m+[m[32m                  <!-- 하이라이트 그라데이션 -->[m
+[32m+[m[32m                  <radialGradient id="rootStoneHighlight" cx="25%" cy="25%">[m
+[32m+[m[32m                    <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.35" />[m
+[32m+[m[32m                    <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />[m
+[32m+[m[32m                  </radialGradient>[m
+[32m+[m[32m                </defs>[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 루트 스톤 배경 원 -->[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  v-if="stone.isRoot"[m
+[32m+[m[32m                  :cx="stone.x + 90"[m
+[32m+[m[32m                  :cy="stone.y + 90"[m
+[32m+[m[32m                  :r="90"[m
+[32m+[m[32m                  fill="url(#rootStoneGradient)"[m
+[32m+[m[32m                  class="root-stone-bg"[m
+[32m+[m[32m                />[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 루트 스톤 하이라이트 -->[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  v-if="stone.isRoot"[m
+[32m+[m[32m                  :cx="stone.x + 90"[m
+[32m+[m[32m                  :cy="stone.y + 90"[m
+[32m+[m[32m                  :r="60"[m
+[32m+[m[32m                  fill="url(#rootStoneHighlight)"[m
+[32m+[m[32m                  class="root-stone-highlight"[m
+[32m+[m[32m                />[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 하위 스톤 배경 (루트가 아닌 경우) -->[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  v-if="!stone.isRoot"[m
+[32m+[m[32m                  :cx="stone.x + 75"[m
+[32m+[m[32m                  :cy="stone.y + 75"[m
+[32m+[m[32m                  :r="75"[m
+[32m+[m[32m                  fill="#FFF5D9"[m
+[32m+[m[32m                  class="child-stone-bg"[m
+[32m+[m[32m                />[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 하위 스톤 내부 그라데이션 -->[m
+[32m+[m[32m                <defs v-if="!stone.isRoot">[m
+[32m+[m[32m                  <radialGradient id="childStoneGradient" cx="30%" cy="30%">[m
+[32m+[m[32m                    <stop offset="0%" style="stop-color:#FFFCEB;stop-opacity:1" />[m
+[32m+[m[32m                    <stop offset="100%" style="stop-color:#FFF0B2;stop-opacity:1" />[m
+[32m+[m[32m                  </radialGradient>[m
+[32m+[m[32m                </defs>[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  v-if="!stone.isRoot"[m
+[32m+[m[32m                  :cx="stone.x + 75"[m
+[32m+[m[32m                  :cy="stone.y + 75"[m
+[32m+[m[32m                  :r="65"[m
+[32m+[m[32m                  fill="url(#childStoneGradient)"[m
+[32m+[m[32m                  class="child-stone-inner"[m
+[32m+[m[32m                />[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 외곽 원형 테두리 -->[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  :cx="stone.x + (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :cy="stone.y + (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :r="stone.isRoot ? 90 : 75"[m
+[32m+[m[32m                  fill="none"[m
+[32m+[m[32m                  :stroke-width="stone.isRoot ? 16 : 4"[m
+[32m+[m[32m                  class="donut-background"[m
+[32m+[m[32m                />[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 진척도 progress ring -->[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  v-if="stone.milestone"[m
+[32m+[m[32m                  :cx="stone.x + (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :cy="stone.y + (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :r="stone.isRoot ? 90 : 75"[m
+[32m+[m[32m                  fill="none"[m
+[32m+[m[32m                  stroke="url(#progressGradient)"[m
+[32m+[m[32m                  :stroke-width="stone.isRoot ? 16 : 12"[m
+[32m+[m[32m                  stroke-linecap="round"[m
+[32m+[m[32m                  :stroke-dasharray="2 * Math.PI * (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :stroke-dashoffset="2 * Math.PI * (stone.isRoot ? 90 : 75) * (1 - stone.milestone / 100)"[m
+[32m+[m[32m                  class="donut-progress"[m
+[32m+[m[32m                  transform="rotate(-90)"[m
+[32m+[m[32m                  :transform-origin="`${stone.x + (stone.isRoot ? 90 : 75)}px ${stone.y + (stone.isRoot ? 90 : 75)}px`"[m
+[32m+[m[32m                />[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- 스톤명 텍스트 -->[m
+[32m+[m[32m                <text[m
+[32m+[m[32m                  :x="stone.x + (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :y="stone.y + (stone.isRoot ? 90 : 75) - 5"[m
+[32m+[m[32m                  text-anchor="middle"[m
+[32m+[m[32m                  :class="stone.isRoot ? 'root-stone-name' : 'stone-name'"[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  {{ stone.name }}[m
+[32m+[m[32m                </text>[m
+[32m+[m[41m                [m
+[32m+[m[32m                <!-- D-Day 텍스트 -->[m
+[32m+[m[32m                <text[m
+[32m+[m[32m                  v-if="stone.dDay"[m
+[32m+[m[32m                  :x="stone.x + (stone.isRoot ? 90 : 75)"[m
+[32m+[m[32m                  :y="stone.y + (stone.isRoot ? 90 : 75) + 15"[m
+[32m+[m[32m                  text-anchor="middle"[m
+[32m+[m[32m                  :class="stone.isRoot ? 'root-stone-dday' : 'stone-dday'"[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  {{ stone.dDay }}[m
+[32m+[m[32m                </text>[m
+[32m+[m[32m              </g>[m
+[32m+[m[41m              [m
+[32m+[m[32m              <!-- 스톤 생성 텍스트 버튼 -->[m
+[32m+[m[32m              <g class="create-stone-text stone-add-text" @click="openCreateStoneModal(stone, $event)">[m
+[32m+[m[32m                <!-- 클릭 영역을 넓히기 위한 투명한 원 -->[m
+[32m+[m[32m                <circle[m
+[32m+[m[32m                  :cx="calculateTextPosition(stone).x"[m
+[32m+[m[32m                  :cy="calculateTextPosition(stone).y"[m
+[32m+[m[32m                  r="40"[m
+[32m+[m[32m                  fill="transparent"[m
+[32m+[m[32m                  class="create-stone-click-area"[m
+[32m+[m[32m                />[m
+[32m+[m[32m                <text[m
+[32m+[m[32m                  :x="calculateTextPosition(stone).x"[m
+[32m+[m[32m                  :y="calculateTextPosition(stone).y"[m
+[32m+[m[32m                  class="create-stone-text-content stone-add-text"[m
+[32m+[m[32m                  @click="openCreateStoneModal(stone, $event)"[m
+[32m+[m[32m                >[m
+[32m+[m[32m                  ＋ 스톤 추가[m
+[32m+[m[32m                </text>[m
+[32m+[m[32m              </g>[m
+[32m+[m[32m            </g>[m
+[32m+[m[32m          </g>[m
+[32m+[m[41m          [m
+[32m+[m[32m          <!-- 그라데이션 정의 -->[m
+[32m+[m[32m          <defs>[m
+[32m+[m[32m            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">[m
+[32m+[m[32m              <stop offset="0%" style="stop-color:#F9A825;stop-opacity:1" />[m
+[32m+[m[32m              <stop offset="100%" style="stop-color:#FFB300;stop-opacity:1" />[m
+[32m+[m[32m            </linearGradient>[m
+[32m+[m[32m            <!-- 연결선 그라데이션 -->[m
+[32m+[m[32m            <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">[m
+[32m+[m[32m              <stop offset="0%" style="stop-color:#FFC93C;stop-opacity:1" />[m
+[32m+[m[32m              <stop offset="100%" style="stop-color:#FF8C00;stop-opacity:1" />[m
+[32m+[m[32m            </linearGradient>[m
+[32m+[m[32m            <!-- 루트 연결선 그라데이션 -->[m
+[32m+[m[32m            <linearGradient id="rootConnectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">[m
+[32m+[m[32m              <stop offset="0%" style="stop-color:#FFB74D;stop-opacity:1" />[m
+[32m+[m[32m              <stop offset="100%" style="stop-color:#E67300;stop-opacity:1" />[m
+[32m+[m[32m            </linearGradient>[m
+[32m+[m[32m          </defs>[m
+[32m+[m[32m        </svg>[m
+[32m+[m[32m        </template>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[41m    [m
+[32m+[m[32m    <!-- 다른 탭들 -->[m
+[32m+[m[32m    <div v-else class="other-tabs">[m
+[32m+[m[32m      <p v-if="activeTab === 'dashboard'" class="placeholder-text">대시보드 컨텐츠</p>[m
+[32m+[m[32m      <p v-if="activeTa

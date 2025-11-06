@@ -1,14 +1,663 @@
 <template>
-  <v-app-bar class="app-header" flat density="comfortable">
-    <v-toolbar-title>Header</v-toolbar-title>
+  <v-app-bar class="app-header" flat density="comfortable" style="overflow: visible !important;">
+    <!-- 좌측 뒤로/앞으로 이동 버튼 -->
+    <div class="nav-buttons">
+      <v-btn class="nav-btn" variant="text" density="compact" v-ripple="false" @click="goBack">
+        <img src="@/assets/icons/header/chevron-left.svg" alt="뒤로" class="nav-icon" />
+      </v-btn>
+      <v-btn class="nav-btn" variant="text" density="compact" v-ripple="false" @click="goForward">
+        <img src="@/assets/icons/header/chevron-right.svg" alt="앞으로" class="nav-icon" />
+      </v-btn>
+    </div>
+    <!-- 검색바 -->
+    <div class="search-container">
+      <div class="search-input">
+        <div class="search-input-wrapper">
+          <input 
+            type="text" 
+            v-model="searchKeyword"
+            @input="onSearchInput"
+            @keydown.tab.prevent="onTabKey"
+            @keydown.enter="onEnterKey"
+            @focus="onSearchFocus"
+            @blur="onSearchBlur"
+            placeholder="문서명, 작업명, 파일 내용 등으로 검색" 
+            class="search-field" 
+          />
+          <!-- Tab 키 힌트와 미리보기 -->
+          <div 
+            v-if="showSuggestions && suggestions.length > 0 && searchKeyword.trim() && !isTyping && getPreviewSuffix()"
+            class="search-preview"
+          >
+            [tab] {{ getPreviewText() }}
+          </div>
+        </div>
+        <img 
+          src="@/assets/icons/header/magnify.svg" 
+          alt="검색" 
+          class="search-icon"
+          @click="performSearch"
+        />
+        
+        <!-- 자동완성 드롭다운 -->
+        <div v-if="showSuggestions && suggestions.length > 0" class="suggestions-dropdown">
+          <div 
+            v-for="(suggestion, index) in suggestions" 
+            :key="suggestion.id || index"
+            class="suggestion-item"
+            @mousedown.prevent="selectSuggestion(suggestion)"
+          >
+            <v-icon small class="mr-2" :color="getDocTypeIconColor(suggestion.docType)">
+              {{ getDocTypeIcon(suggestion.docType) }}
+            </v-icon>
+            <span class="suggestion-type-label mr-2">{{ getDocTypeLabel(suggestion.docType) }}</span>
+            <span class="suggestion-title">{{ suggestion.searchTitle }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 알림 메뉴 -->
+    <v-menu v-model="notifMenu" :close-on-content-click="false" location="bottom end" offset="8" content-class="notif-overlay">
+      <template #activator="{ props }">
+        <v-btn icon class="notification-btn" v-bind="props">
+          <img src="@/assets/icons/header/bell.svg" alt="알림" class="bell-icon" />
+          <span v-if="notifCount > 0" class="notif-badge">{{ notifBadgeText }}</span>
+        </v-btn>
+      </template>
+      <v-list density="compact" class="notif-menu-list">
+        <div class="notif-menu-header">
+          <div class="notif-title">알림</div>
+          <div class="notif-count-pill">{{ notifList.length }}</div>
+        </div>
+        <v-divider class="user-menu-divider"></v-divider>
+        <div v-if="notifLoading" class="notif-loading">불러오는 중…</div>
+        <template v-else>
+          <div v-if="notifList.length === 0" class="notif-empty">알림이 없습니다</div>
+          <div v-else class="notif-list">
+            <div v-for="(n, idx) in notifList" :key="n.id" class="notif-item" :class="{ unread: (n.readStatus||'').toUpperCase()==='UNREAD' }" @click="onNotificationClick(n)">
+              <button class="notif-dismiss" title="닫기" @click.stop="onDismissNotif(n.id, idx)">
+                <img src="@/assets/icons/user/close.svg" alt="닫기" />
+              </button>
+              <div class="notif-item-title">{{ n.title }}</div>
+              <div class="notif-item-content">{{ n.content }}</div>
+              <div class="notif-item-time">{{ formatDateTime(n.createdAt) }}</div>
+            </div>
+          </div>
+        </template>
+      </v-list>
+    </v-menu>
+    
+    <!-- 사용자 메뉴 -->
+    <v-menu v-model="userMenu" :close-on-content-click="true" location="bottom end" offset="8" content-class="user-overlay">
+      <template #activator="{ props }">
+        <v-btn icon class="user-btn" v-bind="props">
+          <img src="@/assets/icons/header/account.svg" alt="사용자" class="user-icon" />
+        </v-btn>
+      </template>
+      <v-list density="compact" class="user-menu-list">
+        <div class="user-menu-header">
+          <img v-if="userInfo?.profileImageUrl" :src="userInfo.profileImageUrl" alt="프로필" class="user-menu-avatar" />
+          <div v-else class="user-menu-avatar default">
+            <img src="@/assets/icons/user/account-circle.svg" alt="기본 사용자" class="user-menu-avatar-icon" />
+          </div>
+          <div class="user-menu-meta">
+            <div class="user-menu-name">{{ userInfo?.name || '이름 없음' }}</div>
+            <div class="user-menu-email">{{ userInfo?.email || '-' }}</div>
+          </div>
+        </div>
+        <v-divider class="user-menu-divider"></v-divider>
+        <v-list-item class="user-menu-item" @click="goMyPage">
+          <template #prepend>
+            <img src="@/assets/icons/user/account-circle.svg" alt="프로필" class="menu-icon" />
+          </template>
+          <v-list-item-title>마이 페이지</v-list-item-title>
+        </v-list-item>
+        <v-divider class="user-menu-divider"></v-divider>
+        <v-list-item class="user-menu-item" @click="logout">
+          <template #prepend>
+            <img src="@/assets/icons/user/logout.svg" alt="로그아웃" class="menu-icon" />
+          </template>
+          <v-list-item-title>로그아웃</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-menu>
+
   </v-app-bar>
-  
-  
 </template>
 
 <script>
+import axios from 'axios';
+import searchService from '@/services/searchService';
+import { showSnackbar } from '@/services/snackbar';
+
 export default {
   name: "HeaderComponent",
+  data() {
+    return {
+      searchKeyword: '',
+      suggestions: [],
+      showSuggestions: false,
+      suggestTimer: null,
+      typingTimer: null, // 입력 중 상태 해제 타이머
+      isSearchFieldFocused: false,
+      isTyping: false, // 입력 중 상태
+      userMenu: false,
+      notifMenu: false,
+      notifLoading: false,
+      notifList: [],
+      notifCount: 0,
+      userInfo: { name: '', email: '', profileImageUrl: null },
+    };
+  },
+  computed: {
+    notifBadgeText() {
+      const n = Number(this.notifCount) || 0;
+      return n <= 9 ? String(n) : '9+';
+    },
+    previewLeft() {
+      // 입력 필드의 기본 left 위치 (17px) + 입력된 텍스트 너비
+      const baseLeft = 17;
+      const textWidth = this.getTextWidth(this.searchKeyword);
+      return baseLeft + textWidth;
+    }
+  },
+
+  mounted() {
+    // 클릭 이벤트로 자동완성 닫기
+    document.addEventListener('click', this.handleClickOutside);
+    // 초기 알림 카운트 로드
+    this.loadNotifications();
+    // realtime incoming notification
+    window.addEventListener('pushNotification', this.onPushNotif);
+  },
+
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleClickOutside);
+    if (this.suggestTimer) {
+      clearTimeout(this.suggestTimer);
+    }
+    window.removeEventListener('pushNotification', this.onPushNotif);
+  },
+
+  methods: {
+    // 앞으로/뒤로 이동
+    goBack() {
+      if (window.history.length > 1) {
+        this.$router.back();
+      }
+    },
+    async loadUserInfo() {
+      try {
+        const id = localStorage.getItem('id');
+        if (!id) return;
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const { data } = await axios.get(`${baseURL}/user-service/user/${id}`);
+        this.userInfo = data?.result || this.userInfo;
+      } catch (_) {}
+    },
+    goForward() {
+      this.$router.forward();
+    },
+    goMyPage() {
+      this.userMenu = false;
+      this.$router.push('/my-info');
+    },
+    async logout() {
+      this.userMenu = false;
+      try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        await axios.post(`${baseURL}/user-service/user/auth/logout`, {}, { headers });
+      } catch (_) {
+        // 서버 요청 실패하더라도 클라이언트 로그아웃은 진행
+      } finally {
+        try {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('id');
+        } catch (_) {}
+        this.$router.push('/landing');
+        try { showSnackbar('로그아웃되었습니다.', 'info'); } catch(_) {}
+      }
+    },
+    async loadNotifications() {
+      try {
+        this.notifLoading = true;
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        const { data } = await axios.get(`${baseURL}/user-service/notification/list`, { headers });
+        const list = Array.isArray(data?.result) ? data.result : [];
+        this.notifList = list;
+      } catch (_) {
+        this.notifList = [];
+      } finally {
+        this.notifLoading = false;
+      }
+      this.notifCount = this.notifList.length;
+    },
+    async onDismissNotif(id, index) {
+      // optimistic remove
+      const removed = this.notifList.splice(index, 1);
+      try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        if (id !== undefined && id !== null) {
+          await axios.delete(`${baseURL}/user-service/notification/${id}`, { headers });
+        }
+      } catch (_) {
+        // rollback on failure
+        if (removed && removed.length) this.notifList.splice(index, 0, removed[0]);
+      }
+    },
+    formatDateTime(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        const date = d.toLocaleDateString('ko-KR');
+        const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        return `${date} ${time}`;
+      } catch (_) { return iso; }
+    },
+    onPushNotif(e) {
+      try {
+        const n = e?.detail || {};
+        const createdAt = n.createdAt || new Date().toISOString();
+        const item = {
+          id: n.id,
+          title: n.title || '알림',
+          content: n.content || '',
+          readStatus: (n.readStatus || 'UNREAD'),
+          createdAt,
+          notificationType: n.notificationType,
+          workspaceId: n.workspaceId,
+          projectId: n.projectId,
+          stoneId: n.stoneId,
+          taskId: n.taskId,
+        };
+        this.notifList = [item, ...(this.notifList || [])];
+        this.notifCount = this.notifList.length;
+      } catch(_) {}
+    },
+    // 알림 클릭 시 프로젝트 페이지로 이동
+    onNotificationClick(notification) {
+      if (notification.projectId) {
+        this.$router.push(`/project?id=${notification.projectId}`);
+      }
+    },
+    // 검색창 포커스
+    onSearchFocus() {
+      console.log('Search input focused');
+      this.isSearchFieldFocused = true;
+      if (this.suggestions.length > 0) {
+        this.showSuggestions = true;
+      }
+    },
+
+    // 검색창 포커스 해제
+    onSearchBlur() {
+      // 약간의 지연을 두어 드롭다운 클릭 이벤트가 먼저 처리되도록
+      setTimeout(() => {
+        this.isSearchFieldFocused = false;
+      }, 200);
+    },
+
+    // Tab 키 처리 - 첫 번째 자동완성으로 채우기
+    onTabKey() {
+      if (this.suggestions.length > 0 && this.suggestions[0]) {
+        const firstSuggestion = this.suggestions[0];
+        if (typeof firstSuggestion === 'object' && firstSuggestion.searchTitle) {
+          this.searchKeyword = firstSuggestion.searchTitle;
+          this.showSuggestions = false;
+        } else if (typeof firstSuggestion === 'string') {
+          this.searchKeyword = firstSuggestion;
+          this.showSuggestions = false;
+        }
+      }
+    },
+
+    // Enter 키 처리
+    onEnterKey() {
+      // Enter 키는 항상 검색만 수행
+      this.showSuggestions = false;
+      this.performSearch();
+    },
+
+
+    // 미리보기 접미사 가져오기
+    getPreviewSuffix() {
+      if (this.suggestions.length > 0 && this.suggestions[0]) {
+        const firstSuggestion = this.suggestions[0];
+        if (typeof firstSuggestion === 'object' && firstSuggestion.searchTitle) {
+          const current = this.searchKeyword.trim();
+          const suggestion = firstSuggestion.searchTitle;
+          
+          if (!current) return '';
+          
+          // 입력한 부분 이후의 텍스트 반환
+          // 예: "3ㅈ" 입력 시 "3장 경사하강법"이 오면 "장 경사하강법" 반환
+          const matchedPart = this.findMatchedPart(current, suggestion);
+          if (matchedPart) {
+            return suggestion.substring(matchedPart.length);
+          }
+        }
+      }
+      return '';
+    },
+
+    // 입력 텍스트와 제안 텍스트의 매칭된 부분 찾기
+    findMatchedPart(input, suggestion) {
+      if (!input || !suggestion) return '';
+      
+      const inputLower = input.toLowerCase();
+      const suggestionLower = suggestion.toLowerCase();
+      
+      // 정확히 시작하는 경우
+      if (suggestionLower.startsWith(inputLower)) {
+        return suggestion.substring(0, input.length);
+      }
+      
+      // 공통 부분 찾기 (숫자, 영문자, 한글)
+      let matchedLength = 0;
+      let inputIndex = 0;
+      let suggestionIndex = 0;
+      
+      while (inputIndex < input.length && suggestionIndex < suggestion.length) {
+        const inputChar = input[inputIndex];
+        const suggestionChar = suggestion[suggestionIndex];
+        
+        // 숫자나 영문자가 정확히 일치
+        if (/[0-9a-zA-Z]/.test(inputChar) && inputChar.toLowerCase() === suggestionChar.toLowerCase()) {
+          matchedLength++;
+          inputIndex++;
+          suggestionIndex++;
+        }
+        // 한글 완성형이 일치
+        else if (/[가-힣]/.test(inputChar) && /[가-힣]/.test(suggestionChar) && inputChar === suggestionChar) {
+          matchedLength++;
+          inputIndex++;
+          suggestionIndex++;
+        }
+        // 한글 초성 매칭 (예: "ㅈ"과 "장")
+        else if (/[ㄱ-ㅎ]/.test(inputChar) && /[가-힣]/.test(suggestionChar)) {
+          const initial = this.getKoreanInitial(suggestionChar);
+          if (initial === inputChar) {
+            matchedLength++;
+            inputIndex++;
+            suggestionIndex++;
+          } else {
+            break;
+          }
+        }
+        // 공백 문자 매칭
+        else if (inputChar === ' ' && suggestionChar === ' ') {
+          matchedLength++;
+          inputIndex++;
+          suggestionIndex++;
+        }
+        else {
+          break;
+        }
+      }
+      
+      return matchedLength > 0 ? suggestion.substring(0, matchedLength) : '';
+    },
+
+    // 한글 문자에서 초성 추출
+    getKoreanInitial(char) {
+      if (!/[가-힣]/.test(char)) return '';
+      
+      const code = char.charCodeAt(0) - 0xAC00;
+      const initialIndex = Math.floor(code / 588);
+      const initials = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+      return initials[initialIndex] || '';
+    },
+
+    // 매칭된 부분 가져오기 (공간용)
+    getMatchedPart() {
+      if (this.suggestions.length > 0 && this.suggestions[0]) {
+        const firstSuggestion = this.suggestions[0];
+        if (typeof firstSuggestion === 'object' && firstSuggestion.searchTitle) {
+          const current = this.searchKeyword.trim();
+          const suggestion = firstSuggestion.searchTitle;
+          return this.findMatchedPart(current, suggestion);
+        }
+      }
+      return '';
+    },
+
+    // 미리보기 전체 텍스트 가져오기
+    getPreviewText() {
+      if (this.suggestions.length > 0 && this.suggestions[0]) {
+        const firstSuggestion = this.suggestions[0];
+        if (typeof firstSuggestion === 'object' && firstSuggestion.searchTitle) {
+          // 전체 제안 내용 표시
+          return firstSuggestion.searchTitle;
+        }
+      }
+      return '';
+    },
+
+    // 입력된 텍스트의 너비 계산
+    getTextWidth(text) {
+      if (!text) return 0;
+      
+      // 캔버스를 사용하여 텍스트 너비 측정
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = '400 14px Pretendard, sans-serif';
+      return context.measureText(text).width;
+    },
+
+    // 검색어 입력 시 자동완성
+    onSearchInput() {
+      console.log('onSearchInput called, keyword:', this.searchKeyword);
+      
+      // 입력 중 상태로 설정
+      this.isTyping = true;
+      
+      // 입력 중 상태 해제 타이머 리셋
+      if (this.typingTimer) {
+        clearTimeout(this.typingTimer);
+      }
+      
+      if (this.suggestTimer) {
+        clearTimeout(this.suggestTimer);
+      }
+
+      if (!this.searchKeyword || this.searchKeyword.trim().length === 0) {
+        this.suggestions = [];
+        this.showSuggestions = false;
+        this.isTyping = false;
+        return;
+      }
+
+      // 디바운싱 (50ms로 단축하여 즉시 반응)
+      this.suggestTimer = setTimeout(async () => {
+        try {
+          const keyword = this.searchKeyword.trim();
+          console.log('Calling suggest API with keyword:', keyword);
+          
+          const response = await searchService.suggest(keyword);
+          console.log('Suggest API response:', response);
+          
+          // 응답이 올 때까지 입력값이 변경되었는지 확인
+          if (keyword !== this.searchKeyword.trim()) {
+            console.log('입력값이 변경되어 응답 무시');
+            return;
+          }
+          
+          if (response.result && Array.isArray(response.result)) {
+            // FILE 타입 항목에 대한 필드 확인 및 로그
+            response.result.forEach((item, index) => {
+              if (item.docType === 'FILE') {
+                console.log(`[자동완성] FILE 항목 #${index}:`, {
+                  id: item.id,
+                  searchTitle: item.searchTitle,
+                  fileUrl: item.fileUrl,
+                  docType: item.docType
+                });
+              }
+            });
+            
+            this.suggestions = response.result;
+            this.showSuggestions = this.suggestions.length > 0;
+            console.log('Suggestions:', this.suggestions, 'showSuggestions:', this.showSuggestions);
+            
+            // 응답 받은 후 입력 중 상태 해제 (미리보기 표시)
+            // 사용자가 입력을 멈춘 것으로 간주 (300ms 후)
+            if (this.typingTimer) {
+              clearTimeout(this.typingTimer);
+            }
+            this.typingTimer = setTimeout(() => {
+              // 입력값이 변경되지 않았으면 입력 중 상태 해제
+              if (keyword === this.searchKeyword.trim()) {
+                this.isTyping = false;
+              }
+            }, 300);
+          } else {
+            console.warn('Invalid response format:', response);
+            this.suggestions = [];
+            this.showSuggestions = false;
+            this.isTyping = false;
+          }
+        } catch (error) {
+          console.error('자동완성 실패:', error);
+          console.error('Error details:', error.response);
+          this.isTyping = false;
+          // 에러 발생 시에도 입력값이 변경되었는지 확인
+          if (error.config && error.config.params) {
+            const requestedKeyword = error.config.params.keyword;
+            if (requestedKeyword !== this.searchKeyword.trim()) {
+              console.log('입력값이 변경되어 에러 응답 무시');
+              return;
+            }
+          }
+        }
+      }, 50);
+    },
+
+    // 자동완성 항목 선택
+    selectSuggestion(suggestion) {
+      console.log('Suggestion selected:', suggestion);
+      
+      // suggestion이 객체인 경우
+      if (typeof suggestion === 'object' && suggestion.id) {
+        // DOCUMENT 타입인 경우 바로 문서 뷰어로 이동
+        if (suggestion.docType === 'DOCUMENT') {
+          this.showSuggestions = false;
+          const routeData = this.$router.resolve(`/viewer/${suggestion.id}`);
+          window.open(routeData.href, '_blank');
+          return;
+        }
+        
+        // FILE 타입인 경우 fileUrl로 열기
+        if (suggestion.docType === 'FILE') {
+          this.showSuggestions = false;
+          if (suggestion.fileUrl) {
+            window.open(suggestion.fileUrl, '_blank');
+          } else {
+            console.warn('파일 URL이 없습니다:', suggestion);
+            showSnackbar('파일을 열 수 없습니다.', 'error');
+          }
+          return;
+        }
+        
+        // 다른 타입이거나 객체가 아닌 경우 검색 수행
+        const keyword = suggestion.searchTitle || suggestion;
+        this.searchKeyword = keyword;
+        this.showSuggestions = false;
+        this.performSearch();
+      } else {
+        // 문자열인 경우 그대로 사용하여 검색
+        const keyword = typeof suggestion === 'string' ? suggestion : String(suggestion);
+        this.searchKeyword = keyword;
+        this.showSuggestions = false;
+        this.performSearch();
+      }
+    },
+
+    // 검색 수행
+    performSearch() {
+      const keyword = this.searchKeyword.trim();
+      
+      if (!keyword) {
+        showSnackbar('검색어를 입력해주세요.', 'warning');
+        return;
+      }
+
+      if (keyword.length < 2) {
+        showSnackbar('검색어는 최소 2글자 이상 입력해주세요.', 'warning');
+        return;
+      }
+
+      this.showSuggestions = false;
+      // 검색 결과 페이지로 이동
+      this.$router.push({
+        path: '/search',
+        query: { keyword: keyword }
+      });
+    },
+
+    // 문서 타입 아이콘 (자동완성용)
+    getDocTypeIcon(docType) {
+      const iconMap = {
+        DOCUMENT: 'mdi-file-document-outline',
+        FILE: 'mdi-file-outline',
+        STONE: 'mdi-folder-star-outline',
+        PROJECT: 'mdi-folder-outline',
+        TASK: 'mdi-folder-outline',
+      };
+      return iconMap[docType] || 'mdi-file-outline';
+    },
+
+    // 문서 타입 아이콘 색상 (자동완성용)
+    getDocTypeIconColor(docType) {
+      const colorMap = {
+        DOCUMENT: '#1976d2',
+        FILE: '#ff9800',
+        STONE: '#9c27b0',
+        PROJECT: '#1976d2',
+        TASK: '#1976d2',
+      };
+      return colorMap[docType] || '#757575';
+    },
+
+    // 문서 타입 라벨 (자동완성용)
+    getDocTypeLabel(docType) {
+      const labelMap = {
+        DOCUMENT: '[문서]',
+        FILE: '[파일]',
+        STONE: '[스톤]',
+        PROJECT: '[프로젝트]',
+        TASK: '[작업]',
+      };
+      return labelMap[docType] || docType;
+    },
+
+
+    // 외부 클릭 처리
+    handleClickOutside(event) {
+      const searchContainer = this.$el.querySelector('.search-container');
+      if (searchContainer && !searchContainer.contains(event.target)) {
+        this.showSuggestions = false;
+      }
+    },
+  },
+  watch: {
+    userMenu(val) {
+      if (val) this.loadUserInfo();
+    },
+    notifMenu(val) {
+      if (val) this.loadNotifications();
+    }
+  }
 };
 </script>
 
@@ -16,12 +665,531 @@ export default {
 .app-header {
   position: fixed;
   top: 0;
-  left: 0;
+  left: 280px;
   right: 0;
   height: 64px;
   z-index: 1000;
-  background-color: #F5F5F5;
+  background: #F5F5F5;
   color: #000000;
-  border-bottom: 2px solid #000000;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  overflow: visible !important;
+}
+
+/* 좌측 내비게이션 버튼 영역 */
+.nav-buttons {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.8;
+}
+
+/* Vuetify 내부 오버레이/리플 제거 */
+.nav-btn :deep(.v-btn__overlay),
+.nav-btn :deep(.v-btn__underlay),
+.nav-btn :deep(.v-ripple__container) {
+  display: none !important;
+}
+
+/* 화살표 버튼 포커스 링 제거 */
+.nav-btn:focus,
+.nav-btn:focus-visible,
+.nav-btn:active,
+.nav-btn:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.nav-btn *:focus,
+.nav-btn *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.app-header :deep(.v-toolbar__content) {
+  overflow: visible !important;
+  min-height: 64px !important;
+}
+
+.search-container {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(820px, calc(100vw - 360px));
+  max-width: 820px;
+  min-width: 300px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  z-index: 9999;
+}
+
+.search-input {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  background: #FFFFFF;
+  border-radius: 25px;
+  box-shadow: inset 0 0 0 1px #DDDDDD;
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.search-field {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  padding: 13px 17px;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #757575;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
+}
+
+/* 첫 번째 자동완성 미리보기 */
+.search-preview {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #999;
+  white-space: nowrap;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  border: 1px solid #e0e0e0;
+}
+
+.search-input:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 1px #DDDDDD;
+}
+
+/* 헤더 내 포커스 아웃라인 제거 */
+:deep(.v-btn:focus),
+:deep(.v-btn:focus-visible),
+:deep(button:focus),
+:deep(button:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.search-field:focus,
+.search-field:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.search-field::placeholder {
+  color: #757575;
+}
+
+.search-icon {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.search-icon:hover {
+  opacity: 1;
+}
+
+/* 자동완성 드롭다운 */
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #DDDDDD;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 10000;
+}
+
+.suggestion-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+
+.suggestion-item:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.suggestion-item strong {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.suggestion-type-label {
+  color: #757575;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.suggestion-title {
+  color: #333;
+  font-weight: 400;
+}
+
+/* 검색 결과 모달 */
+.search-result-header {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.search-results-container {
+  max-height: 600px;
+  padding: 16px;
+}
+
+.search-result-item {
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-result-item:hover {
+  border-color: #1976d2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.result-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.result-title >>> em {
+  background-color: #fff3cd;
+  font-style: normal;
+  font-weight: 700;
+  padding: 0 2px;
+}
+
+.result-content {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.result-content >>> em {
+  background-color: #fff3cd;
+  font-style: normal;
+  font-weight: 600;
+  padding: 0 2px;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #999;
+}
+
+.result-creator {
+  display: flex;
+  align-items: center;
+}
+
+.result-date {
+  color: #999;
+}
+
+.notification-btn {
+  position: absolute;
+  right: 70px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  padding: 0 !important;
+  background: #E0E0E0 !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-btn { position: absolute; }
+.notification-btn .notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: #EF5350;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 1200px) {
+  .notification-btn {
+    right: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .notification-btn {
+    right: 50px;
+  }
+}
+
+.bell-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+}
+
+.user-btn {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  padding: 0 !important;
+  background: #E0E0E0 !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-menu-list {
+  min-width: 260px;
+  background: #2A2828 !important;
+  color: #FFFFFF !important;
+  border-radius: 0;
+  padding: 0 0 8px;
+}
+
+.notif-menu-list {
+  min-width: 380px;
+  background: #2A2828 !important;
+  color: #FFFFFF !important;
+  border-radius: 0;
+  padding: 0 0 8px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+:deep(.notif-overlay) {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.notif-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #343131;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.notif-title { font-weight: 800; font-size: 14px; }
+.notif-count-pill {
+  background: none;
+  color: #FFE364;
+  font-weight: 800;
+  font-size: 13px;
+}
+.notif-loading, .notif-empty { padding: 16px 14px; font-size: 13px; color: #CFCFCF; }
+.notif-list { max-height: 380px; overflow-y: auto; padding: 4px 8px; }
+.notif-item {
+  padding: 12px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  background: transparent;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.notif-item:hover { background: rgba(255,255,255,0.08); }
+.notif-item:last-child { border-bottom: none; }
+.notif-item.unread { border-left: none; }
+.notif-item-title { font-weight: 700; font-size: 15px; color: #FFFFFF; margin-bottom: 4px; line-height: 1.35; }
+.notif-item-content { font-size: 14px; color: #DEDEDE; margin-bottom: 6px; line-height: 1.45; }
+.notif-item-time { font-size: 11.5px; color: #BDBDBD; }
+
+.notif-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.notif-dismiss img { width: 100%; height: 100%; filter: invert(1) brightness(1.2); opacity: 0.75; }
+.notif-dismiss:hover img { opacity: 1; }
+.notif-dismiss:focus, .notif-dismiss:focus-visible { outline: none; box-shadow: none; }
+
+.user-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 10px;
+  background: #343131;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.user-menu-name { font-weight: 700; font-size: 14px; color: #FFFFFF; line-height: 1.2; }
+.user-menu-email { font-size: 12px; color: #CFCFCF; line-height: 1.2; margin-top: 2px; }
+
+:deep(.user-overlay) {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.user-menu-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #D9D9D9;
+}
+.user-menu-avatar.default {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-menu-avatar-icon {
+  width: 70%;
+  height: 70%;
+  filter: invert(1) brightness(1.2);
+}
+.user-menu-meta { display: flex; flex-direction: column; min-width: 0; }
+.user-menu-name { font-weight: 700; font-size: 14px; color: #FFFFFF; line-height: 1.2; }
+.user-menu-email { font-size: 12px; color: #CFCFCF; line-height: 1.2; margin-top: 2px; }
+
+.user-menu-item {
+  color: #FFFFFF !important;
+}
+.user-menu-item:hover {
+  background: #3A3838 !important;
+}
+.user-menu-divider {
+  border-color: rgba(255,255,255,0.12) !important;
+}
+.menu-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  filter: invert(1) brightness(1.2);
+}
+.user-menu-list :deep(.v-list-item__overlay) {
+  opacity: 0 !important;
+}
+.user-menu-list :deep(.v-list-item-title) {
+  color: #FFFFFF !important;
+  font-size: 14px;
+}
+.user-menu-list :deep(.v-list-item) {
+  color: #FFFFFF !important;
+}
+.user-menu-list :deep(.v-list) { background: transparent !important; padding-top: 0 !important; padding-bottom: 8px !important; }
+.user-menu-list :deep(.v-ripple__container) { display: none !important; }
+
+@media (max-width: 768px) {
+  .user-btn {
+    right: 10px;
+  }
+}
+
+.user-icon {
+  width: 26px;
+  height: 26px;
+  opacity: 0.8;
+  filter: brightness(0);
 }
 </style>
