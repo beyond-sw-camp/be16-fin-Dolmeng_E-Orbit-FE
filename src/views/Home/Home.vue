@@ -1497,8 +1497,6 @@ export default {
     async uploadFilesToFolder(folderId, files) {
       console.log('[DnD] 파일 업로드:', { folderId, files });
       // TODO: API 호출
-      // const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-      // await axios.post(`${baseURL}/drive/upload`, { folderId, files });
     },
     
     // 폴더 새로고침 (TODO: 실제 API 연결)
