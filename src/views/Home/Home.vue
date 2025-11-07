@@ -17,7 +17,7 @@
             <template #header>
               <div class="card-header-content">
                 <h3 class="card-title">
-                  <img src="/src/assets/icons/home/project-management.svg" alt="프로젝트" class="title-icon" />
+                  <img :src="projectManagementIcon" alt="프로젝트" class="title-icon" />
                   진행중인 프로젝트
                 </h3>
                 <div class="card-actions">
@@ -81,7 +81,7 @@
               <template #header>
                 <div class="card-header-content">
                   <h3 class="card-title">
-                    <img src="/src/assets/icons/home/chat-email-envelope-8-svgrepo-com.svg" alt="채팅" class="title-icon" />
+                    <img :src="chatIcon" alt="채팅" class="title-icon" />
                     스톤 채팅방 목록
                   </h3>
                   <div class="card-actions hidden"></div>
@@ -134,7 +134,7 @@
               <template #header>
                 <div class="card-header-content">
                   <h3 class="card-title">
-                    <img src="/src/assets/icons/home/task-svgrepo-com.svg" alt="태스크" class="title-icon" />
+                    <img :src="taskIcon" alt="태스크" class="title-icon" />
                     나의 Task
                   </h3>
                 </div>
@@ -159,7 +159,12 @@
                   
                   <!-- Task 바들 -->
                   <div class="task-timeline-bars" :style="taskBarsStyle">
-                    <div class="task-bar-wrapper" v-for="task in pendingTasks" :key="task.id">
+                    <div
+                      class="task-bar-wrapper"
+                      v-for="(task, index) in pendingTasks"
+                      :key="task.id"
+                      :style="getTaskWrapperStyle(index)"
+                    >
                       <div class="task-bar" :style="calculateTaskBarStyle(task)" @click="goToTask(task)">
                         <div class="task-bar-content">
                           <div class="task-bar-name">{{ task.name }}</div>
@@ -182,7 +187,7 @@
           <template #header>
             <div class="card-header-content">
               <h3 class="card-title">
-                <img src="/src/assets/icons/home/files-and-folder.svg" alt="문서함" class="title-icon" />
+                <img :src="filesAndFolderIcon" alt="문서함" class="title-icon" />
                 나의 스톤 문서함
               </h3>
               <div class="card-actions">
@@ -192,15 +197,15 @@
                   :aria-label="isAllDocsExpanded ? '모두 접기' : '모두 펼치기'" 
                   :title="isAllDocsExpanded ? '모두 접기' : '모두 펼치기'"
                 >
-                  <img 
-                    v-if="isAllDocsExpanded"
-                    src="/src/assets/icons/home/arrow-collapse-vertical.svg"
+                    <img 
+                      v-if="isAllDocsExpanded"
+                      :src="arrowCollapseIcon"
                     alt="모두 접기"
                     class="icon"
                   />
-                  <img 
-                    v-else
-                    src="/src/assets/icons/home/arrow-expand-vertical.svg"
+                    <img 
+                      v-else
+                      :src="arrowExpandIcon"
                     alt="모두 펼치기"
                     class="icon"
                   />
@@ -241,7 +246,7 @@
                     aria-label="toggle"
                   >
                     <img
-                      src="/src/assets/icons/header/chevron-right.svg"
+                      :src="chevronRightIcon"
                       alt="토글"
                       class="toggle-icon"
                       :class="{ rotated: node.expanded }"
@@ -249,7 +254,7 @@
                   </button>
                   <span v-else class="docs-toggle-placeholder"></span>
                   <img
-                    :src="node.type === 'folder' ? '/src/assets/icons/sidebar/project.svg' : '/src/assets/icons/home/folder-open.svg'"
+                    :src="node.type === 'folder' ? projectFolderIcon : folderOpenIcon"
                     alt="아이콘"
                     class="docs-icon"
                   />
@@ -282,7 +287,7 @@
                     >
                       <span class="docs-toggle-placeholder"></span>
                       <img
-                        src="/src/assets/icons/home/folder-open.svg"
+                        :src="folderOpenIcon"
                         alt="아이콘"
                         class="docs-icon"
                       />
@@ -327,6 +332,15 @@ import Card from '@/components/Card.vue';
 import stompManager from '@/services/stompService.js';
 import axios from 'axios';
 import userDefault from '@/assets/icons/chat/user_defualt.svg';
+import projectManagementIcon from '@/assets/icons/home/project-management.svg';
+import chatIcon from '@/assets/icons/home/chat-email-envelope-8-svgrepo-com.svg';
+import taskIcon from '@/assets/icons/home/task-svgrepo-com.svg';
+import arrowCollapseIcon from '@/assets/icons/home/arrow-collapse-vertical.svg';
+import arrowExpandIcon from '@/assets/icons/home/arrow-expand-vertical.svg';
+import chevronRightIcon from '@/assets/icons/header/chevron-right.svg';
+import projectFolderIcon from '@/assets/icons/sidebar/project.svg';
+import folderOpenIcon from '@/assets/icons/home/folder-open.svg';
+import filesAndFolderIcon from '@/assets/icons/home/files-and-folder.svg';
 
 // Vue 3에서는 $set이 없으므로 제거됨
 
@@ -356,6 +370,15 @@ export default {
       summaryDialogText: '',
       hoveredRoomId: null,
       userDefault,
+      projectManagementIcon,
+      chatIcon,
+      taskIcon,
+      arrowCollapseIcon,
+      arrowExpandIcon,
+      chevronRightIcon,
+      projectFolderIcon,
+      folderOpenIcon,
+      filesAndFolderIcon,
       docTreeState: {}, // 문서 트리 상태 (expanded 여부)
       dropTargetId: null, // DnD 드롭 타겟 ID
       selectedNodeId: null, // 키보드 포커스된 노드 ID
@@ -489,7 +512,9 @@ export default {
     
     // 미완료 태스크 목록
     pendingTasks() {
-      return this.myTasks.filter(task => !task.isDone);
+      return this.myTasks
+        .filter(task => !task.isDone)
+        .sort((a, b) => new Date(a.startTime) - new Date(b.startTime) || new Date(a.endTime) - new Date(b.endTime));
     },
     
     // Task 타임라인 라벨 (Task 전체 기간 기준 MM/DD)
@@ -652,7 +677,7 @@ export default {
     
     // Task 바 영역 높이(행수 기반) - 데이터 적을 때는 낮게, 많을 때만 커짐
     taskBarsStyle() {
-      const rowHeight = 60; // nth-child 오프셋과 동일한 행 간격
+      const rowHeight = 60; // 행 간격 (getTaskWrapperStyle와 동일하게 유지)
       const rows = Math.max(this.pendingTasks.length, 1);
       const minHeightPx = Math.max(rows * rowHeight, 120);
       return { minHeight: `${minHeightPx}px` };
@@ -1086,20 +1111,31 @@ export default {
       const taskDuration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
       
       const leftPercent = (taskStartOffset / totalRangeDays) * 100;
-      const widthPercent = (taskDuration / totalRangeDays) * 100;
-      
-      // 마지막 라벨 위치에 맞춰 오른쪽 여백 조정 (라벨이 왼쪽으로 20px 이동했으므로)
-      // 컨테이너 너비 기준으로 약 5-8% 여백 (라벨 위치에 맞춤)
+      let widthPercent = (taskDuration / totalRangeDays) * 100;
       const rightMargin = 8; // 퍼센트 단위
-      const maxWidth = Math.min(100 - rightMargin, widthPercent);
-      // 오른쪽 끝에 닿지 않도록 조정
-      const adjustedLeftPercent = leftPercent;
-      const adjustedWidthPercent = Math.min(maxWidth, 100 - leftPercent - rightMargin);
-      
+      const minWidthPercent = 6;
+
+      widthPercent = Math.max(widthPercent, minWidthPercent);
+
+      let adjustedLeftPercent = Math.max(0, Math.min(leftPercent, 100 - rightMargin));
+      let adjustedWidthPercent = Math.min(widthPercent, Math.max(0, 100 - adjustedLeftPercent - rightMargin));
+
+      if (adjustedWidthPercent < minWidthPercent) {
+        adjustedWidthPercent = Math.min(minWidthPercent, Math.max(0, 100 - rightMargin));
+        adjustedLeftPercent = Math.max(0, Math.min(adjustedLeftPercent, 100 - rightMargin - adjustedWidthPercent));
+      }
+
       return {
         left: `${Math.max(0, adjustedLeftPercent)}%`,
-        width: `${Math.max(0, Math.min(adjustedWidthPercent, 100 - leftPercent - rightMargin))}%`,
+        width: `${Math.max(0, Math.min(adjustedWidthPercent, 100 - adjustedLeftPercent - rightMargin))}%`,
         backgroundColor: this.getTaskColor(task.id)
+      };
+    },
+
+    getTaskWrapperStyle(index) {
+      const rowHeight = 60;
+      return {
+        top: `${index * rowHeight}px`
       };
     },
     
@@ -2548,22 +2584,6 @@ export default {
 .task-bar-wrapper {
   position: absolute;
   width: 100%;
-}
-
-.task-bar-wrapper:nth-child(1) {
-  top: 0px;
-}
-
-.task-bar-wrapper:nth-child(2) {
-  top: 60px;
-}
-
-.task-bar-wrapper:nth-child(3) {
-  top: 120px;
-}
-
-.task-bar-wrapper:nth-child(4) {
-  top: 180px;
 }
 
 .task-bar {
