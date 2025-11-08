@@ -92,6 +92,7 @@
           width: (tabRailWidth ? (tabRailWidth + 'px') : undefined)
         }"
         ref="milestoneCanvas"
+        tabindex="0"
       >
         <!-- 보기 모드 스위치: 카드 상단 중앙 정렬 -->
         <div class="view-mode-controls">
@@ -1144,7 +1145,8 @@ export default {
       layoutSnapshots: {
         all: {},
         focus: {}
-      }
+      },
+      milestoneCanvasEl: null
     };
   },
   computed: {
@@ -1209,6 +1211,7 @@ export default {
       this.updateCanvasSize();
       this.updateTabRailPosition();
       this.updateDriveScrollHeight();
+      this.attachCanvasKeyboardListeners();
     });
     
     // 윈도우 리사이즈 이벤트 리스너 추가
@@ -1220,19 +1223,22 @@ export default {
     window.addEventListener('stoneUpdated', this.onStoneUpdated);
     console.log('=== ProjectList 이벤트 리스너 등록 완료 ===');
     console.log('stoneUpdated 이벤트 리스너 등록됨');
-    
-    // 키보드 이벤트 리스너 추가 (Space 키로 팬 모드 토글)
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.updateCanvasSize);
     window.removeEventListener('resize', this.updateTabRailPosition);
     window.removeEventListener('resize', this.updateDriveScrollHeight);
-    window.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('stoneUpdated', this.onStoneUpdated);
     window.removeEventListener('projectRouteChanged', this.onProjectRouteChanged);
+    
+    if (this.milestoneCanvasEl) {
+      this.milestoneCanvasEl.removeEventListener('keydown', this.onKeyDown);
+      this.milestoneCanvasEl.removeEventListener('keyup', this.onKeyUp);
+      this.milestoneCanvasEl = null;
+    }
+  },
+  updated() {
+    this.attachCanvasKeyboardListeners();
   },
   watch: {
     stones: {
@@ -1370,6 +1376,32 @@ export default {
     }
   },
   methods: {
+    attachCanvasKeyboardListeners() {
+      const canvasEl = this.$refs.milestoneCanvas;
+
+      if (this.milestoneCanvasEl && this.milestoneCanvasEl !== canvasEl) {
+        this.milestoneCanvasEl.removeEventListener('keydown', this.onKeyDown);
+        this.milestoneCanvasEl.removeEventListener('keyup', this.onKeyUp);
+        this.milestoneCanvasEl = null;
+      }
+
+      if (!canvasEl || this.milestoneCanvasEl === canvasEl) {
+        if (!canvasEl) {
+          this.milestoneCanvasEl = null;
+        }
+        return;
+      }
+
+      this.milestoneCanvasEl = canvasEl;
+      this.milestoneCanvasEl.addEventListener('keydown', this.onKeyDown);
+      this.milestoneCanvasEl.addEventListener('keyup', this.onKeyUp);
+    },
+    focusMilestoneCanvas() {
+      const canvasEl = this.$refs.milestoneCanvas;
+      if (canvasEl && canvasEl !== document.activeElement) {
+        canvasEl.focus({ preventScroll: true });
+      }
+    },
     // 현재 모드 키
     getModeKey() {
       return this.viewMode === 'focus' ? 'focus' : 'all';
@@ -1995,6 +2027,7 @@ export default {
     
     // 마우스 다운 이벤트 핸들러
     onMouseDown(e) {
+      this.focusMilestoneCanvas();
       // 스톤 추가 텍스트 클릭은 팬 모드에서도 허용
       if (e.target.classList.contains('create-stone-text') || 
           e.target.classList.contains('create-stone-text-content') ||
