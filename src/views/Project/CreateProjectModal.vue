@@ -43,12 +43,17 @@
           </div>
           
           <div class="form-field">
-            <label class="form-label">프로젝트 설명</label>
+            <div class="form-label-wrapper">
+              <label class="form-label">프로젝트 설명</label>
+              <span class="char-counter">{{ descriptionLength }}/{{ descriptionMaxLength }}</span>
+            </div>
             <textarea 
               v-model="formData.description" 
               class="form-textarea"
               placeholder="프로젝트 설명을 입력하세요"
               rows="3"
+              :maxlength="descriptionMaxLength"
+              @input="handleDescriptionInput"
             ></textarea>
           </div>
           
@@ -106,7 +111,8 @@ export default {
         managerId: ''
       },
       participants: [],
-      isLoading: false
+      isLoading: false,
+      descriptionMaxLength: 100
     };
   },
   computed: {
@@ -123,6 +129,9 @@ export default {
     },
     isPersonalWorkspace() {
       return this.workspaceStore.isPersonalWorkspace;
+    },
+    descriptionLength() {
+      return this.formData.description ? this.formData.description.length : 0;
     }
   },
   watch: {
@@ -240,6 +249,8 @@ export default {
         return;
       }
 
+      this.formData.description = (this.formData.description || '').slice(0, this.descriptionMaxLength);
+
       this.isLoading = true;
       
       try {
@@ -330,6 +341,11 @@ export default {
       } finally {
         this.isLoading = false;
       }
+    },
+    handleDescriptionInput() {
+      if (this.formData.description && this.formData.description.length > this.descriptionMaxLength) {
+        this.formData.description = this.formData.description.slice(0, this.descriptionMaxLength);
+      }
     }
   }
 };
@@ -389,6 +405,21 @@ export default {
   font-size: 24px;
   line-height: 29px;
   color: #7C7C7C;
+}
+
+.form-label-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.char-counter {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #9E9E9E;
 }
 
 .required {
