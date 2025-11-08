@@ -23,32 +23,16 @@
       <p class="intro-text">프로젝트 관리에 필요한 모든 것을 한 곳에서 경험하세요.</p>
     </section>
 
-    <!-- Feature Cards -->
-    <section class="features">
-      <v-card class="feature-card" elevation="4" rounded="xl">
-        <v-card-title class="feature-title">일정 관리</v-card-title>
-        <v-card-text class="feature-body">
-          <img class="feature-media-img" :src="landingImage3" alt="feature" />
-        </v-card-text>
-      </v-card>
-      <v-card class="feature-card" elevation="4" rounded="xl">
-        <v-card-title class="feature-title">협업 & 소통</v-card-title>
-        <v-card-text class="feature-body">
-          <img class="feature-media-img" :src="landingImage3" alt="feature" />
-        </v-card-text>
-      </v-card>
-      <v-card class="feature-card" elevation="4" rounded="xl">
-        <v-card-title class="feature-title">프로젝트 현황</v-card-title>
-        <v-card-text class="feature-body">
-          <img class="feature-media-img" :src="landingImage3" alt="feature" />
-        </v-card-text>
-      </v-card>
-      <v-card class="feature-card" elevation="4" rounded="xl">
-        <v-card-title class="feature-title">스마트 자동화</v-card-title>
-        <v-card-text class="feature-body">
-          <img class="feature-media-img" :src="landingImage3" alt="feature" />
-        </v-card-text>
-      </v-card>
+    <!-- Feature Images -->
+    <section class="feature-images">
+      <figure
+        v-for="feature in featureCards"
+        :key="feature.title"
+        class="feature-figure"
+      >
+        <figcaption class="feature-caption">{{ feature.title }}</figcaption>
+        <img class="feature-image" :src="feature.icon" :alt="feature.title" />
+      </figure>
     </section>
 
     <section class="intro">
@@ -87,7 +71,10 @@
 import landingVideo from '@/assets/videos/landing/Orbing(Project_summary,tasks).mp4';
 import landingImage1 from '@/assets/images/landing/calendar_1.png';
 import landingImage2 from '@/assets/images/landing/calendar_2.png';
-import landingImage3 from '@/assets/images/landing/calendar_3.png';
+import scheduleIcon from '@/assets/icons/0101.png';
+import progressIcon from '@/assets/icons/프로젝트.png';
+import documentIcon from '@/assets/icons/030303.png';
+import collaborationIcon from '@/assets/icons/협업 및 소통.png';
 export default {
   name: 'LandingPage',
   data() {
@@ -95,7 +82,24 @@ export default {
       landingVideo,
       landingImage1,
       landingImage2,
-      landingImage3,
+      featureCards: [
+        {
+          title: '일정관리',
+          icon: scheduleIcon
+        },
+        {
+          title: '프로젝트 현황',
+          icon: progressIcon
+        },
+        {
+          title: '문서관리',
+          icon: documentIcon
+        },
+        {
+          title: '협업 & 소통',
+          icon: collaborationIcon
+        }
+      ],
     };
   }
 };
@@ -191,29 +195,37 @@ export default {
   color: #1C0F0F;
 }
 
-/* Features */
-.features {
+/* Feature images */
+.feature-images {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 32px;
   width: min(1440px, 92%);
-  margin: 24px auto 56px;
+  margin: 24px auto 64px;
 }
-.feature-card {
-  box-sizing: border-box;
-  background: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
-  border: 1px solid #E0E0E0;
-  transition: transform .18s ease, box-shadow .18s ease;
+.feature-figure {
+  margin: 0;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
 }
-.feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important; }
-.feature-body { padding-top: 8px; }
-.feature-title {
+.feature-image {
+  width: 100%;
+  height: clamp(260px, 32vw, 360px);
+  border-radius: 28px;
+  object-fit: cover;
+  display: block;
+}
+.feature-caption {
+  margin: 0;
   font-weight: 800;
   font-size: 22px;
   color: #151414;
+  text-align: center;
 }
-.feature-media-img { width: 100%; height: 360px; border-radius: 14px; object-fit: cover; display: block; }
-
 /* Gallery */
 .gallery {
   width: min(1440px, 92%);
@@ -245,14 +257,16 @@ export default {
 }
 
 @media (max-width: 1200px) {
-  .features { grid-template-columns: repeat(2, 1fr); }
-  .feature-media { height: 300px; }
+  .feature-images { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .feature-image { height: clamp(220px, 38vw, 320px); }
   .gallery-item.large, .gallery-item.center { height: 240px; }
 }
 
 @media (max-width: 640px) {
   .hero-inner { padding-top: 72px; }
   .start-btn { height: 48px !important; }
+  .feature-images { grid-template-columns: 1fr; }
+  .feature-image { height: clamp(220px, 60vw, 320px); }
 }
 
 /* Overlapped gallery layout */
