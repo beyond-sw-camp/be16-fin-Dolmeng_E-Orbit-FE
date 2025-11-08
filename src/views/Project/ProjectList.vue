@@ -92,6 +92,7 @@
           width: (tabRailWidth ? (tabRailWidth + 'px') : undefined)
         }"
         ref="milestoneCanvas"
+        tabindex="0"
       >
         <!-- 보기 모드 스위치: 카드 상단 중앙 정렬 -->
         <div class="view-mode-controls">
@@ -851,12 +852,17 @@
           </div>
           
           <div class="form-group">
-            <label class="form-label">설명</label>
+            <div class="form-label-wrapper">
+              <label class="form-label">설명</label>
+              <span class="char-counter">{{ editDescriptionLength }}/{{ descriptionMaxLength }}</span>
+            </div>
             <textarea 
               v-model="editForm.description" 
               class="form-textarea"
               placeholder="프로젝트 설명을 입력하세요"
               rows="3"
+              :maxlength="descriptionMaxLength"
+              @input="handleEditDescriptionInput"
             ></textarea>
           </div>
         </div>
@@ -1120,6 +1126,7 @@ export default {
       // 게이지 애니메이션 트리거
       gaugeAnimationReady: false
       ,
+      descriptionMaxLength: 100,
       // 토성 띠 버튼 아이콘 (템플릿 접근용)
       arrowUpIcon,
       arrowDownIcon
@@ -1138,7 +1145,8 @@ export default {
       layoutSnapshots: {
         all: {},
         focus: {}
-      }
+      },
+      milestoneCanvasEl: null
     };
   },
   computed: {
@@ -1147,6 +1155,9 @@ export default {
     },
     isPersonalWorkspace() {
       return this.workspaceStore.isPersonalWorkspace;
+    },
+    editDescriptionLength() {
+      return this.editForm.description ? this.editForm.description.length : 0;
     },
     // 채팅방 생성 체크박스 비활성화 여부
     isChatCreationDisabled() {
@@ -1200,6 +1211,7 @@ export default {
       this.updateCanvasSize();
       this.updateTabRailPosition();
       this.updateDriveScrollHeight();
+      this.attachCanvasKeyboardListeners();
     });
     
     // 윈도우 리사이즈 이벤트 리스너 추가
@@ -1211,19 +1223,22 @@ export default {
     window.addEventListener('stoneUpdated', this.onStoneUpdated);
     console.log('=== ProjectList 이벤트 리스너 등록 완료 ===');
     console.log('stoneUpdated 이벤트 리스너 등록됨');
-    
-    // 키보드 이벤트 리스너 추가 (Space 키로 팬 모드 토글)
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.updateCanvasSize);
     window.removeEventListener('resize', this.updateTabRailPosition);
     window.removeEventListener('resize', this.updateDriveScrollHeight);
-    window.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('stoneUpdated', this.onStoneUpdated);
     window.removeEventListener('projectRouteChanged', this.onProjectRouteChanged);
+    
+    if (this.milestoneCanvasEl) {
+      this.milestoneCanvasEl.removeEventListener('keydown', this.onKeyDown);
+      this.milestoneCanvasEl.removeEventListener('keyup', this.onKeyUp);
+      this.milestoneCanvasEl = null;
+    }
+  },
+  updated() {
+    this.attachCanvasKeyboardListeners();
   },
   watch: {
     stones: {
@@ -1361,6 +1376,32 @@ export default {
     }
   },
   methods: {
+    attachCanvasKeyboardListeners() {
+      const canvasEl = this.$refs.milestoneCanvas;
+
+      if (this.milestoneCanvasEl && this.milestoneCanvasEl !== canvasEl) {
+        this.milestoneCanvasEl.removeEventListener('keydown', this.onKeyDown);
+        this.milestoneCanvasEl.removeEventListener('keyup', this.onKeyUp);
+        this.milestoneCanvasEl = null;
+      }
+
+      if (!canvasEl || this.milestoneCanvasEl === canvasEl) {
+        if (!canvasEl) {
+          this.milestoneCanvasEl = null;
+        }
+        return;
+      }
+
+      this.milestoneCanvasEl = canvasEl;
+      this.milestoneCanvasEl.addEventListener('keydown', this.onKeyDown);
+      this.milestoneCanvasEl.addEventListener('keyup', this.onKeyUp);
+    },
+    focusMilestoneCanvas() {
+      const canvasEl = this.$refs.milestoneCanvas;
+      if (canvasEl && canvasEl !== document.activeElement) {
+        canvasEl.focus({ preventScroll: true });
+      }
+    },
     // 현재 모드 키
     getModeKey() {
       return this.viewMode === 'focus' ? 'focus' : 'all';
@@ -1861,12 +1902,14 @@ export default {
         if (response.data.statusCode === 200) {
           const projectData = response.data.result;
           this.projectName = projectData.projectName || '프로젝트';
-          this.projectDescription = projectData.projectDescription || '프로젝트 협업을 위한 일정 관리 서비스';
+          const defaultDescription = '프로젝트 협업을 위한 일정 관리 서비스';
+          const truncatedDescription = this.truncateDescription(projectData.projectDescription);
+          this.projectDescription = truncatedDescription || defaultDescription;
           
           // 프로젝트 상세 정보 업데이트
           this.projectDetail = {
             projectName: projectData.projectName || '프로젝트',
-            projectDescription: projectData.projectDescription || '프로젝트 협업을 위한 일정 관리 서비스',
+            projectDescription: truncatedDescription || defaultDescription,
             startTime: projectData.startTime || '2025-09-12',
             endTime: projectData.endTime || '2025-11-12',
             manager: projectData.projectManagerName || projectData.managerName || projectData.manager || projectData.projectManager || '김을빗',
@@ -1984,6 +2027,7 @@ export default {
     
     // 마우스 다운 이벤트 핸들러
     onMouseDown(e) {
+      this.focusMilestoneCanvas();
       // 스톤 추가 텍스트 클릭은 팬 모드에서도 허용
       if (e.target.classList.contains('create-stone-text') || 
           e.target.classList.contains('create-stone-text-content') ||
@@ -4290,7 +4334,7 @@ export default {
         manager: this.projectDetail.manager,
         managerId: this.projectDetail.managerId || '', // 기존 담당자 ID 설정
         status: this.mapStatusFromAPI(this.projectDetail.projectStatus) || '진행중',
-        description: this.projectDescription
+        description: this.truncateDescription(this.projectDescription)
       };
       this.showEditModal = true;
     },
@@ -4306,6 +4350,17 @@ export default {
         status: '진행중',
         description: ''
       };
+    },
+    handleEditDescriptionInput() {
+      if (this.editForm.description && this.editForm.description.length > this.descriptionMaxLength) {
+        this.editForm.description = this.editForm.description.slice(0, this.descriptionMaxLength);
+      }
+    },
+    truncateDescription(text) {
+      if (!text) {
+        return '';
+      }
+      return text.slice(0, this.descriptionMaxLength);
     },
 
     async saveProject() {
@@ -4340,6 +4395,8 @@ export default {
           '보관': 'STORAGE'
         };
         
+        this.editForm.description = this.truncateDescription(this.editForm.description);
+
         const requestBody = {
           projectId: projectId,
           workspaceId: workspaceId,
@@ -6000,6 +6057,21 @@ export default {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.form-label-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.char-counter {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 17px;
+  color: #9E9E9E;
 }
 
 .required {
