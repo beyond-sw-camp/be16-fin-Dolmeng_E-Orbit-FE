@@ -283,17 +283,13 @@
 <details id="mypage">
   <summary><b>👤 마이페이지</b></summary>
   <br/>
-  <p align="center">
-    <img src="./assets/features/mypage.png" alt="Orbit My Page" width="100%"/>
-  </p>
+
 </details>
 
 <details id="chatbot">
   <summary><b>🤖 챗봇</b></summary>
   <br/>
-  <p align="center">
-    <img src="./assets/features/chatbot.png" alt="Orbit Chatbot" width="100%"/>
-  </p>
+    <img width="50%" alt="Image" src="https://github.com/user-attachments/assets/4cdcd003-1f82-492e-8b8d-a6b52bf439ea" />
 </details>
 
 <details id="search">
