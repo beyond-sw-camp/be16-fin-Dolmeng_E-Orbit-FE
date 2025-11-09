@@ -139,9 +139,7 @@
 <details id="home">
   <summary><b>🏠 홈</b></summary>
   <br/>
-  <p align="center">
-    <img src="./assets/features/home.png" alt="Orbit Home" width="100%"/>
-  </p>
+  <img width="1919" height="945" alt="홈화면" src="https://github.com/user-attachments/assets/febd3178-8c65-489c-984d-1731f5248051" />
 </details>
 
 <details id="my-schedule">
