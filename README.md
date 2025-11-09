@@ -103,7 +103,7 @@
 
 ### 5) 📝 실시간 공동 작성
 - 문서/회의록 **동시 편집**, 변경사항 실시간 반영
-- 회의 **녹화 및 AI 자동 회의록 요약**
+- 작성 내용 파일(pdf, docx)로 **내보내기** 가능
 
 ### 6) 🔍 자동완성 & 검색
 - Elasticsearch 기반의 **통합 검색** 및 검색어 **자동완성**
@@ -163,9 +163,15 @@
 <details id="drive">
   <summary><b>📁 문서함</b></summary>
   <br/>
-  <p align="center">
-    <img src="./assets/features/drive.png" alt="Orbit Drive" width="100%"/>
-  </p>
+  <details>
+    <summary><strong>폴더/파일/문서 생성</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/c11b292d-1990-469d-848f-bbe3b072e024" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/4afb999c-6b39-4a24-845d-c365e3fbc97e" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/87aa75a7-4a72-4afd-96b0-7fb2f0ac7503" />
+  </details>
+
+  
 </details>
 
 <!-- 프로젝트: 하위 토글 + GIF 공간 -->
