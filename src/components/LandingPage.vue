@@ -23,16 +23,19 @@
       <p class="intro-text">프로젝트 관리에 필요한 모든 것을 한 곳에서 경험하세요.</p>
     </section>
 
-    <!-- Feature Images -->
+    <!-- Feature Sections -->
     <section class="feature-images">
-      <figure
+      <SectionCard
         v-for="feature in featureCards"
         :key="feature.title"
-        class="feature-figure"
+        class="feature-section-card"
+        :title="feature.title"
+        :subtitle="feature.description"
       >
-        <figcaption class="feature-caption">{{ feature.title }}</figcaption>
-        <img class="feature-image" :src="feature.icon" :alt="feature.title" />
-      </figure>
+        <div class="feature-card-media">
+          <img class="feature-image" :src="feature.icon" :alt="feature.title" />
+        </div>
+      </SectionCard>
     </section>
 
     <section class="intro">
@@ -69,14 +72,18 @@
 
 <script>
 import landingVideo from '@/assets/videos/landing/Orbing(Project_summary,tasks).mp4';
-import landingImage1 from '@/assets/images/landing/calendar_1.png';
-import landingImage2 from '@/assets/images/landing/calendar_2.png';
+import landingImage1 from '@/assets/icons/랜딩 아래쪽 1.png';
+import landingImage2 from '@/assets/icons/랜딩 아래쪽 2.png';
 import scheduleIcon from '@/assets/icons/0101.png';
 import progressIcon from '@/assets/icons/프로젝트.png';
 import documentIcon from '@/assets/icons/030303.png';
 import collaborationIcon from '@/assets/icons/협업 및 소통.png';
+import SectionCard from '@/components/common/SectionCard.vue';
 export default {
   name: 'LandingPage',
+  components: {
+    SectionCard
+  },
   data() {
     return { 
       landingVideo,
@@ -85,18 +92,22 @@ export default {
       featureCards: [
         {
           title: '일정관리',
+          description: '팀의 주요 일정과 마일스톤을 한눈에 계획하세요.',
           icon: scheduleIcon
         },
         {
           title: '프로젝트 현황',
+          description: '진행 상황을 실시간으로 모니터링하고 대응합니다.',
           icon: progressIcon
         },
         {
           title: '문서관리',
+          description: '중요 문서를 안전하게 보관하고 빠르게 찾아보세요.',
           icon: documentIcon
         },
         {
           title: '협업 & 소통',
+          description: '팀원과 자유롭게 소통하고 협업 흐름을 이어갑니다.',
           icon: collaborationIcon
         }
       ],
@@ -195,36 +206,43 @@ export default {
   color: #1C0F0F;
 }
 
-/* Feature images */
+/* Feature sections */
 .feature-images {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 32px;
+  gap: 24px;
   width: min(1440px, 92%);
-  margin: 24px auto 64px;
+  margin: 16px auto 48px;
 }
-.feature-figure {
-  margin: 0;
-  border: none;
-  padding: 0;
+.feature-section-card {
+  padding: 24px;
+}
+:deep(.feature-section-card .section-card-header) {
+  margin-bottom: 12px;
+}
+:deep(.feature-section-card .section-card-title) {
+  font-size: 20px;
+}
+:deep(.feature-section-card .section-card-subtitle) {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.feature-card-media {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 18px;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 12px;
 }
 .feature-image {
-  width: 100%;
-  height: clamp(260px, 32vw, 360px);
-  border-radius: 28px;
-  object-fit: cover;
+  width: calc(100% + 16px);
+  margin-left: -8px;
+  margin-right: -8px;
+  height: clamp(280px, 34vw, 380px);
+  border-radius: 0;
+  object-fit: contain;
   display: block;
-}
-.feature-caption {
-  margin: 0;
-  font-weight: 800;
-  font-size: 22px;
-  color: #151414;
-  text-align: center;
+  background: #f7f7f7;
 }
 /* Gallery */
 .gallery {
@@ -287,7 +305,13 @@ export default {
   border-radius: 16px;
   overflow: hidden;
 }
-.gallery-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #f7f7f7;
+}
 .gallery-stacked .pair .img.left { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .gallery-stacked .pair .img.right { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .gallery-stacked .overlay-video {
