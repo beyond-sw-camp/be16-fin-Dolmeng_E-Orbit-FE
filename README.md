@@ -1,4 +1,4 @@
-![Adobe Express - 4 일정삭제](https://github.com/user-attachments/assets/b7e992ce-224a-4d2c-b58b-673450190ae1)![Adobe Express - 1 프로젝트 캘린더 조회](https://github.com/user-attachments/assets/bc76b592-4304-431c-b7fc-1554ffd8a1d3)![화면 공유](https://github.com/user-attachments/assets/a5c89862-51a7-4c2a-8162-cdc013fa1f00)# Orbit(오르빗)
+# Orbit(오르빗)
 
 > 모든 일정/협업을 하나로! 캘린더·간트·마일스톤·칸반·채팅·문서를 **실시간으로 연동**하는 애자일 기반 통합 프로젝트 플랫폼
 > <p align="center">
@@ -205,14 +205,6 @@
     <p><b>todo 완료, 미완료</b></p>
     <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/1459b27a-4b7a-4118-897f-19ab1110e542" />   
   </details>
-</details>
-
-<details id="messenger">
-  <summary><b>💬 메신저</b></summary>
-  <br/>
-  <p align="center">
-    <img src="./assets/features/messenger.png" alt="Orbit Messenger" width="100%"/>
-  </p>
 </details>
 
 <details id="drive">
