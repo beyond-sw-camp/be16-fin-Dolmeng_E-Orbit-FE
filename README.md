@@ -101,15 +101,19 @@
 - 워크스페이스/프로젝트 **전용 채팅방 자동 개설(옵션)**
 - 멘션·명령어·파일 공유, 메시지 내 날짜 → **캘린더 일정 등록**
 
-### 5) 📝 실시간 공동 작성
+### 5) 📁 
+- 워크스페이스/프로젝트 **전용 채팅방 자동 개설(옵션)**
+- 멘션·명령어·파일 공유, 메시지 내 날짜 → **캘린더 일정 등록**
+
+### 6) 📝 실시간 공동 작성
 - 문서/회의록 **동시 편집**, 변경사항 실시간 반영
 - 작성 내용 파일(pdf, docx)로 **내보내기** 가능
 
-### 6) 🔍 자동완성 & 검색
+### 7) 🔍 자동완성 & 검색
 - Elasticsearch 기반의 **통합 검색** 및 검색어 **자동완성**
 - 문서, 다양한 파일(pdf, docx 등) **내용** 검색 및 **하이라이팅**
 
-### 7) 🤖 AI 어시스턴트
+### 8) 🤖 AI 어시스턴트
 - 사전 회의 주제 기반 자료 추천
 - 회의록/채팅 요약, 태스크 추출
 
@@ -168,6 +172,84 @@
     <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/4afb999c-6b39-4a24-845d-c365e3fbc97e" />
     <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/87aa75a7-4a72-4afd-96b0-7fb2f0ac7503" />
   </details>
+  <details>
+    <summary><strong>폴더/파일/문서 조회</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/a048a2af-6429-462d-99d5-cfb2d3b91ccd" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/39f4fcf7-d640-42c8-b909-47dfaad681c9" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/65f98a67-6a7a-4f3e-97e2-9087e0b2e4e8" />
+  </details>
+  <details>
+    <summary><strong>폴더/파일/문서 상세 조회</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/304dc758-4d2d-44e8-8fb4-38aff452ba1b" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/de5dec62-fe2e-43eb-b979-1ebbe2bc2e24" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/22190ad5-26fe-4c48-bddf-3a11b0e5fee9" />
+  </details>
+   <details>
+    <summary><strong>폴더/문서 제목 변경</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/8960f969-b92f-4f6f-bdc4-9c4bd0eea429" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/31fc8ec7-6ca4-4015-8232-4b4d8aa6d7ea" />
+  </details>
+   <details>
+    <summary><strong>프로젝트 문서함으로 옮기기</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/1fa69e55-7255-483c-af6f-037e0bc55f38" />
+  </details>
+  <details>
+    <summary><strong>스톤 문서함으로 옮기기</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/4f075dc5-6360-4701-95da-9f73582b79f1" />
+  </details>
+  <details>
+    <summary><strong>폴더/문서/파일 삭제</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/8d4381ad-7471-49eb-86b6-d23f22cf8820" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/8b4781f5-0c98-4733-8863-77307ca29ecd" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/6863f2f8-c749-46c4-b107-bfa91f74dab6" />
+  </details>
+  <details>
+    <summary><strong>트리뷰, 브레드크럼 동작</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/7677faef-5ee2-4ba0-a912-5933e1d80cf2" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/181529df-2a14-4998-b05d-d34209afd303" />
+  </details>
+  <details>
+    <summary><strong>정렬, 필터</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/e66bd977-ca61-48ad-a77e-685a943f94a9" />
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/e114b20b-9bfc-492c-98a0-63576bad169d" />
+
+  </details>
+
+  
+</details>
+<details id="document">
+  <summary><b>📄 실시간 문서 편집</b></summary>
+  <br/>
+  <details>
+    <summary><strong>동시 문서 편집</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/ba839f4a-8351-4d44-82bd-6523bb7684af" />
+  </details>
+  <details>
+    <summary><strong>툴바 기능</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/875830b6-057f-470a-92e9-bd6beb33735a" />
+  </details>
+  <details>
+    <summary><strong>문서 다운로드</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/0153aaea-ec64-43cd-abf0-b4246932f9a6" />
+
+  </details>
+  <details>
+    <summary><strong>제목 변경</strong></summary>
+    <br>
+    <img width="75%" alt="Image" src="https://github.com/user-attachments/assets/2f04c506-5e1d-48bb-a68e-f136cde6c5dd" />
+  </details>
+
 
   
 </details>
