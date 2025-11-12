@@ -75,7 +75,7 @@
         <template v-else>
           <div v-if="notifList.length === 0" class="notif-empty">알림이 없습니다</div>
           <div v-else class="notif-list">
-            <div v-for="(n, idx) in notifList" :key="n.id" class="notif-item" :class="{ unread: (n.readStatus||'').toUpperCase()==='UNREAD' }" @click="onNotificationClick(n)">
+            <div v-for="(n, idx) in notifList" :key="n.id" class="notif-item" :class="{ unread: (n.readStatus||'').toUpperCase()==='UNREAD' }" @click="onNotificationClick(n, idx)">
               <button class="notif-dismiss" title="닫기" @click.stop="onDismissNotif(n.id, idx)">
                 <img src="@/assets/icons/user/close.svg" alt="닫기" />
               </button>
@@ -241,7 +241,7 @@ export default {
       } finally {
         this.notifLoading = false;
       }
-      this.notifCount = this.notifList.length;
+      this.updateUnreadCount();
     },
     async onDismissNotif(id, index) {
       // optimistic remove
@@ -257,6 +257,8 @@ export default {
       } catch (_) {
         // rollback on failure
         if (removed && removed.length) this.notifList.splice(index, 0, removed[0]);
+      } finally {
+        this.updateUnreadCount();
       }
     },
     formatDateTime(iso) {
@@ -285,13 +287,43 @@ export default {
           taskId: n.taskId,
         };
         this.notifList = [item, ...(this.notifList || [])];
-        this.notifCount = this.notifList.length;
+        this.updateUnreadCount();
       } catch(_) {}
     },
-    // 알림 클릭 시 프로젝트 페이지로 이동
-    onNotificationClick(notification) {
-      if (notification.projectId) {
-        this.$router.push(`/project?id=${notification.projectId}`);
+    // 알림 클릭 시 프로젝트 페이지로 이동 + 읽음 처리
+    async onNotificationClick(notification, index) {
+      try {
+        const baseURL = import.meta.env.VITE_API_BASE_URL;
+        const accessToken = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+        if (notification?.id !== undefined && notification?.id !== null) {
+          await axios.post(`${baseURL}/user-service/notification/${notification.id}/read`, {}, { headers });
+          if (typeof index === 'number' && this.notifList[index]) {
+            this.notifList[index] = {
+              ...this.notifList[index],
+              readStatus: 'READ',
+            };
+          }
+          this.updateUnreadCount();
+        }
+      } catch (_) {
+        // no-op: 읽음 처리 실패 시에도 라우팅은 진행
+      } finally {
+        this.notifMenu = false;
+        if (notification?.projectId) {
+          this.$router.push(`/project?id=${notification.projectId}`);
+        }
+      }
+    },
+    updateUnreadCount() {
+      try {
+        const unread = (this.notifList || []).filter(
+          (n) => (n.readStatus || '').toUpperCase() === 'UNREAD'
+        ).length;
+        this.notifCount = unread;
+      } catch (_) {
+        this.notifCount = 0;
       }
     },
     // 검색창 포커스
